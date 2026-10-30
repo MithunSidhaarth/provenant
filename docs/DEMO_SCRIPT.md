@@ -19,6 +19,6 @@ Start with `python3 -m agentshield.server` and open http://127.0.0.1:8765/. Clic
 
 **4:40 · Defense in depth (30s).** *Defense in depth → Run ablation.* Remove any one rule and both injection attacks stay contained. "We're also honest about where a single rule is load-bearing: that red cell."
 
-**5:10 · Close (30s).** *Policy playground → DLP: canary secret in body → Evaluate.* Then: "Deterministic, auditable, and no model API needed. 84 tests, all synthetic, all inside the sandbox."
+**5:10 · Close (30s).** *Policy playground → DLP: canary secret in body → Evaluate.* Then: "Deterministic, auditable, and no model API needed. 93 tests, all synthetic, all inside the sandbox."
 
 Backup if the browser fails: `python3 -m agentshield.demo -v`.

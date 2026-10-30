@@ -295,8 +295,11 @@ async function renderApprovals() {
   if (!items.length) { list.append(h("div", { class: "empty" }, "No pending approvals. Run a scenario with a high-impact step, such as “Legitimate task with a high-impact step”.")); return; }
   for (const a of items) {
     const reasons = a.policy.reasons || [];
+    const rk = a.risk || {};
     list.append(h("div", { class: "appr" },
-      h("div", { class: "step-top" }, h("b", {}, a.call.tool), decPill("REQUIRE_APPROVAL")),
+      h("div", { class: "step-top" }, h("b", {}, a.call.tool),
+        h("span", {}, h("span", { class: `risk ${rk.level === "high" ? "high" : rk.level === "medium" ? "med" : "low"}` }, `risk ${rk.score ?? "?"}`), " ", decPill("REQUIRE_APPROVAL"))),
+      rk.factors && rk.factors.length ? h("div", { class: "appr-meta" }, "Why this score: " + rk.factors.join(" · ")) : null,
       h("div", { class: "call mono" }, callText(a.call)),
       h("ul", { class: "reasons" }, reasons.map((x) => h("li", {}, x))),
       h("div", { class: "appr-meta" }, `Scenario ${a.scenario_id} · fingerprint ${a.fingerprint.slice(0, 16)}… · expires ${new Date(a.expires_at * 1000).toLocaleTimeString()}`),

@@ -57,11 +57,12 @@ class PendingApproval:
     status: str = "pending"          # pending | approved | rejected | expired | failed
     decided_by: str | None = None
     result: dict | None = None
+    risk: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {"approval_id": self.approval_id, "call": self.call.to_dict(), "fingerprint": self.fingerprint,
                 "created_at": self.created_at, "expires_at": self.expires_at, "status": self.status,
-                "decided_by": self.decided_by, "policy": self.policy, "result": self.result}
+                "decided_by": self.decided_by, "policy": self.policy, "result": self.result, "risk": self.risk}
 
 
 def _clip(obj: Any) -> Any:
@@ -79,6 +80,34 @@ def _output_text(output: Any) -> str:
     if isinstance(output, (list, tuple)):
         return "\n".join(_output_text(v) for v in output)
     return "" if output is None else str(output)
+
+
+def score_risk(call: ToolCall, ctx: SessionContext, result: PolicyResult, engine: PolicyEngine) -> dict:
+    """Rank a held action for the approver: 0-100 from impact, provenance, destination and data.
+    Advisory only. It orders the queue and explains itself; it never changes the decision."""
+    factors: list[tuple[int, str]] = []
+    rules = {f.rule for f in result.findings if f.decision != Decision.ALLOW}
+    spec = engine.tools.get(call.tool)
+    if spec and spec.high_impact:
+        factors.append((30, f"{call.tool} is high impact"))
+    if "injection_context" in rules:
+        factors.append((25, "the session has read content with injection indicators"))
+    if "provenance" in rules:
+        factors.append((20, "a target argument came from untrusted content"))
+    args = call.args if isinstance(call.args, dict) else {}
+    if call.tool == "issue_refund" and isinstance(args.get("amount"), (int, float)):
+        share = min(1.0, args["amount"] / float(engine.config.get("refund_limit", 100)))
+        factors.append((round(20 * share), f"refund is {round(100 * share)}% of the hard limit"))
+    if call.tool == "send_email":
+        to = str(args.get("to", "")).lower()
+        if to and to not in ctx.user_task.lower():
+            factors.append((10, "recipient was not named by the user"))
+        body = str(args.get("body", "")).lower()
+        if len(body) > 40 and any(body[i:i + 40] in t.lower() for t in ctx.untrusted_texts for i in range(0, len(body) - 40, 20)):
+            factors.append((10, "the body copies untrusted content verbatim"))
+    score = min(100, sum(w for w, _ in factors))
+    level = "high" if score >= 65 else "medium" if score >= 35 else "low"
+    return {"score": score, "level": level, "factors": [f for _, f in factors]}
 
 
 class Gateway:
@@ -147,7 +176,7 @@ class Gateway:
         if result.decision == Decision.REQUIRE_APPROVAL:
             now = self.clock()
             pa = PendingApproval(new_id("appr"), call, result.call_fingerprint, now, now + self.approval_ttl,
-                                 ctx.call_count - 1, result.to_dict())
+                                 ctx.call_count - 1, result.to_dict(), risk=score_risk(call, ctx, result, self.engine))
             self.approvals[pa.approval_id] = pa
             self.audit.append("approval_requested", ctx.session_id,
                               {"approval_id": pa.approval_id, "call_id": call.call_id, "tool": call.tool,

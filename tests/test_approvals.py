@@ -126,3 +126,15 @@ class ExecutionGrants(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RiskScoring(unittest.TestCase):
+    def test_queue_is_sorted_riskiest_first_and_explained(self):
+        from agentshield.runner import Shield
+        s = Shield()
+        s.run("benign_email_summary")
+        s.run("kb_injection")
+        q = s.pending_approvals()
+        self.assertEqual([a["call"]["tool"] for a in q], ["issue_refund", "send_email"])
+        self.assertGreater(q[0]["risk"]["score"], q[1]["risk"]["score"])
+        self.assertIn("the session has read content with injection indicators", q[0]["risk"]["factors"])

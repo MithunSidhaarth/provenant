@@ -136,4 +136,4 @@ class Shield:
                 d = p.to_dict()
                 d["run_id"], d["scenario_id"] = r.run_id, r.scenario["id"]
                 out.append(d)
-        return out
+        return sorted(out, key=lambda d: -d["risk"].get("score", 0))   # riskiest first

@@ -45,6 +45,12 @@ Optional: set `AGENTSHIELD_AUDIT_KEY` to a long random string to use a stable au
 - **Canonicalise before you taint.** Untrusted content is expanded into raw, canonical and decoded views before taint tracking and detection. A recipient hidden in base64 is still recognised as coming from the document. The fuzzer found a real bug here during development: multi-line directives were missed because outputs were scanned as escaped JSON. It is fixed and covered by tests.
 - **Self red-team loop** (`agentshield/redteam.py`): for each class with a miss, it takes the smallest failing document as a reproduction and proposes a policy change, such as `canonicalisation.extra_decoders: ["rot13"]`. It replays the whole campaign and the benign corpus on a *copy* of the policy and generates a regression test. With both proposals applied, detection goes from 85.7% to 100%, DENY-alone goes from 95.2% to 100%, and false positives don't change. Proposals are never applied to the live policy automatically; a person reviews them.
 
+### Optional extensions
+
+- **Real LLM agent** (`agentshield/llm_agent.py`): Claude (`claude-opus-5-5`, via the official `anthropic` SDK) proposes the tool calls instead of the scripted planner, and every `tool_use` still goes through the gateway. Claude is offered every tool, including ones the agent lacks permission for, because the model is not the boundary. Denials go back to the model as `is_error` tool results. Requires `pip install anthropic` and credentials, then run `python3 -m agentshield.llm_agent doc_injection`. It is tested offline with a scripted fake client (`tests/test_llm_agent.py`) and has not been run against the live API in this repository.
+- **MCP-style gateway with pinned manifests** (`agentshield/mcp_gateway.py`): JSON-RPC 2.0 over stdio (`initialize`, `tools/list`, `tools/call`). Every upstream tool definition is pinned at onboarding with HMAC-SHA256, and a definition whose description already carries an injection is never pinned. If the upstream server later rewrites a definition (a "rug pull", demoed by `agentshield/rugPull`), the tool disappears from `tools/list` and its calls are refused, while untouched tools keep working through the full policy pipeline. It implements the subset of the MCP tool protocol the demo needs, not the full specification.
+- **Risk-scored approvals:** each held action gets an explained 0–100 score (impact, injection context, tainted targets, refund size, recipient not named by the user, body copied from untrusted content). The queue is sorted riskiest first. The score is advisory and never changes a decision.
+
 ### Dashboard tabs
 
 - **Attack replay:** runs the same agent side by side, without and with AgentShield. Each step shows its source (user plan, injected or malformed), the exact call, the decision, the reasons, per-rule evidence, the untrusted content with the injection highlighted, and the verified outcome. Approvals can be granted inline.
@@ -72,6 +78,11 @@ agentshield/
   runner.py      scenario execution and outcome verification
   server.py      stdlib HTTP API + dashboard host (127.0.0.1)
   demo.py        terminal demo
+  normalize.py   canonicalisation: zero-width/tag chars, homoglyphs, base64/hex, optional decoders
+  fuzzer.py      84-variant mutation fuzzer + benign false-positive corpus
+  redteam.py     self red-team loop: repro → proposed policy change → replay → regression test
+  llm_agent.py   optional Claude-driven agent behind the same gateway
+  mcp_gateway.py MCP-style JSON-RPC stdio proxy with HMAC-pinned tool manifests
 policy/policy.json   agent profiles, permissions, data classes, limits
 scenarios/*.json     7 synthetic scenarios with expected decisions
 fixtures/            synthetic documents, KB articles, sim:// pages
@@ -82,7 +93,7 @@ docs/                ARCHITECTURE.md, THREAT_MODEL.md, DEMO_SCRIPT.md
 
 ## Tests
 
-`python3 -m unittest discover -s tests -t .` runs 84 tests in under two seconds:
+`python3 -m unittest discover -s tests -t .` runs the full suite (93 tests) in about two seconds:
 
 - **Before/after:** every attack causes harm without AgentShield, and none does with it. Decision sequences match each scenario's `expected_protected`, and benign tasks still complete.
 - **Policy rules:** every rule's ALLOW, REQUIRE_APPROVAL and DENY paths.

@@ -49,6 +49,8 @@ Out of scope: an attacker with code execution in the AgentShield process, or one
 | T11 | Audit tampering | flip a DENY to ALLOW, delete or reorder entries, recompute hashes | hash chain + HMAC, `verify()` | export the head hash to an external anchor |
 | T12 | Secrets copied into logs | the canary appears in a logged tool output | redaction before hashing | |
 | T13 | Policy misconfiguration | missing or corrupt `policy.json` | validated at load; any error means DENY for all calls | |
+| T15 | Obfuscated injection (base64/hex, zero-width, tag-character smuggling, homoglyphs, Hindi/Kannada/Hinglish, split fields) | the 84-variant fuzzer | canonicalise before taint and detection (`normalize.py`), plus every policy rule | red-team loop proposes new decoders |
+| T16 | Tool manifest poisoning or rug pull (MCP) | `agentshield/rugPull` rewrites `send_email` and `search_kb` descriptions | HMAC-pinned manifests, poisoned definitions never pinned, changed definitions withheld and refused | normal policy on every call |
 | T14 | Dashboard CSRF or XSS | a malicious page posts an approval; document content renders HTML | custom-header requirement, loopback bind, strict CSP, `textContent`-only rendering | |
 
 ## Fail-closed guarantees
