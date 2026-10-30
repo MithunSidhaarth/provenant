@@ -652,3 +652,33 @@ ul.plain li b { color: var(--fg); font-weight: 500; margin-right: 6px; }
 .hero-steps { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; color: var(--muted); font-size: 13px; position: relative; z-index: 2; }
 .hero-steps b { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 4px; border-radius: 50%; border: 1px solid var(--line2); font: 500 11px/1 var(--mono); color: var(--fg); }
 .nav-start span { color: var(--allow); }
+
+
+/* ---------- restrained product theme: shared Provenant site design ---------- */
+/* Keep the site's Bricolage/Geist typography and charcoal palette; remove the
+   sci-fi grid, ambient neon, glow effects and multicolour accent treatments. */
+.hero-grid { display: none; }
+.hero::before { display: none; }
+.hl-line.accent .hl-word {
+  background: none;
+  color: var(--fg);
+  -webkit-text-fill-color: var(--fg);
+}
+.pill.allow i, .pill.hold i,
+.pane-dot.deny, .pane-dot.allow, .kicker-dot {
+  box-shadow: none;
+}
+.intro-line {
+  background: linear-gradient(90deg, transparent, var(--line2) 25%, var(--fg) 50%, var(--line2) 75%, transparent);
+}
+.nav-progress { background: var(--line2); }
+.stage {
+  box-shadow: 0 18px 54px -34px rgba(0, 0, 0, .55);
+}
+.pane.before, .pane.after {
+  background: var(--bg2);
+}
+.flow {
+  background: var(--bg2);
+}
+.flow-wire { opacity: .6; }
