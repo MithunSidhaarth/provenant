@@ -216,6 +216,33 @@ class GuardViews(_ServerCase):
         self.assertFalse(any(e["session_id"] in ("demo-test", "legacy-test") for e in log["entries"]))
         self.assertEqual(log["cursor"], max(e["seq"] for e in audit.snapshot()))
 
+    def test_real_claude_code_hook_events_appear_in_local_live_stats(self):
+        # Exercise the same hook handler used by Claude Code, writing through the shared
+        # ~/.provenant-style store that the local dashboard reads from another process.
+        from agentshield.cc_hook import handle
+        from agentshield.guard import Guard, Store
+
+        g = Guard(store=Store(os.environ["PROVENANT_HOME"]))
+        before = self.req("/api/guard/log?after=0")[1]["stats"]
+        event = {"session_id": "dashboard-live-test", "cwd": os.getcwd()}
+        handle({**event, "hook_event_name": "UserPromptSubmit", "prompt": "list the project files"}, guard=g)
+        handle({**event, "hook_event_name": "PreToolUse", "tool_name": "Bash",
+                "tool_input": {"command": "ls"}}, guard=g)
+        handle({**event, "hook_event_name": "PostToolUse", "tool_name": "mcp__filesystem__read_file",
+                "tool_response": {"content": [{"type": "text", "text": "ordinary project output"}]}}, guard=g)
+
+        code, log, _ = self.req("/api/guard/log?after=0")
+        self.assertEqual(code, 200)
+        self.assertGreaterEqual(log["stats"]["user_prompts_observed"], before["user_prompts_observed"] + 1)
+        self.assertGreaterEqual(log["stats"]["tool_requests_observed"], before["tool_requests_observed"] + 1)
+        self.assertGreaterEqual(log["stats"]["policy_decisions"], before["policy_decisions"] + 1)
+        self.assertGreaterEqual(log["stats"]["claude_code_tool_requests"], before["claude_code_tool_requests"] + 1)
+        self.assertGreaterEqual(log["stats"]["tool_results_observed"], before["tool_results_observed"] + 1)
+        observed = [e for e in log["entries"] if e.get("session_id") == "cc:dashboard-live-test"]
+        self.assertTrue(any(e["event"] == "policy_decision" for e in observed))
+        self.assertTrue(all(e["data"].get("mode") == "live" for e in observed))
+        self.assertNotIn("ordinary project output", json.dumps(log))
+
     def test_hosted_mode_hides_the_machine(self):
         server_mod.HOSTED = True
         try:
