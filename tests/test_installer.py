@@ -84,6 +84,16 @@ class Source(unittest.TestCase):
         self.assertEqual(pinned, hashlib.sha256(wheel.read_bytes()).hexdigest())
         self.assertEqual((ROOT / "dashboard/download" / wheel.name).read_bytes(), wheel.read_bytes())
 
+    def test_path_step_and_cleanup_cannot_abort_the_install(self):
+        # Seen on a real Windows PowerShell 5.1 run: registry SetValue was refused (fatal), and
+        # Get-ChildItem -Path function: -Name 'Pv-*' is not supported by the function provider.
+        self.assertNotIn("Get-ChildItem -Path function:", PS1)
+        self.assertIn("Remove-Item -Path 'function:Pv-*'", PS1)
+        body = PS1[PS1.index("function Pv-SetUserPath"):PS1.index("# ---- the installer")]
+        for call in re.finditer(r"\$pathResult = Pv-SetUserPath", PS1):
+            self.assertNotIn("return 1", PS1[call.start(): call.start() + 400].split("Pv-Step 5")[0])
+        self.assertIn("return \"failed:", body)
+
     def test_installer_never_weakens_security(self):
         for bad in ("SkipCertificateCheck", "ServerCertificateValidationCallback", "-ExecutionPolicy", "Set-ExecutionPolicy",
                     "Invoke-Expression", "RunAs", "'Machine'"):
