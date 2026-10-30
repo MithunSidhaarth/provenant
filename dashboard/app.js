@@ -71,11 +71,20 @@ function react(rep) {
   const deny = n("DENY"), held = n("REQUIRE_APPROVAL"), allow = n("ALLOW");
   const f = fx();
   if (f) { if (deny) f.pulse("deny", deny); else if (held) f.pulse("approve", held); else if (allow) f.pulse("allow", 1); }
+  flashNotch(deny ? "deny" : held ? "approve" : allow ? "allow" : "");
   if (deny && !isLite() && window.anime) {
     document.querySelectorAll(".col.after .verdict").forEach((v) =>
       anime({ targets: v, scale: [1.06, 1], translateX: [{ value: -6, duration: 60 }, { value: 6, duration: 60 }, { value: 0, duration: 80 }],
         easing: "easeOutQuad" }));
   }
+}
+
+// The notch at the top of the screen flashes the colour of the strongest decision.
+function flashNotch(kind) {
+  const n = $("notch");
+  if (!kind || !n) return;
+  n.dataset.flash = kind;
+  clearTimeout(flashNotch._t); flashNotch._t = setTimeout(() => { delete n.dataset.flash; }, 1400);
 }
 
 function decPill(d) {
@@ -94,8 +103,8 @@ async function refreshStatus() {
   try {
     const v = await api("/api/audit/verify");
     const p = $("chainPill");
-    p.textContent = v.ok ? `Audit chain verified · ${v.checked} entries` : `Audit chain BROKEN at #${v.first_bad_seq}`;
-    p.className = "pill " + (v.ok ? "ok" : "bad");
+    p.textContent = v.ok ? `Chain verified · ${v.checked}` : `Chain BROKEN at #${v.first_bad_seq}`;
+    p.className = "nb " + (v.ok ? "ok" : "bad");
     countTo($("cChain"), v.checked ?? 0);
   } catch { /* server down */ }
   try {
@@ -107,8 +116,8 @@ async function refreshStatus() {
   } catch { /* ignore */ }
   try {
     const a = await api("/api/approvals");
-    $("approvalPill").textContent = `${a.length} pending approval${a.length === 1 ? "" : "s"}`;
-    $("approvalPill").className = "pill " + (a.length ? "warn" : "");
+    $("approvalPill").textContent = `${a.length} pending`;
+    $("approvalPill").className = "nb " + (a.length ? "warn" : "");
     $("approvalCount").textContent = a.length;
     $("approvalCount").className = "count" + (a.length ? " hot" : "");
   } catch { /* ignore */ }
@@ -116,7 +125,8 @@ async function refreshStatus() {
 
 // ---------- tabs -------------------------------------------------------------------------
 function showTab(name) {
-  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".tab, .notch-menu [data-tab]").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+  setNotchOpen(false);
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
   const view = $(`view-${name}`);
   if (view && window.Motion && !isLite()) {
@@ -131,16 +141,24 @@ function showTab(name) {
 function renderScenarioList() {
   const list = clear($("scenarioList"));
   const groups = [["Legitimate tasks", "benign"], ["Attacks", "attack"]];
+  let i = 0;
   for (const [label, kind] of groups) {
     list.append(h("div", { class: "group-label" }, label));
     for (const s of state.scenarios.filter((x) => x.kind === kind)) {
       const last = state.last[s.id];
       list.append(h("button", { class: "scn" + (state.current === s.id ? " active" : ""), onclick: () => selectScenario(s.id) },
         last ? h("span", { class: "last", style: `color: var(${verdictTone(last) === "good" ? "--allow" : verdictTone(last) === "bad" ? "--deny" : "--approve"})` }, shortVerdict(last)) : null,
+        h("span", { class: "num" }, String(++i).padStart(2, "0")),
         h("div", { class: "scn-title" }, s.title),
         h("div", { class: "scn-cat" }, s.category.replace(/_/g, " "))));
     }
   }
+}
+
+function setNotchOpen(open) {
+  $("notch").classList.toggle("open", open);
+  $("notchMore").setAttribute("aria-expanded", String(open));
+  $("notchMore").textContent = open ? "×" : "+";
 }
 
 function shortVerdict(v) {
@@ -300,16 +318,18 @@ function renderInlineApproval(r, rep) {
   const status = appr ? appr.status : "pending";
   if (status === "approved") return h("div", { class: "exec ran" }, `Approved by ${appr.decided_by}, re-checked against policy, then executed.`);
   if (status !== "pending") return h("div", { class: "exec" }, `Approval ${status}${appr && appr.decided_by ? " by " + appr.decided_by : ""}. Nothing executed.`);
-  return h("div", {},
-    h("div", { class: "exec" }, "Held for approval. Nothing has executed."),
-    h("div", { class: "approve-row" },
-      h("button", { class: "btn approve small", onclick: () => decide(r.approval_id, true) }, "Approve"),
-      h("button", { class: "btn danger small", onclick: () => decide(r.approval_id, false) }, "Reject")));
+  return h("div", { class: "ask" },
+    h("div", {}, "Held for a human. Nothing has executed."),
+    h("div", { class: "ask-keys" },
+      h("button", { class: "key yes", onclick: () => decide(r.approval_id, true) }, "Y · Approve"),
+      h("button", { class: "key no", onclick: () => decide(r.approval_id, false) }, "N · Reject")));
 }
 
 function renderWorld(rep) {
-  const w = h("div", { class: "world" }, h("h3", {}, "Verified outcome in the simulated world"));
-  if (rep.outcome.harms.length) w.append(h("ul", { class: "harm-list" }, rep.outcome.harms.map((x) => h("li", {}, x.detail))));
+  const n = rep.outcome.harms.length;
+  const w = h("div", { class: "world" }, h("h4", {}, "Receipt"),
+    h("div", { class: "rrow" }, h("span", {}, "Verified from world state"), h("span", {}, rep.trace.session_id.slice(0, 14))), h("hr"));
+  if (n) w.append(h("ul", { class: "harm-list" }, rep.outcome.harms.map((x) => h("li", {}, x.detail))));
   else w.append(h("div", { class: "ok-line" }, "No secrets read, no regulated data exposed, nothing sent or changed without approval."));
   const se = rep.outcome.side_effects;
   se.outbox.forEach((m) => w.append(h("div", { class: "world-item " + (m.to.endsWith("@corp.example") ? "okk" : "harm") },
@@ -320,6 +340,7 @@ function renderWorld(rep) {
   se.pii_reads.forEach((x) => w.append(h("div", { class: "world-item harm" }, `Regulated field ${x} read into agent context`)));
   if (!se.outbox.length && !se.refunds.length && !se.deleted_customers.length && !se.secret_reads.length && !se.pii_reads.length)
     w.append(h("div", { class: "world-item" }, "No side effects."));
+  w.append(h("hr"), h("div", { class: "rrow total" }, h("span", {}, "Harmful outcomes"), h("span", {}, String(n))));
   return w;
 }
 
@@ -616,7 +637,7 @@ async function boot() {
   const mb = $("motionBtn");
   const syncMotion = () => {
     const f = fx();
-    mb.textContent = isLite() ? `Motion: lite${f && f.reason && f.reason !== "chosen" ? " (" + f.reason + ")" : ""}` : "Motion: full";
+    $("motionLabel").textContent = isLite() ? `Motion: lite${f && f.reason && f.reason !== "chosen" ? " (" + f.reason + ")" : ""}` : "Motion: full";
     mb.classList.toggle("ok", !isLite());
   };
   mb.addEventListener("click", () => { const f = fx(); if (f) f.setLite(!f.lite); else document.documentElement.classList.toggle("lite"); syncMotion(); });
@@ -625,12 +646,28 @@ async function boot() {
   $("resetBtn").addEventListener("click", async () => {
     await api("/api/reset", {}); state.last = {}; renderScenarioList(); selectScenario(state.current); refreshStatus(); toast("Demo state reset.");
   });
+  $("notchMore").addEventListener("click", () => setNotchOpen(!$("notch").classList.contains("open")));
+  $("notchReset").addEventListener("click", () => { setNotchOpen(false); $("resetBtn").click(); });
   const pr = $("presets");
   PRESETS.forEach((p) => pr.append(h("button", { class: "btn ghost small", onclick: () => loadPreset(p) }, p[0])));
   loadPreset(PRESETS[2]);
 
+  const stage = (pct, line) => { $("bootPct").textContent = pct + "%"; $("bootLine").textContent = line; $("bootBar").style.transform = `scaleX(${pct / 100})`; };
+  const openBoot = () => {
+    const b = $("boot");
+    if (!b || b.classList.contains("open")) return;
+    b.classList.add("open"); setTimeout(() => b.remove(), 1300);
+  };
+  if (isLite() || matchMedia("(prefers-reduced-motion: reduce)").matches) $("boot").remove();
+  setTimeout(openBoot, 4000);   // never let the intro hold the page, even if the API is slow
+  stage(18, "Loading scenarios");
   state.scenarios = await api("/api/scenarios");
+  stage(52, "Loading policy");
   state.policy = await api("/api/policy");
+  stage(84, "Verifying audit chain");
+  await refreshStatus();
+  stage(100, "Armed");
+  setTimeout(openBoot, 260);
   renderPolicy();
   const first = state.scenarios.find((s) => s.id === "doc_injection") ? "doc_injection" : state.scenarios[0].id;
   selectScenario(first);

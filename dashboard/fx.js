@@ -21,8 +21,8 @@ varying vec3 vColor;
 varying float vAlpha;
 
 vec3 kindColor(float k) {
-  if (k < 0.5) return vec3(1.0, 0.16, 0.13);    // deny: hard red
-  if (k < 1.5) return vec3(0.83, 1.0, 0.0);     // allow: acid
+  if (k < 0.5) return vec3(1.0, 0.353, 0.122);  // deny: molten
+  if (k < 1.5) return vec3(0.404, 0.851, 0.588); // allow: phosphor
   return vec3(1.0, 0.69, 0.0);                  // approval: amber
 }
 
@@ -38,7 +38,7 @@ void main() {
   // the shield: nothing sits inside it, particles near its skin are pushed outward
   p += dir * max(0.0, uShield - r) * 1.2;
 
-  vec3 col = mix(vec3(0.55), vec3(1.0), aSeed.x) * 0.55;
+  vec3 col = mix(vec3(0.42, 0.40, 0.36), vec3(0.95, 0.93, 0.88), aSeed.x) * 0.5;   // bone, warm
   float glow = 0.0;
   for (int i = 0; i < ${MAX_PULSES}; i++) {
     vec4 pu = uPulses[i];

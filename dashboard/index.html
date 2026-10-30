@@ -12,42 +12,54 @@
 </head>
 <body>
 <canvas id="fx" aria-hidden="true"></canvas>
-<header class="topbar">
-  <div class="brand">
-    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7L16 2z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="m10.5 16 4 4 7-8" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="square"/></svg>
-    <div>
-      <div class="brand-name">Provenant</div>
-      <div class="brand-sub">AgentShield track · simulation only</div>
-    </div>
+<div class="scrim" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<div class="boot" id="boot" aria-hidden="true">
+  <div class="boot-notch"><span class="eyes"></span><span class="boot-line" id="bootLine">Verifying audit chain</span><span class="boot-pct" id="bootPct">0%</span><i class="boot-bar" id="bootBar"></i></div>
+</div>
+
+<div class="notch" id="notch">
+  <div class="notch-bar">
+    <span class="eyes" aria-hidden="true"></span>
+    <button class="nb" id="chainPill" title="Re-verify the audit hash chain">Chain: checking…</button>
+    <button class="nb" id="approvalPill" data-tab="approvals">0 pending</button>
+    <span class="nb dim" id="policyPill">policy …</span>
+    <button class="notch-more" id="notchMore" aria-expanded="false" aria-label="Show sections">+</button>
   </div>
-  <div class="top-status">
-    <button class="pill" id="chainPill" title="Re-verify the audit hash chain">Audit chain: checking…</button>
-    <button class="pill" id="approvalPill" data-tab="approvals">0 pending approvals</button>
-    <span class="pill muted" id="policyPill">policy …</span>
-    <button class="pill" id="motionBtn" title="Switch the 3D background and animations on or off">Motion: full</button>
-    <button class="btn ghost small" id="resetBtn" title="Clear runs, approvals and the in-memory audit log">Reset demo</button>
-  </div>
+  <nav class="notch-menu" aria-label="Sections">
+    <button data-tab="replay">Replay</button><button data-tab="lab">Attack Lab</button><button data-tab="approvals">Approvals</button><button data-tab="audit">Audit</button>
+    <button data-tab="playground">Playground</button><button data-tab="depth">Depth</button><button data-tab="policy">Policy</button><button id="notchReset">Reset</button>
+  </nav>
+</div>
+
+<header class="top">
+  <div class="wordmark">Provenant<sup>v5</sup></div>
+  <button class="hero-dl" id="resetBtn" title="Clear runs, approvals and the in-memory audit log">Reset demo <span>clears runs + log</span></button>
 </header>
 
 <section class="masthead">
-  <h1 class="display"><span>The self-red-teaming</span> <span class="acid">firewall</span> <span>for AI agents.</span></h1>
+  <div class="idx mono"><span>PARALLAX 2026</span><span class="dim">AgentShield track</span><span class="dim">Simulation only</span></div>
+  <h1 class="mega">The self-red-teaming <span class="serif">firewall</span> for AI&nbsp;agents.</h1>
+  <p class="lede">Every tool call your agent proposes passes one deterministic checkpoint. We assume the most gullible model there is, and the world stays safe anyway.</p>
   <div class="counters">
-    <div class="ctr deny"><b id="cDeny">0</b><span>blocked</span></div>
-    <div class="ctr approve"><b id="cHeld">0</b><span>held for a human</span></div>
-    <div class="ctr allow"><b id="cAllow">0</b><span>allowed</span></div>
-    <div class="ctr"><b id="cChain">0</b><span>audit entries, hash-chained</span></div>
+    <div class="ctr deny"><span class="mono">01 / Blocked</span><b id="cDeny">0</b></div>
+    <div class="ctr approve"><span class="mono">02 / Held for a human</span><b id="cHeld">0</b></div>
+    <div class="ctr allow"><span class="mono">03 / Allowed</span><b id="cAllow">0</b></div>
+    <div class="ctr"><span class="mono">04 / Audit entries, chained</span><b id="cChain">0</b></div>
   </div>
-  <div class="ticker" aria-hidden="true"><div class="ticker-track" id="ticker">EVERY TOOL CALL PASSES ONE ENFORCEMENT POINT · NO FINDINGS MEANS DENY · RETRIEVED CONTENT IS DATA, NEVER INSTRUCTIONS · HIGH-IMPACT ACTIONS WAIT FOR A NAMED HUMAN · THE LOG PROVES WHAT HAPPENED · </div></div>
 </section>
 
+<div class="marquee" aria-hidden="true"><div id="ticker"><span>One enforcement point</span><span>No findings means deny</span><span>Content is data, never instructions</span><span>High impact waits for a human</span><span>The log proves what happened</span><span>One enforcement point</span><span>No findings means deny</span><span>Content is data, never instructions</span><span>High impact waits for a human</span><span>The log proves what happened</span></div></div>
+
 <nav class="tabs" role="tablist">
-  <button class="tab active" data-tab="replay">Attack replay</button>
-  <button class="tab" data-tab="lab">Attack Lab</button>
-  <button class="tab" data-tab="approvals">Approvals <span class="count" id="approvalCount">0</span></button>
-  <button class="tab" data-tab="audit">Audit trail</button>
-  <button class="tab" data-tab="playground">Policy playground</button>
-  <button class="tab" data-tab="depth">Defense in depth</button>
-  <button class="tab" data-tab="policy">Agent &amp; policy</button>
+  <button class="tab active" data-tab="replay"><i>01</i>Attack replay</button>
+  <button class="tab" data-tab="lab"><i>02</i>Attack Lab</button>
+  <button class="tab" data-tab="approvals"><i>03</i>Approvals <span class="count" id="approvalCount">0</span></button>
+  <button class="tab" data-tab="audit"><i>04</i>Audit trail</button>
+  <button class="tab" data-tab="playground"><i>05</i>Policy playground</button>
+  <button class="tab" data-tab="depth"><i>06</i>Defense in depth</button>
+  <button class="tab" data-tab="policy"><i>07</i>Agent &amp; policy</button>
 </nav>
 
 <main>
@@ -82,7 +94,7 @@
   </section>
 
   <section class="view" id="view-approvals">
-    <div class="panel">
+    <div class="panel klein">
       <h2>Pending approvals</h2>
       <p class="hint">High-impact actions stop here. Nothing runs until a named person approves. Before running, the call is checked again against current policy and against the exact arguments that were requested.</p>
       <label class="field inline">Approving as <span class="prefix">human:</span><input id="approverName" value="demo-operator" maxlength="40"></label>
@@ -148,6 +160,7 @@
     <div class="panel"><h2>Evaluation order</h2><ol class="rules" id="ruleList"></ol></div>
   </section>
 </main>
+<button class="motion-pill" id="motionBtn" title="Switch the 3D background and animations on or off"><span class="dot"></span><span id="motionLabel">Motion: full</span></button>
 <div id="toast" class="toast" role="status"></div>
 </body>
 </html>
