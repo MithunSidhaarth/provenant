@@ -2,7 +2,7 @@
 
 **The self-red-teaming firewall for AI agents** (PARALLAX 2026, AgentShield track).
 
-A defensive security layer for tool-using AI agents. The Python package is still called `agentshield`.
+A defensive security layer for tool-using AI agents. The Python import package is `agentshield`; the PyPI distribution is `provenant-agent-shield`.
 
 Provenant sits between an agent and its tools. Every tool call the agent proposes goes through one deterministic policy enforcement point. That point returns **ALLOW**, **DENY** or **REQUIRE_APPROVAL**, and the tool runs only after it has been authorized. Untrusted content, such as documents, knowledge-base articles and web pages, is treated as data. It can never grant itself authority, even when the agent obeys it.
 
@@ -24,7 +24,9 @@ irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1
 ```bash
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.sh | sh
-# or, with pipx
+# PyPI (after the first release is published)
+python -m pip install provenant-agent-shield && provenant setup
+# Or install directly from the source repository with pipx
 pipx install https://github.com/MithunSidhaarth/provenant/archive/refs/heads/main.zip && provenant setup
 ```
 
