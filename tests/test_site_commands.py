@@ -54,7 +54,7 @@ class SiteCommands(unittest.TestCase):
 
     def test_version_and_urls_match_this_release(self):
         self.assertEqual(G["version"], VERSION)
-        wheel = f"provenant-{VERSION}-py3-none-any.whl"
+        wheel = f"provenant_agent_shield-{VERSION}-py3-none-any.whl"
         self.assertTrue(G["wheel_url"].endswith("/dist/" + wheel))
         self.assertTrue((ROOT / "dist" / wheel).exists(), "build the release: scripts/build_release.py --publish-site")
         for m in G["methods"]:
