@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "provenant"
+version = "0.6.0"
+description = "A deterministic firewall between AI agents and their real tools: MCP proxy and Claude Code hook."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+provenant = "agentshield.cli:main"
+
+[tool.setuptools]
+packages = ["agentshield"]
+
+[tool.setuptools.package-data]
+agentshield = ["guard_policy.json"]

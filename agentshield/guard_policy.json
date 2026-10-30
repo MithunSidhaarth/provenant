@@ -1,0 +1,45 @@
+{
+  "version": "guard-2026.10-1",
+  "description": "Policy for REAL tools: the MCP proxy and the Claude Code hook. Most restrictive finding wins; anything the policy cannot classify falls to unknown_tool.",
+  "unknown_tool": "REQUIRE_APPROVAL",
+  "max_calls_per_session": 400,
+  "approval_ttl_seconds": 900,
+  "max_arg_bytes": 200000,
+  "category_defaults": {
+    "send": "REQUIRE_APPROVAL"
+  },
+  "tools": {
+    "TodoWrite": "ALLOW",
+    "Task": "ALLOW",
+    "ExitPlanMode": "ALLOW",
+    "BashOutput": "ALLOW",
+    "KillShell": "ALLOW"
+  },
+  "categories": {
+    "shell": ["bash", "powershell", "shell", "*run_command*", "*execute_command*", "*run_shell*", "*terminal*", "*exec*"],
+    "write": ["write", "edit", "multiedit", "notebookedit", "*write_file*", "*edit_file*", "*create_file*", "*create_directory*", "*move_file*", "*delete*", "*remove*", "*rename*", "*upload*"],
+    "send": ["*send*", "*email*", "*mail*", "*post_message*", "*slack*", "*publish*", "*tweet*", "*comment*", "*create_issue*", "*create_pull_request*", "*push*"],
+    "network": ["webfetch", "websearch", "fetch", "*fetch*", "*http*", "*url*", "*navigate*", "*browse*", "*download*", "*request*"],
+    "read": ["read", "glob", "grep", "ls", "*read*", "*list*", "*search*", "*get_*", "*find*", "*tree*", "*stat*", "*info*", "*view*", "*query*"]
+  },
+  "network": {
+    "allowed_hosts": ["github.com", "*.github.com", "raw.githubusercontent.com", "pypi.org", "files.pythonhosted.org",
+                      "registry.npmjs.org", "docs.python.org", "developer.mozilla.org", "docs.anthropic.com",
+                      "*.wikipedia.org", "example.com"],
+    "unlisted_host": "REQUIRE_APPROVAL"
+  },
+  "paths": {
+    "secret_patterns": ["**/.ssh/**", "**/.aws/**", "**/.gnupg/**", "**/.azure/**", "**/.kube/**", "**/.docker/config.json",
+                        "**/.env", "**/.env.*", "**/*.pem", "**/*.key", "**/id_rsa*", "**/id_ed25519*", "**/.netrc",
+                        "**/.git-credentials", "**/.npmrc", "**/.pypirc", "**/credentials", "**/credentials.json",
+                        "**/secrets.*", "/etc/shadow", "/etc/sudoers", "**/windows/system32/config/sam"],
+    "protected_patterns": ["**/.provenant/**", "**/guard_policy.json", "**/.claude/settings.json",
+                           "**/.claude/settings.local.json", "**/.git/hooks/**"],
+    "review_write_patterns": ["**/.github/workflows/**", "**/.git/config", "**/.bashrc", "**/.zshrc", "**/.profile",
+                              "**/authorized_keys", "**/crontab"],
+    "outside_workspace_read": "REQUIRE_APPROVAL",
+    "outside_workspace_write": "DENY"
+  },
+  "untrusted_output_tools": ["webfetch", "websearch", "*fetch*", "*http*", "*url*", "*browse*", "*navigate*", "read", "*read*",
+                             "*search*", "*email*", "*mail*", "*issue*", "*comment*", "*message*"]
+}

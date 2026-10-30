@@ -8,6 +8,20 @@ Provenant sits between an agent and its tools. Every tool call the agent propose
 
 The demo agent is deliberately gullible: it follows any `ASSISTANT ACTION:` instruction it finds in content it reads. This simulates the worst-case model. Provenant keeps the environment safe anyway, because **the LLM is never the security boundary**.
 
+## Real blocking: Provenant Guard
+
+Provenant also runs **in front of real tools**, not just in the simulation. It is a small local program with no dependencies, for Windows, macOS and Linux, and it plugs into the agents people already use:
+
+- **Any MCP agent** (Claude Desktop, Cursor, Windsurf, VS Code): every MCP server is launched through the Provenant proxy. Only ALLOWed `tools/call` requests reach the real server.
+- **Claude Code**: hooks run before and after every tool call. DENY blocks the call, and REQUIRE_APPROVAL becomes Claude Code's own "ask the human" prompt.
+
+```bash
+python3 provenant.py setup     # Windows: provenant.bat setup   (or: pip install . && provenant setup)
+provenant log -f               # watch ok / BLOCK / HOLD / TAINT live
+```
+
+Real Claude Code, even with `--permission-mode bypassPermissions`, cannot `rm -rf ./*` or `cat .env` once the hook is installed. The details, the full rule table and the limits are in [docs/REAL_GUARD.md](docs/REAL_GUARD.md).
+
 ## Quick start
 
 ### Windows

@@ -4,7 +4,7 @@ This file is the single source of truth for any agent or person who picks up thi
 
 **Keep it current.** After every milestone, update the "Status", "Version history" and "Next steps" sections. Commit and push the update with the work.
 
-Last updated: 2026-10-30 13:40 UTC, after v5 (main @ 628e507, plus this file).
+Last updated: 2026-10-30 14:20 UTC, after v6 (Provenant Guard: real blocking for real tools), on branch `feat/real-guard`.
 
 ## Product
 
@@ -26,7 +26,7 @@ Differentiators:
 Hard rules from the brief, which must never be broken:
 - The LLM is never the boundary.
 - Fail closed.
-- Simulation only: no real secrets, shell, arbitrary URLs or external systems.
+- Simulation only **for the demo world** (scenarios, fuzzer, Attack Lab, dashboard): no real secrets, shell, arbitrary URLs or external systems. **Amended for v6 at mithun's request (2026-10-30):** Provenant Guard (`guard.py`, `mcp_proxy.py`, `cc_hook.py`) deliberately sits in front of REAL tools. Its tests use a local real MCP server in a temp dir and never touch real secrets or outside hosts.
 - No secrets in git.
 - Never claim a test passed without running it.
 - Attribute all external code.
@@ -45,22 +45,29 @@ Hard rules from the brief, which must never be broken:
 | `agentshield/fuzzer.py`, `redteam.py` | fuzzer (6 seeds x 15 classes) + benign corpus; red-team loop |
 | `agentshield/llm_agent.py` | optional real Claude agent (`claude-opus-5-5`). Tested only with a fake client. |
 | `agentshield/mcp_gateway.py` | JSON-RPC stdio gateway with HMAC-pinned manifests |
+| `agentshield/guard.py` | **v6 real guard**: GuardPolicy for real tools (shell, paths, network, secrets, provenance, injection context), persistent Store in `~/.provenant` (shared audit chain with a cross-process lock, sessions, approvals, key), approvals CLI |
+| `agentshield/guard_policy.json` | built-in real-tool policy (`~/.provenant/policy.json` overrides) |
+| `agentshield/mcp_proxy.py` | real stdio MCP proxy: launches the real server, gates `tools/call`, pins manifests, taints on results |
+| `agentshield/cc_hook.py` | Claude Code PreToolUse / PostToolUse / UserPromptSubmit hook |
+| `agentshield/cli.py`, `provenant.py`, `provenant.bat`, `pyproject.toml` | `provenant` command: setup, wrap/unwrap client configs, install/uninstall claude-code, status, log -f, approve |
 | `agentshield/server.py` | HTTP API + dashboard host on 127.0.0.1:8765, with a self-only CSP and a static allow-list |
 | `dashboard/` | `index.html`, `app.js` (textContent only), `style.css` (brutalist), `fx.js` (Three.js particle field) |
 | `dashboard/vendor/` | pinned three.js 0.169.0, anime.js 3.2.2, Motion 11.11.17 and OFL fonts, plus `licenses/` |
 | `policy/policy.json` | agent permissions, data classes, limits |
 | `scenarios/*.json` | 7 scenarios with `expected_protected` |
-| `tests/` | 99 unittest tests |
-| `docs/` | ARCHITECTURE.md, THREAT_MODEL.md (T1 to T16), DEMO_SCRIPT.md (6 minutes) |
+| `tests/` | 124 unittest tests (`test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py` are the v6 ones) |
+| `docs/` | ARCHITECTURE.md, THREAT_MODEL.md (T1 to T16), DEMO_SCRIPT.md (6 minutes), REAL_GUARD.md (v6 guide) |
 | `run.bat`, `demo.bat`, `test.bat`, `find_python.bat` | Windows launchers |
 
 ## How to run and test
 
 ```bash
-python3 -m unittest discover -s tests -t .     # 99 tests, about 2 s
+python3 -m unittest discover -s tests -t .     # 124 tests, about 6 s
 python3 -m agentshield.server --open           # http://127.0.0.1:8765/
 python3 -m agentshield.demo                    # terminal before/after + fuzzer summary
-python3 -m agentshield.mcp_gateway             # JSON-RPC over stdio
+python3 -m agentshield.mcp_gateway             # JSON-RPC over stdio (simulated tools)
+python3 provenant.py setup                     # v6: wrap MCP clients + install Claude Code hook (provenant.bat on Windows)
+python3 provenant.py log -f                    # v6: live ok/BLOCK/HOLD/TAINT feed
 ```
 
 **Windows (mithun's Legion laptop, repo at D:\AUTO\provenant):**
@@ -79,6 +86,7 @@ python3 -m agentshield.mcp_gateway             # JSON-RPC over stdio
 | v3 | 0a6dcee | Benign false-positive corpus, self red-team loop, plain-language summaries, prior-work attribution | ~85 |
 | v4 | a256d34, cdf51f9 | Optional Claude agent, MCP gateway with pinned manifests, risk-scored approvals, natural-language intents (EN/HI/KN/Hinglish), Windows .bat launchers, receipt-loop fix | 97 |
 | v4.1 | 6ba7f08, 4c5ffd1 | `find_python.bat`: version-checked probing, then full paths for Store or python.org installs | 97 |
+| v6 | feat/real-guard | Provenant Guard: real MCP proxy + Claude Code hook in front of real tools; real-tool policy; persistent shared audit chain; `provenant setup/wrap/install/status/log -f/approve`; pip-installable. Real Claude Code in bypassPermissions mode was blocked from `rm -rf ./*` and `cat .env`. | 124 |
 | v5 | 628e507 | Renamed to Provenant (user-facing). Brutalist dashboard. Procedural gaussian-splat particle field that reacts to DENY/ALLOW/approval. anime.js + Motion. Everything vendored offline. Motion/lite toggle and fps watchdog. Self-only CSP. Comparison runs on load. | 99 |
 
 Headline numbers (v4/v5):
@@ -99,6 +107,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 
 ## Known limitations (be honest about these in the demo)
 
+- Guard (v6): shell analysis is pattern-based (an agent can write a script, then run it); `approve` needs a TTY, which is a speed bump, not a proof; remote HTTP MCP servers are not proxied yet; not yet tried on the Windows laptop or with a third-party MCP server (npx download was blocked in the cloud container).
+
 - Simulation only. The default agent is scripted and gullible. The live Claude mode is tested only with a fake client.
 - Provenance is value-based, so transformed or paraphrased values evade it (see open decision 1).
 - Natural-language detection catches 3 of 6, and the red-team loop has no automatic fix for it. Containment still holds.
@@ -108,6 +118,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 - The Windows launchers can't be tested in the cloud container.
 
 ## Next steps
+
+0. v6: merge the `feat/real-guard` PR. On the laptop: `git pull`, `test.bat` (124), `provenant.bat setup`, restart Claude Desktop, then `provenant.bat log -f` during the demo. Add a Guard segment to DEMO_SCRIPT.md (live Claude Code blocked from `rm -rf` / `.env`).
 
 1. Confirm v5 on the laptop: `git pull`, `test.bat` (99 tests), `run.bat`, "Motion: full", and no console errors.
 2. mithun decides open decision 1. If the choice is to fix the gap: add output-side redaction and/or semantic provenance (normalise and compare recipients and amounts), add fuzzer classes for paraphrase, and update the tests and README.
