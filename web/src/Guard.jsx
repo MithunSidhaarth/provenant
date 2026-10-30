@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { api, argsLine, short } from "./api.js";
-import { Section, Reveal, Badge, Cmd, CopyButton, Button, Empty, ErrorNote, Findings, useToast } from "./ui.jsx";
+import { Section, Reveal, Badge, Cmd, CopyButton, Button, Empty, ErrorNote, Findings } from "./ui.jsx";
 
 const REPO = "https://github.com/MithunSidhaarth/provenant";
 
@@ -62,10 +62,6 @@ const PRESETS = [
   { label: "git status", tool: "Bash", args: { command: "git status" } },
   { label: "read README", tool: "Read", args: { file_path: "README.md" } },
 ];
-
-// An agent session in miniature: what Claude Code does on a normal task, with a prompt injection halfway.
-const SESSION = [PRESETS[13], PRESETS[12], { label: "edit code", tool: "Edit", args: { file_path: "src/app.py", old_string: "TODO", new_string: "done" } },
-  PRESETS[10], PRESETS[5], PRESETS[6], PRESETS[4], PRESETS[7]];
 
 const CLIENTS = ["Claude Code", "Claude Desktop", "Cursor", "Windsurf"];
 const TOOLS = ["filesystem", "shell", "github", "web"];
@@ -159,7 +155,7 @@ function Install() {
   );
 }
 
-function Checker({ onResult }) {
+function Checker() {
   const [tool, setTool] = useState("Bash");
   const [args, setArgs] = useState(JSON.stringify({ command: "rm -rf ./*" }, null, 2));
   const [res, setRes] = useState(null);
@@ -170,7 +166,7 @@ function Checker({ onResult }) {
     try {
       const parsed = typeof a === "string" ? JSON.parse(a || "{}") : a;
       const r = await api("/api/guard/check", { tool: t, args: parsed });
-      setRes({ ...r, tool: t, args: parsed }); onResult({ ...r, tool: t, args: parsed });
+      setRes({ ...r, tool: t, args: parsed });
     } catch (e) { setErr(e instanceof SyntaxError ? new Error("Arguments must be valid JSON") : e); }
     setBusy(false);
   };
@@ -204,17 +200,16 @@ function Checker({ onResult }) {
   );
 }
 
-function Feed({ items, hosted, onSimulate, simulating }) {
+function Feed({ items, hosted }) {
   return (
     <div className="feed card">
       <div className="card-head">
-        <h3>Decision feed</h3>
-        <span className="live"><i />{hosted ? "your checks" : "live from ~/.provenant"}</span>
+        <h3>Observed decision feed</h3>
+        <span className="live"><i />{hosted ? "no remote agent connected" : "live audit events"}</span>
       </div>
-      <Button variant="ghost" onClick={onSimulate} busy={simulating}>Replay an agent session</Button>
       <ol className="feed-list">
         <AnimatePresence initial={false}>
-          {items.length === 0 && <Empty key="empty">Nothing yet. Try a call or replay a session.</Empty>}
+          {items.length === 0 && <Empty key="empty">{hosted ? "This Vercel deployment cannot read your machine’s local audit log. Run the local dashboard to see real agent activity." : "No observed live policy decisions yet. Connect an agent through Provenant and its events will appear here."}</Empty>}
           {items.map((it) => (
             <motion.li key={it.key} layout initial={{ opacity: 0, x: -14, height: 0 }} animate={{ opacity: 1, x: 0, height: "auto" }}
               exit={{ opacity: 0 }} transition={{ type: "spring", stiffness: 380, damping: 34 }}>
@@ -235,9 +230,8 @@ function Status({ status, stats }) {
   if (status.hosted) {
     return (
       <div className="status card">
-        <div className="card-head"><h3>Your machine</h3><span className="muted">hosted demo</span></div>
-        <p className="muted">This page is running in the cloud, so it cannot see your MCP clients. Install Provenant and run
-          <code> run.bat</code> (or <code>python3 -m agentshield.server</code>) locally to see live protection status, pending approvals and the audit chain here.</p>
+        <div className="card-head"><h3>Agent connection</h3><span className="muted">not connected</span></div>
+        <p className="muted">This Vercel deployment has no access to your computer or its local audit log. No agent activity is reported here. To view real events, run the local dashboard on the same machine as Provenant: <code>run.bat</code> on Windows or <code>python3 -m agentshield.server</code> on macOS/Linux.</p>
         <div className="kv"><span>Guard policy</span><b>{status.policy_version}</b></div>
       </div>
     );
@@ -337,9 +331,7 @@ export function Guard() {
   const [pending, setPending] = useState([]);
   const [feed, setFeed] = useState([]);
   const [rt, setRt] = useState(null);
-  const [sim, setSim] = useState(false);
   const after = useRef(0);
-  const toast = useToast();
 
   const add = useCallback((rows) => setFeed((xs) => [...rows.reverse(), ...xs].slice(0, 60)), []);
 
@@ -352,12 +344,13 @@ export function Guard() {
         const [log, pend] = await Promise.all([api(`/api/guard/log?after=${after.current}`), api("/api/guard/pending")]);
         if (stop) return;
         setPending(pend);
-        if (log.stats) setStats(log.stats);
+        setStats(log.stats || null);
         const rows = log.entries.filter((e) => e.event === "policy_decision").map((e) => ({
           key: "s" + e.seq, time: (e.ts || "").slice(11, 19), decision: e.data?.decision, tool: e.data?.tool,
           why: (e.data?.reasons || [])[0] || "",
         }));
-        if (log.entries.length) after.current = log.entries[log.entries.length - 1].seq;
+        if (Number.isInteger(log.cursor)) after.current = log.cursor;
+        else if (log.entries.length) after.current = log.entries[log.entries.length - 1].seq;
         if (rows.length) add(rows.slice(-20));
       } catch { /* server gone: keep the last state */ }
       if (!stop) timer = setTimeout(poll, 2500);
@@ -365,24 +358,6 @@ export function Guard() {
     poll();
     return () => { stop = true; clearTimeout(timer); };
   }, [add]);
-
-  const onResult = useCallback((r) => add([{ key: "c" + Math.random(), time: fmtTime(), decision: r.decision, tool: r.tool,
-    why: (r.reasons || [])[0] || "allowed" }]), [add]);
-
-  const simulate = async () => {
-    setSim(true);
-    let blocked = 0;
-    for (const p of SESSION) {
-      try {
-        const r = await api("/api/guard/check", { tool: p.tool, args: p.args });
-        if (r.decision !== "ALLOW") blocked++;
-        onResult({ ...r, tool: p.tool });
-      } catch { /* skip */ }
-      await new Promise((ok) => setTimeout(ok, 420));
-    }
-    setSim(false);
-    toast(`Session replayed: ${blocked} of ${SESSION.length} calls stopped`, "allow");
-  };
 
   return (
     <Section id="guard" kicker="Provenant Guard · for real agents" title={<>One install. Every MCP server <em>behind a gate.</em></>}
@@ -396,8 +371,8 @@ export function Guard() {
         </Reveal>
       </div>
       <div className="guard-grid two">
-        <Reveal><Checker onResult={onResult} /></Reveal>
-        <Reveal delay={0.1}><Feed items={feed} hosted={status?.hosted} onSimulate={simulate} simulating={sim} /></Reveal>
+        <Reveal><Checker /></Reveal>
+        <Reveal delay={0.1}><Feed items={feed} hosted={status?.hosted} /></Reveal>
       </div>
       <Reveal><RedTeam data={rt} /></Reveal>
     </Section>
