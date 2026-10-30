@@ -240,7 +240,7 @@ def _agent(key: str) -> str:
     agent_id = result.get("agent_id")
     if not isinstance(agent_id, str) or not agent_id: raise RuntimeError("Bolna did not return an agent_id")
     try: _set_user_env("PROVENANT_MAIL_BOLNA_AGENT_ID", agent_id)
-    except RuntimeError: os.environ["BOLNA_AGENT_ID"] = agent_id
+    except RuntimeError: os.environ["PROVENANT_MAIL_BOLNA_AGENT_ID"] = agent_id
     return agent_id
 
 
