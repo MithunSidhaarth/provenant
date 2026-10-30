@@ -1,18 +1,18 @@
 {
- "generated_utc": "2026-10-30 17:40 UTC",
- "commit": "7dc3370",
+ "generated_utc": "2026-10-30 17:53 UTC",
+ "commit": "b6e74da",
  "summary": {
   "workload": "15-step scripted repository investigation (evals/token_bench.py)",
   "token_estimate": "ceil(chars/4)",
   "context_tokens": {
-   "baseline": 52278,
-   "provenant": 14461,
+   "baseline": 52432,
+   "provenant": 14541,
    "change_pct": -72.3
   },
   "reread_input_tokens": {
-   "baseline": 419233,
-   "provenant": 184008,
-   "change_pct": -56.1
+   "baseline": 420465,
+   "provenant": 184888,
+   "change_pct": -56.0
   },
   "output_tokens": {
    "baseline": 259,
@@ -31,8 +31,8 @@
    "provenant": true
   },
   "wall_seconds": {
-   "baseline": 14.21,
-   "provenant": 13.98
+   "baseline": 13.96,
+   "provenant": 14.32
   },
   "policy_llm_calls": 0
  },
@@ -40,20 +40,20 @@
   "baseline": {
    "mode": "baseline",
    "tool_calls": 15,
-   "context_tokens": 52278,
-   "reread_input_tokens": 419233,
+   "context_tokens": 52432,
+   "reread_input_tokens": 420465,
    "output_tokens": 259,
    "cache_hits": 0,
    "dedup_hits": 0,
    "task_success": true,
    "failures": [],
-   "wall_seconds": 14.21,
+   "wall_seconds": 13.96,
    "steps": [
     {
      "step": 0,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 630,
+     "context_tokens": 707,
      "ok": true
     },
     {
@@ -151,7 +151,7 @@
      "step": 15,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 641,
+     "context_tokens": 718,
      "ok": true
     }
    ]
@@ -159,20 +159,20 @@
   "provenant": {
    "mode": "provenant",
    "tool_calls": 21,
-   "context_tokens": 14461,
-   "reread_input_tokens": 184008,
+   "context_tokens": 14541,
+   "reread_input_tokens": 184888,
    "output_tokens": 421,
    "cache_hits": 3,
    "dedup_hits": 3,
    "task_success": true,
    "failures": [],
-   "wall_seconds": 13.98,
+   "wall_seconds": 14.32,
    "steps": [
     {
      "step": 0,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 630,
+     "context_tokens": 670,
      "ok": true
     },
     {
@@ -270,7 +270,7 @@
      "step": 15,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 646,
+     "context_tokens": 686,
      "ok": true
     }
    ]
