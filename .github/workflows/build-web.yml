@@ -34,5 +34,16 @@ jobs:
             echo "Generated bundles are already up to date."
           else
             git commit -m "build: refresh website bundles"
-            git push
+            # The package-artifact workflow can push to main at the same time. Rebase
+            # our generated bundle commit and retry if main advances between fetch and push.
+            for attempt in 1 2 3; do
+              git fetch origin main
+              git rebase origin/main
+              if git push origin HEAD:main; then
+                exit 0
+              fi
+              echo "main advanced during push attempt $attempt; retrying after rebase"
+            done
+            echo "Could not push refreshed bundles after 3 attempts." >&2
+            exit 1
           fi
