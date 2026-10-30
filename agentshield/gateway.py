@@ -109,10 +109,11 @@ class Gateway:
         """Record content the agent has seen that did not come from the user."""
         text = _output_text(output)
         # Taint and scan every view (raw, canonical, decoded) so obfuscation cannot launder values.
-        vs = views(text)
+        extra = tuple(self.engine.config.get("canonicalisation", {}).get("extra_decoders", []))
+        vs = views(text, extra)
         ctx.untrusted_texts.extend(vs)
         flags, seen = [], set()
-        for f in obfuscation_signals(text) + [f for v in vs for f in scan_injection(v)]:
+        for f in obfuscation_signals(text, scan_injection) + [f for v in vs for f in scan_injection(v)]:
             if f["label"] not in seen:
                 seen.add(f["label"])
                 flags.append(f)

@@ -176,6 +176,9 @@ table.audit tr.entry:hover td { background: var(--bg-2); }
 .big { font-size: 16px; font-weight: 700; }
 .big.good { color: var(--allow); } .big.bad { color: var(--deny); }
 
+.plain { font-size: 15px; line-height: 1.5; margin: -4px 0 14px; color: var(--text); }
+.plain.bad { color: #ffd0d5; } .plain.good { color: #c9f5e0; }
+pre.code { background: #0a0e16; border-radius: 8px; padding: 10px; overflow-x: auto; font-size: 12px; white-space: pre; }
 .spaced { margin-top: 18px; }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 12px 0 16px; }
 .kpi { background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }

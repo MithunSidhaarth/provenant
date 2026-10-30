@@ -86,6 +86,10 @@ class PolicyEngine:
             raise PolicyError("customer_fields missing")
         for k in ("side_effect_tools", "read_only_tools"):
             Decision(c["untrusted_control_args"][k])
+        from .normalize import EXTRA_DECODERS
+        for d in c.get("canonicalisation", {}).get("extra_decoders", []):
+            if d not in EXTRA_DECODERS:
+                raise PolicyError(f"unknown decoder {d!r}")
 
     # ---------------------------------------------------------------------------------
     def evaluate(self, call: ToolCall, ctx: SessionContext) -> PolicyResult:

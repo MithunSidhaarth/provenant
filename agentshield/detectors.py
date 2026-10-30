@@ -18,7 +18,7 @@ INJECTION_PATTERNS = [
     (r"(get_secret|vault|api[_ ]?key|credentials?)\b.{0,40}\b(send|email|include|attach|forward)", "secret-exfiltration"),
     # Language-agnostic: a tool name followed by a JSON object inside *content* is a call attempt.
     (r"\b(read_document|search_kb|lookup_customer|send_email|issue_refund|fetch_url|get_secret|delete_customer|run_shell)\s*\{", "tool-call-in-content"),
-    (r"^\s*(system|developer|admin)\s*(message|prompt|note)?\s*:", "fake-system-header"),
+    (r"^\s*(system|developer|admin)\s*(message|prompt|note)?\s*:\s*(call|invoke|run|execute|ignore|override|you must|new instructions)", "fake-system-header"),
 ]
 
 SSN_RE = re.compile(r"\b9\d{2}-\d{2}-\d{4}\b|\b\d{3}-\d{2}-\d{4}\b")

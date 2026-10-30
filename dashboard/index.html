@@ -60,6 +60,11 @@
       <p class="hint">Six attack seeds (exfiltration, fraud, PII harvest, destruction, beaconing, internal phishing) across fourteen obfuscation classes. Each variant runs twice, without and with AgentShield, and is judged from world state. Two classes, ROT13 and reversed text, are intentionally outside what AgentShield decodes. They show what still holds when detection is blind.</p>
       <div id="fuzzResult"></div>
     </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Self red-team loop</h2><button class="btn" id="redteamRun">Find gaps and propose fixes</button></div>
+      <p class="hint">Runs the fuzzer and a benign corpus. For each class with a miss, it takes the smallest failing document as a reproduction, proposes a policy change, replays the whole campaign on a copy of the policy, and writes a regression test. Nothing goes live until a person accepts it.</p>
+      <div id="redteamResult"></div>
+    </div>
   </section>
 
   <section class="view" id="view-approvals">

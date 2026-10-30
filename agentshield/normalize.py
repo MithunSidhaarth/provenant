@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import codecs
 import re
 import unicodedata
 
@@ -65,23 +66,37 @@ def decoded_payloads(text: str) -> list[str]:
     return out
 
 
-def obfuscation_signals(text: str) -> list[dict]:
+def obfuscation_signals(text: str, scan) -> list[dict]:
+    """Obfuscation is reported only when it hides something: invisible characters always do,
+    homoglyphs and encodings only when the decoded form contains injection indicators.
+    (Tuned after the benign corpus showed Cyrillic names and base64 build ids as false flags.)"""
     sig = []
     if ZERO_WIDTH_RE.search(text) or TAG_CHARS_RE.search(text):
         sig.append({"label": "invisible-characters", "match": "zero-width / tag characters present", "snippet": ""})
-    if text.translate(HOMOGLYPHS) != text and re.search(r"[A-Za-z]", text):
-        sig.append({"label": "homoglyphs", "match": "mixed-script look-alike letters", "snippet": ""})
-    for d in decoded_payloads(text):
-        sig.append({"label": "encoded-payload", "match": d[:60], "snippet": d[:120]})
+    folded = canonical(text)
+    if text.translate(HOMOGLYPHS) != text and scan(folded) and not scan(text):
+        sig.append({"label": "homoglyphs", "match": "look-alike letters hide an instruction", "snippet": ""})
+    for d in decoded_payloads(text) + decoded_payloads(folded):
+        if scan(canonical(d)):
+            sig.append({"label": "encoded-payload", "match": d[:60], "snippet": d[:120]})
     return sig
 
 
-def views(text: str) -> list[str]:
-    """Raw, canonical and decoded views of a piece of untrusted content."""
+EXTRA_DECODERS = {
+    "rot13": lambda t: codecs.decode(t, "rot13"),
+    "reversed": lambda t: "\n".join(line[::-1] for line in t.splitlines()),
+}
+
+
+def views(text: str, extra: tuple[str, ...] = ()) -> list[str]:
+    """Raw, canonical and decoded views of a piece of untrusted content. `extra` enables
+    optional decoders (policy: canonicalisation.extra_decoders), e.g. ones the red-team loop proposes."""
     c = canonical(text)
     vs = [text]
     if c != text:
         vs.append(c)
     for d in decoded_payloads(text) + decoded_payloads(c):
         vs.append(canonical(d))
+    for name in extra:
+        vs.append(EXTRA_DECODERS[name](c))
     return vs

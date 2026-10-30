@@ -13,6 +13,8 @@ Start with `python3 -m agentshield.server` and open http://127.0.0.1:8765/. Clic
 
 **2:50 · Fail closed (30s).** *Malformed and spoofed tool calls.* Six broken or spoofed calls, six DENYs, each with a reason. The baseline happily executed the spoofed-agent refund.
 
+**3:00 · Attack Lab (bring a judge in, 60s).** *Attack Lab:* "Type your own injection, in any language or encoding." Use the Hindi or invisible-text sample if nobody volunteers. Then click **Run 84-variant campaign**: 84 of 84 live without the shield, 100% contained with it, detection 86% with the blind spots shown. Click **Find gaps and propose fixes**: the loop reproduces the ROT13 gap, proposes a decoder, replays it at 100% with no new false positives, and writes the regression test. "It finds its own gaps, and a human approves the fix."
+
 **3:20 · Tamper evidence (40s).** *Audit trail → Verify chain → Forge a log entry.* "An attacker flips a DENY to ALLOW. The verifier pinpoints the entry, and the real log still verifies."
 
 **4:00 · Defense in depth (30s).** *Defense in depth → Run ablation.* Remove any one rule and both injection attacks stay contained. "We're also honest about where a single rule is load-bearing: that red cell."

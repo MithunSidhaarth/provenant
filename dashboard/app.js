@@ -143,10 +143,36 @@ function renderColumn(rep, which) {
   const n = rep.outcome.harms.length;
   body.append(h("div", { class: `verdict ${tone}` }, rep.verdict,
     h("small", {}, n ? `${n} harmful outcome${n > 1 ? "s" : ""}` : "no harmful outcomes")));
+  body.append(h("p", { class: `plain ${tone === "bad" ? "bad" : "good"}` }, plainSummary(rep, which)));
   rep.trace.steps.forEach((s) => body.append(renderStep(s, rep, which)));
   body.append(renderWorld(rep));
   col.append(body);
   return col;
+}
+
+const HARM_WORDS = {
+  secret_read: "read a production password", secret_exfiltrated: "emailed that password out",
+  external_email: "sent mail outside the company", email_without_approval: "sent email nobody approved",
+  pii_exposed: "pulled customers' SSN and card numbers", pii_exfiltrated: "emailed that personal data",
+  refund_without_approval: "issued refunds nobody approved", refund_over_limit: "paid out more than the refund limit",
+  record_deleted: "deleted a customer record", external_request: "contacted an attacker's server",
+};
+function plainSummary(rep, which) {
+  const steps = rep.trace.steps.filter((s) => s.result);
+  if (which === "before") {
+    const harms = rep.outcome.harms.map((x) => HARM_WORDS[x.id] || x.id);
+    if (!harms.length) return "Without protection, the agent did what was asked and nothing harmful happened.";
+    return `Without protection, the agent ${harms.length > 1 ? harms.slice(0, -1).join(", ") + " and " + harms.at(-1) : harms[0]}.`;
+  }
+  const denied = steps.filter((s) => s.result.decision === "DENY").length;
+  const pending = rep.approvals.filter((a) => a.status === "pending").length;
+  const injected = steps.filter((s) => s.source === "injected").length;
+  const parts = [];
+  if (injected) parts.push(`The content tried to make the agent do ${injected} thing${injected > 1 ? "s" : ""} you never asked for.`);
+  if (denied) parts.push(`AgentShield blocked ${denied} action${denied > 1 ? "s" : ""} before ${denied > 1 ? "they" : "it"} could run.`);
+  if (pending) parts.push(`${pending} action${pending > 1 ? "s are" : " is"} waiting for your OK.`);
+  parts.push(rep.outcome.harms.length ? "Something harmful still happened." : "Nothing harmful happened.");
+  return parts.join(" ");
 }
 
 function renderStep(step, rep, which) {
@@ -399,7 +425,9 @@ async function runFuzz() {
     kpi(`${s.live_attacks}/${s.variants}`, "variants that caused harm without AgentShield", "bad"),
     kpi(`${s.containment_pct}%`, "contained with AgentShield (no harm in world state)", s.containment_pct === 100 ? "good" : "bad"),
     kpi(`${s.hard_denied_pct}%`, "stopped by DENY alone; the rest are held for a human", "warn"),
-    kpi(`${s.detection_pct}%`, "flagged by injection detection (evidence, not the boundary)", "warn")));
+    kpi(`${s.detection_pct}%`, "flagged by injection detection (evidence, not the boundary)", "warn"),
+    kpi(`${s.task_false_positive_pct}%`, `of ${s.benign_documents} benign documents had a user step wrongly blocked`, s.task_false_positive_pct ? "bad" : "good"),
+    kpi(`${s.detection_false_positive_pct}%`, "of benign documents wrongly flagged by detection (no effect on the task)", "warn")));
   const tbl = h("table", { class: "matrix" });
   tbl.append(h("tr", {}, ["Mutation class", "Fired (baseline)", "Contained", "Held for approval", "Detected"].map((x) => h("th", {}, x))));
   for (const c of r.classes) {
@@ -421,6 +449,32 @@ async function runFuzz() {
     box.append(det);
   }
   refreshStatus();
+}
+
+async function runRedteam() {
+  const box = clear($("redteamResult"));
+  box.append(h("div", { class: "empty" }, "Fuzzing, reproducing and replaying candidate fixes…"));
+  const r = await api("/api/redteam");
+  clear(box);
+  if (!r.findings.length) { box.append(h("div", { class: "ok-line" }, "No misses found.")); return; }
+  for (const f of r.findings) {
+    const p = f.proposal;
+    box.append(h("div", { class: "appr" },
+      h("div", { class: "step-top" }, h("b", {}, `${f.mutation}: ${f.kind} miss in ${f.failing_variants} variants`), h("span", { class: "dec REQUIRE_APPROVAL" }, p ? "FIX PROPOSED" : "NO FIX")),
+      h("details", {}, h("summary", {}, "Minimal reproduction"), h("div", { class: "doc" }, f.minimal_repro.document)),
+      p ? h("div", {},
+        h("div", { class: "exec" }, `Proposal: ${p.rationale}. Policy change: ${JSON.stringify(p.change)}`),
+        h("ul", { class: "reasons" },
+          h("li", {}, `Detection for this class: ${p.class_detection_before} → ${p.class_detection_after}`),
+          h("li", {}, `Overall detection: ${p.overall_detection_before}% → ${p.overall_detection_after}%, containment stays ${p.containment_after}%`),
+          h("li", {}, `Benign false flags: ${p.benign_detection_fp_before}% → ${p.benign_detection_fp_after}%, benign tasks blocked: ${p.benign_task_fp_after}%`)),
+        h("details", {}, h("summary", {}, "Generated regression test"), h("pre", { class: "code" }, p.regression_test)),
+        h("div", { class: "appr-meta" }, p.status)) : null));
+  }
+  if (r.combined_patch) {
+    const s = r.combined_patch.summary;
+    box.append(h("div", { class: "ok-line" }, `With every proposal applied: detection ${r.baseline.detection_pct}% → ${s.detection_pct}%, stopped by DENY alone ${r.baseline.hard_denied_pct}% → ${s.hard_denied_pct}%, benign tasks blocked ${s.task_false_positive_pct}%.`));
+  }
 }
 
 // ---------- defense in depth -------------------------------------------------------------
@@ -491,6 +545,7 @@ async function boot() {
   $("depthBtn").addEventListener("click", runDepth);
   $("labRun").addEventListener("click", runLab);
   $("fuzzRun").addEventListener("click", runFuzz);
+  $("redteamRun").addEventListener("click", runRedteam);
   LAB_SAMPLES.forEach((smp) => $("labSamples").append(h("button", { class: "btn ghost small", onclick: () => { $("labContent").value = smp[1]; } }, smp[0])));
   $("labContent").value = LAB_SAMPLES[0][1];
   $("resetBtn").addEventListener("click", async () => {

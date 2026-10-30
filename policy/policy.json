@@ -3,18 +3,37 @@
   "agents": {
     "support-agent": {
       "description": "Customer-support assistant. Can read docs, the KB and basic CRM fields, send internal email and issue small refunds with approval.",
-      "permissions": ["docs:read", "kb:read", "crm:read", "email:send", "payments:refund", "web:fetch"],
+      "permissions": [
+        "docs:read",
+        "kb:read",
+        "crm:read",
+        "email:send",
+        "payments:refund",
+        "web:fetch"
+      ],
       "max_calls_per_session": 12
     }
   },
   "customer_fields": {
-    "public": ["customer_id", "name", "email", "plan", "balance"],
-    "sensitive": ["ssn", "card_number"]
+    "public": [
+      "customer_id",
+      "name",
+      "email",
+      "plan",
+      "balance"
+    ],
+    "sensitive": [
+      "ssn",
+      "card_number"
+    ]
   },
   "refund_limit": 100,
   "approval_ttl_seconds": 900,
   "untrusted_control_args": {
     "side_effect_tools": "DENY",
     "read_only_tools": "REQUIRE_APPROVAL"
+  },
+  "canonicalisation": {
+    "extra_decoders": []
   }
 }

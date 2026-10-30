@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-from . import fuzzer
+from . import fuzzer, redteam
 from .policy import PolicyEngine
 from .runner import Shield, Run
 from .sandbox import ROOT
@@ -168,6 +168,12 @@ def make_handler(app: App):
                     return self._send(200, {"entries": entries[-500:], "total": len(app.shield.audit.entries)})
                 if u.path == "/api/audit/verify":
                     return self._send(200, app.shield.audit.verify())
+                if u.path == "/api/redteam":
+                    rep = redteam.run(app.shield.engine)
+                    app.shield.audit.append("redteam_run", "redteam", {
+                        "findings": [{"mutation": f["mutation"], "kind": f["kind"],
+                                      "proposal": (f["proposal"] or {}).get("change")} for f in rep["findings"]]})
+                    return self._send(200, rep)
                 if u.path == "/api/fuzz":
                     return self._send(200, app.fuzz())
                 if u.path == "/api/ablation":
