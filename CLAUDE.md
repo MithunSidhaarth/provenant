@@ -4,7 +4,7 @@ This file is the single source of truth for any agent or person who picks up thi
 
 **Keep it current.** After every milestone, update the "Status", "Version history" and "Next steps" sections. Commit and push the update with the work.
 
-Last updated: 2026-10-30 18:05 UTC, after v8 (live runtime, eval suite, website + download, MCP tool server), on branch `claude/project-thread-s36b3g`.
+Last updated: 2026-10-30 18:30 UTC, after v8 merged to main (PR #6) and deployed to https://provenant-indol.vercel.app.
 
 ## Product
 
@@ -121,8 +121,9 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 
 ## Status
 
-- **v8** is on branch `claude/project-thread-s36b3g` with a PR to main. Wheel installed in a clean venv and `provenant serve` answered initialize, tools/list, an allowed read and a held path-escape over stdio. Website walkthrough (desktop 1440 and mobile 390): no horizontal overflow, zero console errors, Download returns the wheel.
-- Launch deck: `/mnt/project-files/provenant-launch/deck/` (PPTX, PDF, speaker script). Video narration script: `/mnt/project-files/provenant-launch/video/NARRATION_SCRIPT.md`. Video render is in progress; when done, put the mp4 + poster in `dashboard/media/` and set `manifest.json`.
+- **v8 is merged to main (PR #6, merge b0d524d) and live in production at https://provenant-indol.vercel.app** (check it in a private window: Vercel Authentication may still gate non-team visitors). The hero is now `web/src/Arena.jsx`: an anime.js two-lane attack replay (unprotected lane vs the Provenant gate) that replaced the drag-split comparison. Wheel installed in a clean venv and `provenant serve` answered initialize, tools/list, an allowed read and a held path-escape over stdio. Website walkthrough (desktop 1440 and mobile 390): no horizontal overflow, zero console errors, Download returns the wheel.
+- Launch deck: `/mnt/project-files/provenant-launch/deck/` (PPTX, PDF, speaker script). Video narration script: `/mnt/project-files/provenant-launch/video/NARRATION_SCRIPT.md`. Launch video (about 2 min, rude/confident roast script, ElevenLabs voice) is in final mix; frame sheets are in `/mnt/project-files/provenant-launch/video/preview/`. When done: put the mp4 + poster in `dashboard/media/`, set `manifest.json` to `{"video": "/media/provenant-launch.mp4", "poster": "/media/poster.png"}` (watch the file size), rebuild, PR.
+- Requested next by mithun, after the video: a page loader (counter 0 to 100, wordmark reveal, gate-line split) and awwwards-style scroll animations (section-title mask reveals, velocity marquee of ALLOW/DENY/HOLD, scroll-scrubbed statement, hero parallax), matching the current dark green/red/amber theme. Not started.
 
 - v7 (dashboard rebuild + Guard section) is on branch `split-redesign` with a PR to main and a hosted demo on Vercel (project `provenant`, team meth2). Rebuild the bundle with `cd web && npm run build` after any change in `web/src`.
 - main was v5 and is running on the laptop at 127.0.0.1:8765. v4 was confirmed with 97/97 tests on the laptop. The v5 pull still needs confirming there, including "Motion: full" on the real GPU.
@@ -148,7 +149,7 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 
 ## Next steps
 
-00. v8: merge the PR (Vercel deploys production on merge). On the laptop: `git pull`, `test.bat` (166), `provenant.bat serve --workspace D:\AUTO\provenant` from an MCP client. Try a real phone approval with claude-call-me and only then call it working. Push a `v0.8.0` tag (or run the release workflow by hand) if tag pushes are allowed from the laptop.
+00. v8 is merged. On the laptop: `git pull`, `test.bat` (166), `provenant.bat serve --workspace D:\AUTO\provenant` from an MCP client. Try a real phone approval with claude-call-me and only then call it working. Push a `v0.8.0` tag (or run the release workflow by hand) if tag pushes are allowed from the laptop.
 
 0. v6: merge the `feat/real-guard` PR. On the laptop: `git pull`, `test.bat` (124), `provenant.bat setup`, restart Claude Desktop, then `provenant.bat log -f` during the demo. Add a Guard segment to DEMO_SCRIPT.md (live Claude Code blocked from `rm -rf` / `.env`).
 
