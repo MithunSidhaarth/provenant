@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import contextlib
 import fnmatch
+import ipaddress
 import json
 import os
 import re
@@ -59,11 +60,18 @@ SHELL_RULES: list[tuple[str, Decision, str]] = [
     (r"\bbase64\s+(-d|--decode)\b[^|;&]*\|\s*(ba|z)?sh\b|\bpowershell(\.exe)?\s+[^|;&]*-e(nc|ncodedcommand)?\s+[a-z0-9+/=]{16,}",
      DENY, "executes an encoded payload"),
     (r"\b(nc|ncat|netcat)\b[^|;&]*\s-[a-z]*e\s|/dev/tcp/|\bsocat\b[^|;&]*exec:", DENY, "opens a reverse shell"),
+    (r">\s*(/dev/(sd|nvme|hd|disk|xvd|mmcblk)\w*|\\\\\.\\PhysicalDrive\d)", DENY,
+     "overwrites a raw block device via redirection"),
+    (r"\bshred\b[^|;&]*\s(/dev/(sd|nvme|hd|disk|xvd)\w*|" + _ROOTISH + r")(\s|$)", DENY,
+     "shreds a disk or a root/home path"),
     (r"\b(curl|wget|http|https)\b[^|;&]*(\s-d\s*@|\s--data(-binary|-raw)?\s*@|\s-f\s+\S+=@|\s-t\s|--upload-file|--post-file)",
      DENY, "uploads a local file to a remote host"),
     (r"\b(format)\s+[a-z]:|\brd\s+/s\s+/q\s+[a-z]:\\?(\s|$)|\bdel\s+(/[a-z]\s+)*[a-z]:\\\*|"
-     r"\bremove-item\b[^|;&]*-recurse[^|;&]*\s[a-z]:\\?(\s|$)|\bvssadmin\s+delete\s+shadows|\bbcdedit\b|\bcipher\s+/w",
+     r"\b(remove-item|ri)\b[^|;&]*(-recurse|-r\b|-r[a-z]+\b)[^|;&]*\s[a-z]:\\?(\s|$)|"
+     r"\bvssadmin\s+delete\s+shadows|\bbcdedit\b|\bcipher\s+/w",
      DENY, "destructive Windows disk or system command"),
+    (r"\bfind\s+(--\s+)?(\"|')?" + _ROOTISH + r"(\"|')?\s[^;&|]*(-delete\b|-exec\s+(rm|unlink|shred)\b)", DENY,
+     "find -delete / -exec rm over a root or home path"),
     (r"\breg(\.exe)?\s+delete\s+hk(lm|ey_local_machine)", DENY, "deletes machine-wide registry keys"),
     (r"\bhistory\s+-c\b|\bunset\s+histfile\b|\bshred\b[^|;&]*\.(bash|zsh)_history|\bwevtutil\s+cl\b|\bclear-eventlog\b",
      DENY, "erases shell history or event logs"),
@@ -75,6 +83,8 @@ SHELL_RULES: list[tuple[str, Decision, str]] = [
     (r"\bsudo\b|\bsu\s+-|\brunas\b|\bstart-process\b[^|;&]*-verb\s+runas", APPROVE, "runs with elevated privileges"),
     (r"\brm\s+(-[a-z]*\s+)*-[a-z]*r", APPROVE, "recursive delete"),
     (r"\b(del|erase)\s+/[sq]|\bremove-item\b[^|;&]*-recurse|\brd\s+/s", APPROVE, "recursive delete (Windows)"),
+    (r"\bfind\b[^;&|]*(-delete\b|-exec\s+(rm|unlink|shred)\b)", APPROVE, "find that deletes files"),
+    (r"\bshred\b", APPROVE, "shred destroys files irrecoverably"),
     (r"\bgit\s+(push|reset\s+--hard|clean\s+-[a-z]*f|checkout\s+--\s|branch\s+-d)", APPROVE,
      "git action that publishes or discards work"),
     (r"\b(npm|pnpm|yarn)\s+(publish|unpublish)|\btwine\s+upload|\bcargo\s+publish|\bgh\s+(release|repo\s+delete|pr\s+merge)",
@@ -145,6 +155,90 @@ def host_of(url: str) -> str:
         return (urlsplit(url).hostname or "").lower().rstrip(".")
     except ValueError:
         return ""
+
+
+_METADATA_NAMES = ("metadata.google.internal", "metadata.goog", "metadata")
+_LOCAL_NAMES = ("localhost", "ip6-localhost", "ip6-loopback", "localhost.localdomain")
+
+
+def _octet(p: str) -> int:
+    if re.fullmatch(r"0[xX][0-9a-fA-F]+", p):
+        return int(p, 16)
+    if re.fullmatch(r"0[0-7]+", p):                  # legacy octal: int(p, 0) rejects a leading zero
+        return int(p, 8)
+    if re.fullmatch(r"[0-9]+", p):
+        return int(p)
+    raise ValueError(f"not a numeric octet: {p!r}")
+
+
+def _dotted_to_v4(h: str) -> int:
+    """inet_aton semantics: 1-4 parts, each decimal / 0x-hex / 0-octal, short forms absorb the rest.
+    So 127.1, 0x7f.0.0.1, 0177.0.0.1 and 2130706433 all resolve the way a real resolver would."""
+    parts = h.split(".")
+    if not 1 <= len(parts) <= 4:
+        raise ValueError("not an IPv4 literal")
+    vals = [_octet(p) for p in parts]                # each octet may be decimal, 0x-hex or 0-octal
+    if any(v < 0 for v in vals) or vals[-1] >= (1 << (8 * (5 - len(vals)))):
+        raise ValueError("octet out of range")
+    if any(v > 0xFF for v in vals[:-1]):
+        raise ValueError("octet out of range")
+    n = vals[-1]
+    for i, v in enumerate(vals[:-1]):
+        n += v << (8 * (3 - i))
+    return n
+
+
+def _as_ip(host: str):
+    """Parse a host as an IP address through every encoding an attacker might use to dodge a
+    dotted-quad check: a bare integer, 0x-hex, octal, short forms, dotted-hex and IPv6 (incl. mapped)."""
+    h = host.strip().strip("[]").rstrip(".")
+    if not h:
+        return None
+    try:
+        if re.fullmatch(r"0[xX][0-9a-fA-F]+", h):
+            n = int(h, 16)
+        elif re.fullmatch(r"0[0-7]+", h):
+            n = int(h, 8)
+        elif re.fullmatch(r"[0-9]+", h):
+            n = int(h)
+        else:
+            n = None
+        if n is not None and 0 <= n <= 0xFFFFFFFF:
+            return ipaddress.ip_address(n)
+    except ValueError:
+        pass
+    if ":" in h:
+        try:
+            return ipaddress.ip_address(h)
+        except ValueError:
+            return None
+    if "." in h:
+        try:
+            return ipaddress.ip_address(_dotted_to_v4(h))
+        except ValueError:
+            return None
+    return None
+
+
+def host_block_reason(host: str) -> str | None:
+    """Why this host must be blocked outright (DENY), or None if it is a normal name to allow-list.
+    Any IP literal is refused (an allow-list is for names); private, loopback, link-local, reserved,
+    multicast, unspecified and IPv4-mapped-private addresses are SSRF / metadata risks."""
+    if not host:
+        return "URL has no parsable host"
+    if host in _METADATA_NAMES or host.endswith(".internal"):
+        return f"{host} is a cloud metadata / internal name"
+    if host in _LOCAL_NAMES or host.endswith(".localhost"):
+        return f"{host} is a loopback name"
+    ip = _as_ip(host)
+    if ip is None:
+        return None
+    mapped = getattr(ip, "ipv4_mapped", None)
+    target = mapped or ip
+    if (target.is_private or target.is_loopback or target.is_link_local or target.is_reserved
+            or target.is_multicast or target.is_unspecified):
+        return f"{host} resolves to a local, private or metadata address ({target}) — SSRF risk"
+    return f"{host} is a raw IP literal ({target}); destinations must be named hosts, not IPs"
 
 
 def _glob_match(path: str, pattern: str) -> bool:
@@ -368,6 +462,17 @@ class GuardPolicy:
                 return cat
         return "unknown"
 
+    def _effective_category(self, call: GuardCall, cat: str) -> str:
+        """A tool's *name* is only a hint. If the call actually carries a shell command, treat it as
+        shell (so a read-named tool cannot smuggle `rm -rf /` past shell analysis); if a read/unknown
+        tool carries file content for a path, treat it as a write (so it faces the write-path rules)."""
+        a = call.args if isinstance(call.args, dict) else {}
+        if cat != "shell" and any(isinstance(a.get(k), (str, list)) for k in ("command", "cmd", "script", "shell_command")):
+            return "shell"
+        if cat in ("read", "unknown") and any(k in a for k in WRITE_CONTENT_KEYS) and any(k.lower() in PATH_KEYS for k in a):
+            return "write"
+        return cat
+
     def untrusted_output(self, tool: str) -> bool:
         base = tool.split("__")[-1].lower() if tool.startswith("mcp__") else tool.lower()
         return any(fnmatch.fnmatchcase(base, p) for p in self.config.get("untrusted_output_tools", []))
@@ -384,7 +489,7 @@ class GuardPolicy:
             findings += self._structure(call)
             if any(f.decision == DENY for f in findings):
                 return PolicyResult(DENY, findings, fp, self.version)
-            cat = self.category(call.tool)
+            cat = self._effective_category(call, self.category(call.tool))
             findings.append(Finding("category", ALLOW, f"{call.tool} classified as '{cat}'", {"category": cat}))
             for rule in (self._tool_rule, self._budget, self._shell, self._paths, self._network, self._dlp,
                          self._provenance, self._injection_context):
@@ -428,14 +533,18 @@ class GuardPolicy:
             return [Finding("budget", DENY, f"session exceeded its budget of {limit} tool calls")]
         return []
 
-    def _commands(self, call, cat) -> list[str]:
-        if cat != "shell":
-            return []
+    def _commands(self, call, cat="shell") -> list[str]:
+        # Command-bearing args are inspected wherever they appear, not only when the tool's *name*
+        # classifies as shell: a tool called get_x or search_y that takes a `command` is still a shell.
         a = call.args
-        cmd = a.get("command", a.get("cmd", a.get("script")))
+        if not isinstance(a, dict):
+            return []
+        cmd = a.get("command", a.get("cmd", a.get("script", a.get("shell_command"))))
         if isinstance(cmd, list):
             cmd = " ".join(map(str, cmd))
         if not isinstance(cmd, str):
+            if cat != "shell":
+                return []
             cmd = " ".join(_strings(a))
         extra = a.get("args")
         if isinstance(extra, list):
@@ -449,6 +558,10 @@ class GuardPolicy:
                 if reason not in seen and rx.search(v):
                     seen.add(reason)
                     out.append(Finding("shell", dec, f"command {reason}", {"match": rx.search(v).group(0)[:80]}))
+            for dec, reason in recursive_delete_findings(v):
+                if reason not in seen:
+                    seen.add(reason)
+                    out.append(Finding("shell", dec, f"command: {reason}"))
             for tok in _shell_tokens(v):
                 pat = match_any(tok, self.config["paths"]["secret_patterns"])
                 if pat and f"secret:{tok}" not in seen:
@@ -506,22 +619,23 @@ class GuardPolicy:
         if cat == "write":   # URLs inside file content are text, not requests
             return out
         for u in self._urls(call, cat):
-            host = host_of(u)
-            if not host:
-                out.append(Finding("network", DENY, f"URL '{u[:80]}' has no parsable host"))
-            elif _PRIVATE_HOST.match(host) or re.fullmatch(r"\d+\.\d+\.\d+\.\d+", host):
-                out.append(Finding("network", DENY, f"{host} is a local, private or raw-IP address (SSRF / metadata risk)",
-                                   {"host": host}))
+            host = host_of(u) or u.split("://", 1)[-1].split("/", 1)[0].strip("[]").lower().rstrip(".")
+            reason = host_block_reason(host)
+            if reason:
+                out.append(Finding("network", DENY, reason, {"host": host}))
             elif not any(fnmatch.fnmatchcase(host, p) or host == p.lstrip("*.") for p in ncfg["allowed_hosts"]):
                 dec = Decision(ncfg["unlisted_host"])
                 out.append(Finding("network", dec, f"{host} is not on the allowed host list", {"host": host}))
         return out
 
     def _dlp(self, call, session, cat) -> list[Finding]:
-        blob = "\n".join(_strings(call.args))
+        parts = _strings(call.args)
         hits = []
-        for v in views(blob):
-            hits += [h for h in scan_secrets(v) if h not in hits]
+        # Scan the fields joined normally AND concatenated with no separator, so a secret split
+        # across two arguments ("AKIA..." + "...EXAMPLE") is still caught.
+        for blob in ("\n".join(parts), "".join(parts)):
+            for v in views(blob):
+                hits += [h for h in scan_secrets(v) if h not in hits]
         if not hits:
             return []
         if cat in ("shell", "send", "network", "unknown"):
@@ -561,6 +675,45 @@ class GuardPolicy:
                             "this session has read content containing prompt-injection indicators; side effects need a human",
                             {"indicators": session["injection_flags"][:3]})]
         return []
+
+
+def _is_rootish(tok: str) -> bool:
+    t = tok.strip().strip("\"'")
+    return bool(t) and bool(re.fullmatch(_ROOTISH, t, re.IGNORECASE))
+
+
+def recursive_delete_findings(cmd: str) -> list[tuple[Decision, str]]:
+    """Flag-order- and long-option-independent analysis of rm-family deletes. A recursive+force
+    delete of a root/home/filesystem path is DENY; any other recursive delete is APPROVE. This
+    catches `rm -r -f /`, `rm --recursive --force /` and `rm -fr ~` that a single regex misses."""
+    out, seen = [], set()
+    for seg in re.split(r"[;&|\n]+|\bthen\b|\bdo\b", cmd):
+        toks = seg.strip().split()
+        idx = next((i for i, t in enumerate(toks) if re.fullmatch(r"(.*[\\/])?rm", t, re.IGNORECASE)), None)
+        if idx is None:
+            continue
+        recursive = force = False
+        targets = []
+        for t in toks[idx + 1:]:
+            if t.startswith("--"):
+                name = t[2:].split("=")[0].lower()
+                recursive = recursive or name in ("recursive", "dir")
+                force = force or name == "force"
+            elif t.startswith("-") and len(t) > 1:
+                flags = t[1:].lower()
+                recursive = recursive or "r" in flags
+                force = force or "f" in flags
+            else:
+                targets.append(t)
+        if not recursive:
+            continue
+        dec, reason = ((DENY, "recursive delete of a root, home or whole-filesystem path")
+                       if any(_is_rootish(t) for t in targets)
+                       else (APPROVE, "recursive delete"))
+        if reason not in seen:
+            seen.add(reason)
+            out.append((dec, reason))
+    return out
 
 
 def _shell_tokens(cmd: str) -> list[str]:

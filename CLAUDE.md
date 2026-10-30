@@ -55,14 +55,14 @@ Hard rules from the brief, which must never be broken:
 | `dashboard/vendor/` | pinned three.js 0.169.0, anime.js 3.2.2, Motion 11.11.17 and OFL fonts, plus `licenses/` |
 | `policy/policy.json` | agent permissions, data classes, limits |
 | `scenarios/*.json` | 7 scenarios with `expected_protected` |
-| `tests/` | 124 unittest tests (`test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py` are the v6 ones) |
-| `docs/` | ARCHITECTURE.md, THREAT_MODEL.md (T1 to T16), DEMO_SCRIPT.md (6 minutes), REAL_GUARD.md (v6 guide) |
+| `tests/` | 130 unittest tests (`test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py` are the v6 ones) |
+| `docs/` | ARCHITECTURE.md, THREAT_MODEL.md (T1 to T16), DEMO_SCRIPT.md (6 minutes), REAL_GUARD.md (v6 guide), REDTEAM_100.md (guard red-team: 6 bypass classes found & fixed) |
 | `run.bat`, `demo.bat`, `test.bat`, `find_python.bat` | Windows launchers |
 
 ## How to run and test
 
 ```bash
-python3 -m unittest discover -s tests -t .     # 124 tests, about 6 s
+python3 -m unittest discover -s tests -t .     # 130 tests, about 6 s
 python3 -m agentshield.server --open           # http://127.0.0.1:8765/
 python3 -m agentshield.demo                    # terminal before/after + fuzzer summary
 python3 -m agentshield.mcp_gateway             # JSON-RPC over stdio (simulated tools)
@@ -87,6 +87,7 @@ python3 provenant.py log -f                    # v6: live ok/BLOCK/HOLD/TAINT fe
 | v4 | a256d34, cdf51f9 | Optional Claude agent, MCP gateway with pinned manifests, risk-scored approvals, natural-language intents (EN/HI/KN/Hinglish), Windows .bat launchers, receipt-loop fix | 97 |
 | v4.1 | 6ba7f08, 4c5ffd1 | `find_python.bat`: version-checked probing, then full paths for Store or python.org installs | 97 |
 | v6 | feat/real-guard | Provenant Guard: real MCP proxy + Claude Code hook in front of real tools; real-tool policy; persistent shared audit chain; `provenant setup/wrap/install/status/log -f/approve`; pip-installable. Real Claude Code in bypassPermissions mode was blocked from `rm -rf ./*` and `cat .env`. | 124 |
+| v6.1 | feat/guard-redteam | Guard red-team pass: 128-attack catalogue vs. the real-tool guard (`agentshield/redteam_guard.py`), 10 personas + 17 benign controls. Found & fixed 6 bypass classes: rm flag-order/long-option, uncovered destructive cmds (find -delete, device overwrite, shred, `ri` alias), SSRF via alternate IP encodings, `/proc/*/environ` leak, split-field secrets, name-based tool-classification evasion. 128/128 contained, 0 false positives. docs/REDTEAM_100.md. | 130 |
 | v5 | 628e507 | Renamed to Provenant (user-facing). Brutalist dashboard. Procedural gaussian-splat particle field that reacts to DENY/ALLOW/approval. anime.js + Motion. Everything vendored offline. Motion/lite toggle and fps watchdog. Self-only CSP. Comparison runs on load. | 99 |
 
 Headline numbers (v4/v5):
@@ -98,6 +99,7 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 
 ## Status
 
+- Guard red-team pass is on branch `feat/guard-redteam` (PR into main). 128 attacks vs. the real-tool guard; 6 bypass classes found and fixed; 128/128 contained, 0 false positives; 130/130 tests pass. Dashboard results at `/mnt/project-files/provenant-redteam/results.json` (the dashboard-redesign thread renders them). Policy version `guard-2026.10-2`. See `docs/REDTEAM_100.md`. Not yet verified on the laptop.
 - main is v5 and is running on the laptop at 127.0.0.1:8765. v4 was confirmed with 97/97 tests on the laptop. The v5 pull still needs confirming there, including "Motion: full" on the real GPU.
 - Feature freeze: **11:00 IST, Oct 31 2026**. Submission window: **14:00 to 16:00 IST, Oct 31 2026**.
 
