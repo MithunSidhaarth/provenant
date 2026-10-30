@@ -26,6 +26,12 @@ jobs:
         run: |
           python -m pip install build
           python scripts/build_release.py --publish-site
+      - name: Install built wheel and smoke-test the CLI
+        run: |
+          python -m pip install --no-deps dist/*.whl
+          provenant --version
+          provenant verify
+          provenant mail status
       - name: Commit generated package assets
         run: |
           git config user.name "github-actions[bot]"
