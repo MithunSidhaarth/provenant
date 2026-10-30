@@ -191,7 +191,7 @@ class GuardViews(_ServerCase):
         audit = self.httpd.app.guard().audit
         before = self.req("/api/guard/log?after=0")[1]["stats"]
         audit.append("tool_request", "stats-test", {"tool": "Read", "mode": "live", "source": "mcp", "args": {}})
-        audit.append("policy_decision", "stats-test", {"tool": "Read", "mode": "live", "source": "mcp", "decision": "ALLOW", "source": "mcp", "reasons": []})
+        audit.append("policy_decision", "stats-test", {"tool": "Read", "mode": "live", "source": "mcp", "decision": "ALLOW", "reasons": []})
         audit.append("tool_result", "stats-test", {"tool": "Read", "mode": "live", "source": "mcp", "trust": "untrusted", "chars": 5})
         audit.append("tool_request", "stats-test", {"tool": "Bash", "mode": "live", "source": "mcp", "args": {}})
         audit.append("policy_decision", "stats-test", {"tool": "Bash", "mode": "live", "source": "mcp", "decision": "DENY", "reasons": ["test block"]})
