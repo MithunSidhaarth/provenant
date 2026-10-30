@@ -799,7 +799,7 @@ class Guard:
         s = self.store.load_session(sid)
         s["user_texts"].append(text[:4000])
         self.store.save_session(s)
-        self.audit.append("user_prompt", sid, {"source": source, "chars": len(text)})
+        self.audit.append("user_prompt", sid, {"source": source, "chars": len(text), "mode": self.mode})
 
     @_locked
     def check(self, call: GuardCall, hold: bool = True, grant: bool = True) -> Verdict:
@@ -882,7 +882,7 @@ class Guard:
             p = self.store.db.get_approval(approval_id)
             self.audit.append("approval_granted" if approve else "approval_rejected", p["session_id"],
                               {"approval_id": approval_id, "approver": approver, "channel": channel,
-                               "fingerprint": p["fingerprint"], **({"evidence": evidence} if evidence else {})})
+                               "mode": self.mode, "fingerprint": p["fingerprint"], **({"evidence": evidence} if evidence else {})})
         return r
 
     def get_approval(self, approval_id: str) -> dict | None:
