@@ -2,7 +2,7 @@ name: release
 
 # Runs on a version tag (v*) or by hand. Tests and the security evaluation must pass before anything is built.
 # Artifacts get SHA256SUMS, a CycloneDX SBOM, and Sigstore attestations (build provenance + SBOM) tied to this
-# workflow run and commit. Publishing uses the workflow's own GITHUB_TOKEN; no long-lived secrets are stored.
+# workflow run and commit. PyPI publishing uses Trusted Publishing (OIDC), not a long-lived API token.
 
 on:
   push:
@@ -57,3 +57,20 @@ jobs:
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
         with:
           files: dist/*
+
+  publish-pypi:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/provenant-agent-shield/
+    steps:
+      - uses: actions/download-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to PyPI using Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
