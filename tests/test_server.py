@@ -206,6 +206,8 @@ class GuardViews(_ServerCase):
         self.assertEqual(code, 200)
         stats = log["stats"]
         self.assertEqual(stats["tool_requests_observed"], before["tool_requests_observed"] + 2)
+        self.assertEqual(stats["mcp_tool_requests"], before["mcp_tool_requests"] + 2)
+        self.assertEqual(stats["claude_code_tool_requests"], before["claude_code_tool_requests"])
         self.assertEqual(stats["policy_decisions"], before["policy_decisions"] + 3)
         self.assertEqual(stats["allowed"], before["allowed"] + 1)
         self.assertEqual(stats["blocked"], before["blocked"] + 1)
