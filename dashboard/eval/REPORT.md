@@ -1,15 +1,15 @@
 # Provenant security evaluation
 
-Generated 2026-10-30 18:45 UTC by `python evals/run_eval.py` at commit `9615045`, policy `guard-2026.10-3`, Python 3.13.17 on Linux-6.18.44-fc-v185-x86_64-with-glibc2.39.
+Generated 2026-10-30 19:05 UTC by `python evals/run_eval.py` at commit `21ffbf5`, policy `guard-2026.10-4`, Python 3.13.17 on Linux-6.18.44-fc-v185-x86_64-with-glibc2.39.
 
 Passing these cases is evidence of coverage for the cases listed, not proof that no bypass exists.
 
 ## Policy corpus
 
-- Attacks (negative controls): **128/128 contained** (never ALLOW); 128/128 got exactly the expected decision. Decisions: {'DENY': 110, 'REQUIRE_APPROVAL': 18}.
-- Legitimate actions (positive controls): **35/35** decided as expected; no false positives.
+- Attacks (negative controls): **225/225 contained** (never ALLOW); 225/225 got exactly the expected decision. Decisions: {'DENY': 168, 'REQUIRE_APPROVAL': 57}.
+- Legitimate actions (positive controls): **53/53** decided as expected; no false positives.
 - Saved policy scenarios: 32/32.
-- Decision latency (no model call): p50 0.235 ms, p95 0.764 ms, max 3.58 ms over 975 evaluations.
+- Decision latency (no model call): p50 0.258 ms, p95 1.008 ms, max 14.43 ms over 1550 evaluations.
 
 | Category | Attacks | Contained |
 |---|---|---|
@@ -22,6 +22,15 @@ Passing these cases is evidence of coverage for the cases listed, not proof that
 | taint | 6 | 6 |
 | classify | 6 | 6 |
 | failclosed | 4 | 4 |
+| pii | 12 | 12 |
+| family | 10 | 10 |
+| cloud | 14 | 14 |
+| database | 8 | 8 |
+| credtheft | 12 | 12 |
+| exfil | 12 | 12 |
+| injection | 7 | 7 |
+| persist | 8 | 8 |
+| evasion | 14 | 14 |
 
 ## Live integration (real processes)
 
@@ -37,11 +46,11 @@ Passing these cases is evidence of coverage for the cases listed, not proof that
 | risky call is held for a human, nothing runs | pass |
 | audit chain verifies after the run | pass |
 
-Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.11 ms, through Provenant p50 12.4 ms (p95 16.84 ms). Overhead p50 ≈ 12.29 ms per call, which includes the SQLite writes and audit appends.
+Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.12 ms, through Provenant p50 12.17 ms (p95 14.74 ms). Overhead p50 ≈ 12.05 ms per call, which includes the SQLite writes and audit appends.
 
 ## Unit and integration tests
 
-169/169 passed in 10.0 s.
+169/169 passed in 9.2 s.
 
 | Area | Tests | Passed |
 |---|---|---|
@@ -59,7 +68,7 @@ Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.
 
 ## Resources
 
-Peak RSS 38.0 MB, CPU 3.08 s, wall 11.6 s for the whole evaluation.
+Peak RSS 38.6 MB, CPU 3.18 s, wall 11.0 s for the whole evaluation.
 
 ## Token efficiency
 

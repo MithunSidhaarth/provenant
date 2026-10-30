@@ -1,20 +1,20 @@
 {
- "generated_utc": "2026-10-30 18:45 UTC",
+ "generated_utc": "2026-10-30 19:05 UTC",
  "environment": {
   "python": "3.13.17",
   "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
-  "commit": "9615045",
-  "policy_version": "guard-2026.10-3",
+  "commit": "21ffbf5",
+  "policy_version": "guard-2026.10-4",
   "cpu_count": 4
  },
  "corpus": {
   "attacks": {
-   "total": 128,
-   "contained": 128,
-   "exact_match": 128,
+   "total": 225,
+   "contained": 225,
+   "exact_match": 225,
    "decisions": {
-    "DENY": 110,
-    "REQUIRE_APPROVAL": 18
+    "DENY": 168,
+    "REQUIRE_APPROVAL": 57
    },
    "by_category": [
     {
@@ -61,12 +61,57 @@
      "category": "failclosed",
      "total": 4,
      "contained": 4
+    },
+    {
+     "category": "pii",
+     "total": 12,
+     "contained": 12
+    },
+    {
+     "category": "family",
+     "total": 10,
+     "contained": 10
+    },
+    {
+     "category": "cloud",
+     "total": 14,
+     "contained": 14
+    },
+    {
+     "category": "database",
+     "total": 8,
+     "contained": 8
+    },
+    {
+     "category": "credtheft",
+     "total": 12,
+     "contained": 12
+    },
+    {
+     "category": "exfil",
+     "total": 12,
+     "contained": 12
+    },
+    {
+     "category": "injection",
+     "total": 7,
+     "contained": 7
+    },
+    {
+     "category": "persist",
+     "total": 8,
+     "contained": 8
+    },
+    {
+     "category": "evasion",
+     "total": 14,
+     "contained": 14
     }
    ]
   },
   "benign": {
-   "total": 35,
-   "allowed_as_expected": 35,
+   "total": 53,
+   "allowed_as_expected": 53,
    "false_positives": []
   },
   "scenarios": {
@@ -74,10 +119,10 @@
    "passed": 32
   },
   "latency_ms": {
-   "p50": 0.235,
-   "p95": 0.764,
-   "max": 3.58,
-   "samples": 975
+   "p50": 0.258,
+   "p95": 1.008,
+   "max": 14.43,
+   "samples": 1550
   }
  },
  "live": {
@@ -132,25 +177,25 @@
   "total": 9,
   "timing_ms": {
    "direct": {
-    "p50": 0.11,
-    "p95": 0.14,
-    "mean": 0.12,
+    "p50": 0.12,
+    "p95": 0.21,
+    "mean": 0.13,
     "n": 50
    },
    "proxied": {
-    "p50": 12.4,
-    "p95": 16.84,
-    "mean": 13.05,
+    "p50": 12.17,
+    "p95": 14.74,
+    "mean": 12.57,
     "n": 50
    },
-   "overhead_ms_p50": 12.29
+   "overhead_ms_p50": 12.05
   }
  },
  "unit_tests": {
   "ran": 169,
   "failures": 0,
   "errors": 0,
-  "seconds": 10.0,
+  "seconds": 9.2,
   "by_area": [
    {
     "area": "simulated world (policy engine, fuzzer, scenarios, server)",
@@ -211,9 +256,9 @@
   "failed": []
  },
  "resources": {
-  "peak_rss_mb": 38.0,
-  "cpu_seconds": 3.08,
-  "wall_seconds": 11.6
+  "peak_rss_mb": 38.6,
+  "cpu_seconds": 3.18,
+  "wall_seconds": 11.0
  },
  "token_benchmark": {
   "workload": "15-step scripted repository investigation (evals/token_bench.py)",
