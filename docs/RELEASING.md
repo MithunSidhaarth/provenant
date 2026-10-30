@@ -17,7 +17,8 @@ PyPI name availability and account-level publisher settings cannot be changed by
 ## Release steps
 
 1. Merge the release changes to `main`.
-2. Confirm CI and the release verification job pass. The workflow runs unit tests, the security evaluation, dependency audits, builds wheel + sdist, and installs the wheel to smoke-test `provenant --version` and `provenant verify`.
+2. Wait for the `build-package-artifacts` workflow to finish and commit the refreshed wheel, source distribution, checksums, download metadata, and installer hash to `main`.
+3. Confirm CI and the release verification job pass. The workflow runs unit tests, the security evaluation, dependency audits, builds wheel + sdist, and installs the wheel to smoke-test `provenant --version` and `provenant verify`.
 4. Confirm the PyPI Trusted Publisher is configured and the distribution name is available.
 5. Create and push a version tag matching the version in `pyproject.toml`, for example `v0.10.0`.
 6. Follow [the release workflow](https://github.com/MithunSidhaarth/provenant/actions/workflows/release.yml). It attaches build artifacts to a GitHub release and publishes them to PyPI only for version tags.
