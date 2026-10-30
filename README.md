@@ -138,16 +138,169 @@ docs/                ARCHITECTURE.md, THREAT_MODEL.md, DEMO_SCRIPT.md
 - **Red team:** the loop finds exactly the blind classes. Its proposals close them without adding false positives, its generated regression tests pass, and the live policy stays untouched.
 - **HTTP:** CSRF header, malformed JSON, body size limit, unknown routes, path traversal, a self-only CSP, vendored assets served offline, and the playground failing closed.
 
-## Limitations
+## Limitations and production-hardening plan
 
-- **Simulation only.** Tools act on an in-memory world. No email, payment, shell or network is real, and this is by design.
-- **Scripted agent.** The default "model" is a deterministic plan plus a gullible directive parser, so the demo is reproducible and works without a model API. A real LLM would produce more varied calls. The enforcement point does not depend on which model proposes them.
-- **Provenance is value-based.** A control argument is tainted when its exact value appears in untrusted content and not in the user's request. An attacker who gets the model to *transform* a value (for example by encoding it or splitting it) evades this rule. Boundary, permission, DLP and approval rules still apply, which the ablation matrix shows.
-- **Injection detection is heuristic** and is used as evidence and an escalation signal, never as the boundary.
-- **DLP is pattern-based**, covering canaries, known vault values, SSN and card shapes. It is not a complete data classifier.
-- **Single-user local demo.** The approver identity is a typed name protected by a custom-header CSRF check and a loopback-only bind. Production would need real authentication for approvers.
-- **Audit tamper-evidence**, not tamper-proofing. Truncating the tail produces a shorter valid chain. Detect this by anchoring the head hash externally (the verify endpoint returns it). The HMAC key lives in process memory or the environment.
-- **One single point of failure.** The ablation matrix shows it: if the `data_classification` rule is removed, a direct user request for an SSN is allowed, because reads are not otherwise gated. Output-side redaction of tool results would close this gap and is the next control to add. Every other rule can be removed individually and every attack stays contained.
+Provenant is a promising security prototype, **not yet a certified or universally reliable production security boundary**. The local Guard, MCP proxy and Claude Code hooks are real integration code, while the attack lab, fake business systems and hosted dashboard are simulations/dry runs. The existing tests demonstrate specific behaviors in controlled cases; they do not establish that every real agent, tool, operating system or attack is covered. Treat the mitigations below as engineering work to validate, not guarantees that are already implemented.
+
+For each limitation, three mitigation paths are listed. They are complementary options; a production deployment should choose a documented baseline and test it.
+
+### 1. Incomplete enforcement coverage — critical
+
+**Limitation:** Provenant can only enforce actions that pass through an installed and correctly configured integration. An agent may use an unwrapped MCP server, a direct SDK/API call, another subprocess, a browser extension, a second tool route or a manually invoked command outside the Guard. Hooks and a proxy do not automatically mediate every action on a machine.
+
+**Mitigations (three):**
+1. **Make the boundary explicit:** maintain a machine-readable inventory of every agent, tool, MCP server, hook and credential; show coverage as *protected*, *unprotected* or *unknown*, and fail deployment checks when required routes are missing.
+2. **Enforce below the agent:** run agents in a dedicated OS/container/VM identity with least-privilege filesystem mounts, restricted process execution and network egress. Do not give the agent alternate credentials that bypass the gateway.
+3. **Prove coverage adversarially:** test direct API calls, subprocesses, alternate MCP configurations, hook removal, restarts and disabled services. Add a canary action that must be denied and alert if it succeeds outside the expected enforcement path.
+
+### 2. Shell and command interpretation — critical
+
+**Limitation:** Pattern-based command checks are not a complete shell parser. Shell expansion, quoting, aliases, chained commands, nested interpreters, PowerShell, platform differences and encoding can change what a command actually does. A regex match can miss a dangerous command or flag a harmless one.
+
+**Mitigations (three):**
+1. **Prefer structured tools:** replace arbitrary shell access with typed, narrow operations (for example, read a specified file or run a named test) whose arguments are validated against schemas and allow-lists.
+2. **Use OS isolation:** execute any unavoidable shell command in a disposable, unprivileged sandbox with a read-only base filesystem, restricted writable directories, resource limits and no host secrets.
+3. **Test semantics, not strings:** build cross-platform adversarial tests for quoting, substitutions, command chaining, environment expansion, nested shells and encodings; run the actual command in an isolated test harness and assert filesystem/process/network outcomes.
+
+### 3. MCP and integration coverage — high
+
+**Limitation:** The MCP proxy and the optional MCP-style gateway do not establish support for every MCP client, transport, server configuration or protocol feature. The repository documents a limited JSON-RPC/tool subset in the demo gateway, and the real Guard CLI may skip remote MCP configurations it cannot safely wrap. Unsupported integrations can create blind spots.
+
+**Mitigations (three):**
+1. **Define a supported compatibility matrix:** publish tested client/server versions, transports and protocol operations; mark unsupported or skipped servers clearly instead of implying they are protected.
+2. **Fail closed for required routes:** if a required server cannot be wrapped, stop startup or require an explicit, auditable exception. Never silently label an unwrapped server as protected.
+3. **Run protocol conformance tests:** test initialization, discovery, tool calls, errors, notifications, timeouts, reconnects, cancellation and server restarts against real representative MCP clients and servers.
+
+### 4. Value-transforming prompt injection and provenance — high
+
+**Limitation:** Value-based taint tracking can miss a relationship when a model transforms untrusted input—for example, encoding a destination, splitting it across fields, paraphrasing it or deriving a new identifier. A value not literally copied from a document is not necessarily trustworthy.
+
+**Mitigations (three):**
+1. **Track provenance through transformations:** carry source labels and lineage metadata through model context, tool results and derived arguments, where the integration permits it; treat unknown lineage conservatively.
+2. **Constrain destinations and authority independently:** enforce recipient, tenant, account, file path, amount and operation allow-lists based on trusted policy, not on whether an argument appears tainted.
+3. **Use transaction-level checks:** compare proposed side effects with an authenticated user intent or approved task specification; require fresh approval when a destination, amount or scope is newly introduced or materially changed.
+
+### 5. Data classification, read-side exposure and output DLP — critical
+
+**Limitation:** Pattern-based DLP can miss secrets and sensitive information that do not match known formats, and can produce false positives. A policy may not classify every field or data source. A secret can be exposed when read, before any outbound email or network action occurs. Output redaction is not a substitute for limiting access to sensitive sources.
+
+**Mitigations (three):**
+1. **Minimize access at source:** use scoped credentials, per-tool permissions, tenant-aware queries and field-level access controls; deny reads of sensitive data unless the task and principal are authorized.
+2. **Inspect both input and output paths:** apply configurable classification and redaction to tool results, model context and outbound payloads, with structured-data inspection and secret-manager integration where appropriate.
+3. **Validate with a labelled corpus:** test realistic and synthetic secrets, multilingual content, split/encoded values, documents and false-positive cases; measure both leakage and utility before enabling a rule in enforcement mode.
+
+### 6. Network egress, redirects and destination confusion — high
+
+**Limitation:** Checking a URL or hostname alone may not establish where a connection ultimately goes. DNS answers can change, redirects can lead elsewhere, and proxies, IPv6, alternate IP formats or cloud metadata endpoints can complicate destination checks. This is a general risk to validate against each network-capable tool; it is not a claim that a specific exploit has been reproduced in this repository.
+
+**Mitigations (three):**
+1. **Enforce egress outside the application:** use firewall, proxy or service-mesh rules to allow only approved destinations and block private, loopback, link-local and metadata ranges unless explicitly required.
+2. **Validate every connection hop:** resolve and validate addresses at connection time, re-check redirects, restrict protocols and ports, and avoid a time-of-check/time-of-use gap between validation and connection.
+3. **Use destination-bound capabilities:** issue short-lived grants scoped to a specific operation, destination and payload class; do not let an agent freely choose arbitrary URLs with a broadly privileged network credential.
+
+### 7. Human approvals, identity and replay — critical
+
+**Limitation:** Human approval is a control, not a guarantee: an approver may be tricked, fatigued or unable to understand the full impact. A local demo's typed approver identity is not production authentication. In distributed deployments, races or weak state handling could also create replay or double-execution risks unless explicitly prevented.
+
+**Mitigations (three):**
+1. **Use real identity and authorization:** authenticate approvers through an established identity provider, enforce roles and separation of duties, and require stronger authentication for high-impact actions.
+2. **Bind approval to the exact operation:** display normalized arguments, destination, data classification, provenance, side effects and policy version; bind approval to a fingerprint, expire it, consume it atomically once, and re-evaluate policy immediately before execution.
+3. **Reduce approval fatigue:** batch low-risk actions only under explicit limits, require a second approver for high-impact actions, rate-limit repeated requests and make certain prohibited actions impossible to override.
+
+### 8. Audit integrity, key management and independent evidence — high
+
+**Limitation:** A hash chain detects many changes within the retained chain, but does not by itself prevent deletion of the tail, deletion of the entire log, or a privileged attacker from rewriting data if they also control the signing key and storage. A key kept in process memory or an environment variable is not a full enterprise key-management system.
+
+**Mitigations (three):**
+1. **Export logs off-host:** stream signed, structured events to append-only or WORM storage controlled by a separate security boundary.
+2. **Anchor checkpoints independently:** periodically sign and publish the latest sequence number and hash to a separate account or trusted timestamping service; alert on gaps or stale checkpoints.
+3. **Harden key handling:** use a KMS/HSM or managed secret store, rotate keys, separate signing permissions from log administration, and document recovery and compromise procedures.
+
+### 9. State, concurrency and distributed deployment — high
+
+**Limitation:** In-memory approvals, sessions, rate limits or audit state may disappear on restart or differ between processes/instances. The hosted demo explicitly keeps state in memory per function instance, so it is not a durable multi-user enforcement service. Concurrent requests can also race unless state transitions are atomic.
+
+**Mitigations (three):**
+1. **Use durable shared state:** store approvals, nonces, grant usage and audit sequence metadata in a transactional database or durable queue with explicit retention and recovery policies.
+2. **Make side effects idempotent:** use atomic single-use grant consumption, unique operation IDs, idempotency keys and transactional outbox patterns where supported to avoid duplicate execution after retries.
+3. **Test failure and concurrency:** simulate process restarts, multiple workers, network partitions, retries, clock skew and simultaneous approval attempts; verify that a missing or inconsistent state fails closed for sensitive actions.
+
+### 10. Multi-tenant isolation and credential handling — critical for SaaS
+
+**Limitation:** The current hosted demo is a simulation, not a production multi-tenant control plane. A real service would need to prevent one customer from seeing another customer's policies, prompts, logs, approvals, credentials or execution results. Any central service that stores powerful agent credentials becomes a high-value target.
+
+**Mitigations (three):**
+1. **Isolate tenant data and execution:** enforce tenant identity at every API and storage boundary, use per-tenant authorization checks and keys, and prefer separate worker/container identities for sensitive workloads.
+2. **Avoid centralizing raw secrets:** use short-lived scoped credentials or customer-controlled secret managers; never place secrets in prompts, logs, analytics or approval notifications.
+3. **Prove isolation:** add cross-tenant negative tests, authorization fuzzing, object-level access checks, backup/restore tests and independent penetration testing before offering hosted enforcement.
+
+### 11. Fail-closed behavior, availability and recovery — high
+
+**Limitation:** A policy engine can fail because of malformed configuration, unavailable state, resource exhaustion, an upstream timeout or an unexpected exception. Failing closed protects sensitive actions but may interrupt legitimate work; falling back to unprotected execution is unsafe.
+
+**Mitigations (three):**
+1. **Define action-specific failure modes:** deny sensitive writes and data exports when authorization cannot be established; allow only explicitly designated low-risk read-only actions under a reviewed degraded-mode policy.
+2. **Make failure observable:** expose health/readiness checks, policy-load status, queue depth, decision latency, dropped events and upstream failures; alert on any bypass, fallback or stale policy.
+3. **Exercise recovery paths:** test corrupt policies, unavailable databases, crashed proxies, full disks, timeouts and upgrades; provide safe rollback, versioned policy deployment and a break-glass process that is authenticated and audited.
+
+### 12. Policy configuration and rule interaction — high
+
+**Limitation:** Deterministic enforcement is only as good as the policy, tool schemas and precedence rules. Incorrect permissions, missing classifications, overly broad allow-lists or a new tool with unsafe defaults can authorize the wrong operation. Rule-ablation tests are useful but do not prove every combination of rules is safe.
+
+**Mitigations (three):**
+1. **Use policy-as-code reviews:** version policies, require peer review for production changes, validate schemas and reject unknown fields or unsafe defaults before activation.
+2. **Stage changes:** run new policies in offline evaluation and shadow mode, compare decisions against a labelled corpus, then roll out gradually with a tested rollback path.
+3. **Test interactions:** add property-based and mutation tests for combinations of rules, tool schema changes, missing classifications and conflicting decisions; require a deny-dominant, documented decision combiner.
+
+### 13. Evaluation coverage and benchmark claims — high
+
+**Limitation:** The README's fuzzer results describe the current synthetic corpus and deterministic simulated environment. They are not a universal real-world attack-success rate. Detection, policy denial, approval escalation and actual prevention are different metrics. The optional LLM integration has been tested offline with a fake client in this repository and has not been validated against a live API here.
+
+**Mitigations (three):**
+1. **Publish reproducible evaluation artifacts:** version the corpus, seeds, policies, dependencies and commands; report counts and denominators for containment, DENY-only, approval holds, detection, false positives and task completion separately.
+2. **Add diverse independent tests:** include real models, multiple agent frameworks, multilingual and multi-step attacks, adaptive attackers, benign tasks, and independently authored red-team cases.
+3. **Test actual effects in isolation:** use disposable files and mock services to verify whether the side effect occurred; label simulation, mocked integration, local real-tool test and production deployment results separately.
+
+### 14. Supply-chain, updates and runtime integrity — high
+
+**Limitation:** A local security tool can be undermined by a compromised dependency, tampered installer, modified hook configuration, malicious update or a process with enough privilege to change the Guard itself. A security product should not assume the component protecting an agent is itself untampered.
+
+**Mitigations (three):**
+1. **Make releases verifiable:** pin dependencies, generate an SBOM, sign release artifacts, publish checksums and provenance, and protect release workflows with review and least privilege.
+2. **Detect configuration drift:** verify hook/proxy installation and policy hashes at startup; alert when the Guard is disabled, replaced, outdated or running with unexpected permissions.
+3. **Minimize trust and privilege:** keep the enforcement service separate from the agent identity where practical, restrict who can modify policies and binaries, and test upgrade/rollback paths in a clean environment.
+
+### 15. Privacy, retention and operational governance — high for enterprise use
+
+**Limitation:** Tool arguments, prompts, tool results and audit evidence may contain personal data, confidential business information or credentials. Logging too much creates a second sensitive-data store; logging too little may make incidents impossible to investigate. Production use also requires clear retention, access, incident-response and customer-data handling rules.
+
+**Mitigations (three):**
+1. **Minimize and redact by default:** record decisions, fingerprints, policy IDs and bounded evidence instead of full payloads; redact secrets before persistence and make sensitive payload capture explicit and time-limited.
+2. **Add governance controls:** define retention/deletion schedules, access roles, export controls, data residency requirements and an auditable access trail for the audit trail itself.
+3. **Prepare for incidents:** document breach response, key rotation, customer notification, forensic preservation and recovery; run tabletop exercises before handling sensitive production workloads.
+
+### 16. Deployment boundary and threat-model assumptions — critical
+
+**Limitation:** Provenant does not protect against every attacker. An attacker with code execution inside the Guard process, control of its host, authority to change its policy, or access to its signing key may be able to bypass or undermine controls. A local process is not a substitute for a hardened host or a separate trust boundary.
+
+**Mitigations (three):**
+1. **Separate trust domains:** place execution and policy enforcement in different OS identities or services; limit write access to the Guard binary, configuration and key material.
+2. **Use external controls:** combine Provenant with endpoint protection, OS access controls, network egress policy, secrets management and isolated execution environments.
+3. **Document and test the threat model:** state what attackers can control, which assets are protected, and what is out of scope; run periodic independent security reviews and publish the status of unresolved findings.
+
+## Production-readiness gates
+
+Before describing a deployment as production-ready, work through these gates and publish evidence for each:
+
+- [ ] **Coverage:** inventory all tool routes and demonstrate that required actions cannot execute outside the enforcement boundary.
+- [ ] **Isolation:** execute agents with least privilege and enforce filesystem, process and network restrictions outside the LLM.
+- [ ] **Identity and state:** durable approvals, authenticated approvers, atomic single-use grants, replay protection and multi-worker tests.
+- [ ] **Data security:** source-level access control, result/output inspection, secret handling and documented retention.
+- [ ] **Operational resilience:** health checks, alerts, policy versioning, recovery tests, external audit anchoring and safe rollback.
+- [ ] **Independent evaluation:** reproducible red-team tests against actual integrations, with failures and false positives reported transparently.
+- [ ] **Security review:** dependency and release integrity checks, threat-model review, and an independent penetration test appropriate to the deployment.
+
+Until those gates are demonstrated, describe Provenant as a **security prototype with real local integrations and a simulated hosted demo**, not as a complete enterprise agent-security solution. Do not claim that it makes agents impossible to compromise or that a benchmark proves universal containment.
 
 ## Responsible use
 
