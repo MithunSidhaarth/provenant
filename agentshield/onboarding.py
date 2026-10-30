@@ -160,7 +160,7 @@ def self_test(g: guard_mod.Guard | None = None) -> dict:
         _verify_record_path(g.store.home).write_text(json.dumps(record), encoding="utf-8")
     except OSError:
         pass
-    return {**record, "steps": steps, "audit_entries": mine,
+    return {**record, "ok": passed, "audit": {"ok": chain["ok"], "checked": chain["checked"]}, "steps": steps, "audit_entries": mine,
             "verified": ["the local policy engine allows a harmless call and issues a single-use grant",
                          "a grant cannot be reused for different arguments",
                          "a forbidden command is denied and its simulated side effect did not happen",
