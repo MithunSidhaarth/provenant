@@ -767,6 +767,15 @@ def main(argv: list[str] | None = None) -> int:
     if cmd in ("-V", "--version", "version"):
         print(f"provenant {VERSION}")
         return 0
+    if cmd == "dashboard":
+        from .maintenance import dashboard
+        return dashboard(rest)
+    if cmd == "update":
+        from .maintenance import update
+        return update(rest)
+    if cmd == "test":
+        from .maintenance import test
+        return test("--json" in rest)
     if cmd == "proxy":
         from .mcp_proxy import main as proxy_main
         return proxy_main(rest)
