@@ -1,0 +1,59 @@
+{
+ "bomFormat": "CycloneDX",
+ "specVersion": "1.5",
+ "serialNumber": "urn:uuid:18370382-937d-467e-9add-89f742be160d",
+ "version": 1,
+ "metadata": {
+  "timestamp": "2026-10-30T17:54:24Z",
+  "component": {
+   "type": "application",
+   "name": "provenant",
+   "version": "0.8.0",
+   "purl": "pkg:pypi/provenant@0.8.0",
+   "externalReferences": [
+    {
+     "type": "vcs",
+     "url": "https://github.com/MithunSidhaarth/provenant"
+    }
+   ]
+  }
+ },
+ "components": [
+  {
+   "type": "file",
+   "name": "provenant-0.8.0-py3-none-any.whl",
+   "hashes": [
+    {
+     "alg": "SHA-256",
+     "content": "f8caef867303c966092390b5c4078bd84ef1ec9e888a73ae6c1dd6d67b633783"
+    }
+   ]
+  },
+  {
+   "type": "file",
+   "name": "provenant-0.8.0.tar.gz",
+   "hashes": [
+    {
+     "alg": "SHA-256",
+     "content": "7221ba17587d9485cf435dfd7beee36ef113099e81c8904d4e935ec7f4958224"
+    }
+   ]
+  }
+ ],
+ "dependencies": [
+  {
+   "ref": "pkg:pypi/provenant@0.8.0",
+   "dependsOn": []
+  }
+ ],
+ "properties": [
+  {
+   "name": "runtime-dependencies",
+   "value": "none (Python standard library only)"
+  },
+  {
+   "name": "requires-python",
+   "value": ">=3.10"
+  }
+ ]
+}

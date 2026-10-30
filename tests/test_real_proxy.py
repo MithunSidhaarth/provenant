@@ -115,6 +115,20 @@ class RealProxy(unittest.TestCase):
         r, text = self.call("run_command", command="echo hi")
         self.assertIn("changed since it was first approved", text)
 
+    def test_protocol_bypasses_are_refused(self):
+        self.rpc("tools/list")
+        target = self.ws / "notif.txt"
+        self.p.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "tools/call",       # no id: a notification
+                                       "params": {"name": "write_file", "arguments": {"path": str(target), "content": "x"}}}) + "\n")
+        self.p.stdin.flush()
+        self.assertIn("result", self.rpc("tools/list"))                                # round trip: server saw it all
+        self.assertFalse(target.exists())
+        r = self.rpc("admin/exec", {"cmd": "id"})
+        self.assertEqual(r["error"]["code"], -32601)
+        self.assertIn("allow-list", r["error"]["message"])
+        r = self.rpc("resources/read", {"uri": "file://" + str(self.ws / ".env")})
+        self.assertTrue(r["result"]["content"][0]["text"].startswith("DENY"))
+
     def test_audit_chain_is_intact(self):
         self.rpc("tools/list")
         self.call("run_command", command="echo a")

@@ -4,7 +4,7 @@ This file is the single source of truth for any agent or person who picks up thi
 
 **Keep it current.** After every milestone, update the "Status", "Version history" and "Next steps" sections. Commit and push the update with the work.
 
-Last updated: 2026-10-30 14:20 UTC, after v6 (Provenant Guard: real blocking for real tools), on branch `feat/real-guard`.
+Last updated: 2026-10-30 18:05 UTC, after v8 (live runtime, eval suite, website + download, MCP tool server), on branch `claude/project-thread-s36b3g`.
 
 ## Product
 
@@ -55,17 +55,30 @@ Hard rules from the brief, which must never be broken:
 | `web/src/` | React 18 + Motion 11 + anime.js 3 source: `main.jsx`, `Hero.jsx` (intro + draggable before/after), `Guard.jsx` (MCP section, install, checker, feed, red-team), `Sim.jsx` (lab, playground, approvals, evidence, audit, policy). Rebuild: `cd web && npm install && npm run build` |
 | `api/index.py`, `vercel.json` | hosted demo on Vercel (static `dashboard/` + the stdlib server as a Python function, `PROVENANT_HOSTED=1`) |
 | `dashboard/vendor/` | OFL fonts (Bricolage Grotesque, Geist, Geist Mono) plus `licenses/` |
-| `docs/guard_redteam.json` | Guard red-team results (128 attacks) shown on the dashboard |
+| `docs/guard_redteam.json` | Guard red-team results (128 attacks), **regenerated from code by `evals/run_eval.py`**, shown on the dashboard |
+| `agentshield/state.py` | v8: SQLite authorization state (WAL, BEGIN IMMEDIATE, conditional updates): approvals, single-use grants, sessions, checkpoints. `demo-state.db` and `state.db` are separate; every record carries its mode |
+| `agentshield/netguard.py` | v8: destination validation (decimal/hex/octal/IPv6-mapped IPs), resolve-then-pin connections, redirect revalidation |
+| `agentshield/voice.py` | v8: phone approval via claude-call-me (`call.ps1`, Bolna). The transcript is checked deterministically (approval word + 4-digit HMAC code); only `Guard.decide(channel="phone")` changes state. **Not yet tested with a real call.** |
+| `agentshield/tool_server.py` | v8: `provenant serve`, a gateway-first MCP stdio server with structured tools (read_file, list_directory, search_text, run_tests, write_file, http_get; run_command only with `--allow-shell`). Check, then redeem grant, then execute |
+| `agentshield/efficiency.py` | v8: output shaping (outline + targeted reads), test-output trimming, freshness-keyed cache, dedup |
+| `agentshield/anchor.py`, `policysim.py` | v8: audit checkpoints to an external dir, retention/prune, export; policy simulator (`provenant policy test/lint/explain`) |
+| `evals/` | v8: `run_eval.py` (128 attacks with `{{fake:NAME}}` placeholders, 35 benign, 32 scenarios, live proxy checks), `token_bench.py`. Outputs in `docs/eval/` and copied to `dashboard/eval/` |
+| `scripts/build_release.py`, `.github/workflows/` | v8: wheel + sdist + SHA256SUMS + CycloneDX SBOM + provenance; `--publish-site` copies to `dashboard/download/` (the site's Download button). CI and release workflows pin actions to SHAs; **neither has run on GitHub yet** |
+| `web/src/Product.jsx` | v8 site sections: how it works, phone approval (visualization), efficiency, features (tested/experimental/planned), download, trust, demo video (reads `dashboard/media/manifest.json`) |
 | `policy/policy.json` | agent permissions, data classes, limits |
 | `scenarios/*.json` | 7 scenarios with `expected_protected` |
-| `tests/` | 124 unittest tests (`test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py` are the v6 ones) |
+| `tests/` | 166 unittest tests (`test_live.py` is v8; `test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py` are v6) |
 | `docs/` | ARCHITECTURE.md, THREAT_MODEL.md (T1 to T16), DEMO_SCRIPT.md (6 minutes), REAL_GUARD.md (v6 guide) |
 | `run.bat`, `demo.bat`, `test.bat`, `find_python.bat` | Windows launchers |
 
 ## How to run and test
 
 ```bash
-python3 -m unittest discover -s tests -t .     # 124 tests, about 6 s
+python3 -m unittest discover -s tests -t .     # 166 tests, about 7 s
+python3 evals/run_eval.py                      # v8 security eval (fails on any miss or false positive)
+python3 evals/token_bench.py                   # v8 token benchmark
+python3 provenant.py serve --workspace .       # v8 gateway MCP tool server (stdio)
+python3 scripts/build_release.py --publish-site  # v8: rebuild the downloadable release AFTER committing code
 python3 -m agentshield.server --open           # http://127.0.0.1:8765/
 python3 -m agentshield.demo                    # terminal before/after + fuzzer summary
 python3 -m agentshield.mcp_gateway             # JSON-RPC over stdio (simulated tools)
@@ -91,6 +104,7 @@ python3 provenant.py log -f                    # v6: live ok/BLOCK/HOLD/TAINT fe
 | v4.1 | 6ba7f08, 4c5ffd1 | `find_python.bat`: version-checked probing, then full paths for Store or python.org installs | 97 |
 | v7 | split-redesign | Dashboard rebuilt from scratch in React + Motion + anime.js (Split design: load sequence, draggable before/after hero, DENY stamps). New Guard/MCP section: install steps, status, dry-run checker, live feed, held calls, red-team results. Guard endpoints hardened (masking, Host check, derived fields). Hosted demo on Vercel. | 131 |
 | v6 | feat/real-guard | Provenant Guard: real MCP proxy + Claude Code hook in front of real tools; real-tool policy; persistent shared audit chain; `provenant setup/wrap/install/status/log -f/approve`; pip-installable. Real Claude Code in bypassPermissions mode was blocked from `rm -rf ./*` and `cat .env`. | 124 |
+| v8 | 110fd78, 740cc90, b6e74da | Live runtime: SQLite approvals + single-use call-bound grants, demo/live separation, phone-approval adapter (claude-call-me), netguard pinning, gateway MCP tool server with structured tools, audit anchoring + retention, privacy detail levels, policy simulator. Closed a notification-shaped `tools/call` proxy bypass and 18 guard gaps that the old red-team file hid. Eval suite + token benchmark. Release pipeline (SBOM, SHA256SUMS, provenance). Website: product sections, real Download, mobile layout fixes | 166 |
 | v5 | 628e507 | Renamed to Provenant (user-facing). Brutalist dashboard. Procedural gaussian-splat particle field that reacts to DENY/ALLOW/approval. anime.js + Motion. Everything vendored offline. Motion/lite toggle and fps watchdog. Self-only CSP. Comparison runs on load. | 99 |
 
 Headline numbers (v4/v5):
@@ -98,9 +112,17 @@ Headline numbers (v4/v5):
 - Benign corpus (12 documents): 0% task false positives and 16.7% detection false positives.
 - With the red-team proposals applied: detection 96.7%, DENY-alone 100%.
 
+Headline numbers (v8, measured at b6e74da, `docs/eval/`):
+- Attacks 128/128 contained (110 DENY, 18 REQUIRE_APPROVAL); benign 35/35 allowed; scenarios 32/32; live proxy checks 9/9; tests 166/166.
+- Policy decision p50 about 0.15 ms; proxy overhead p50 about 14 ms.
+- Token benchmark (one scripted workload, tokens estimated as chars/4): tool-result context tokens -72%, cumulative input -56%, tool calls 15 to 21, task success 15/15 in both runs.
+
 Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes, so **GitHub has only `main`**. Packaged zips are in the project files under `agentshield/` (`provenant-demo-safe-v5.zip`).
 
 ## Status
+
+- **v8** is on branch `claude/project-thread-s36b3g` with a PR to main. Wheel installed in a clean venv and `provenant serve` answered initialize, tools/list, an allowed read and a held path-escape over stdio. Website walkthrough (desktop 1440 and mobile 390): no horizontal overflow, zero console errors, Download returns the wheel.
+- Launch deck: `/mnt/project-files/provenant-launch/deck/` (PPTX, PDF, speaker script). Video narration script: `/mnt/project-files/provenant-launch/video/NARRATION_SCRIPT.md`. Video render is in progress; when done, put the mp4 + poster in `dashboard/media/` and set `manifest.json`.
 
 - v7 (dashboard rebuild + Guard section) is on branch `split-redesign` with a PR to main and a hosted demo on Vercel (project `provenant`, team meth2). Rebuild the bundle with `cd web && npm run build` after any change in `web/src`.
 - main was v5 and is running on the laptop at 127.0.0.1:8765. v4 was confirmed with 97/97 tests on the laptop. The v5 pull still needs confirming there, including "Motion: full" on the real GPU.
@@ -111,6 +133,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 1. **Bounty vs. fixing the paraphrase provenance gap first.** This was raised by the research thread; see the artifact https://claude.ai/artifact/NAAj8MsVYj54YrUVFg17Lr. Taint is value-based, so an injection that gets the model to paraphrase or transform a recipient or amount evades the provenance rule. The other rules still contain it. The choice is between closing that gap before the freeze and spending the time on the bounty angle. This is mithun's decision.
 
 ## Known limitations (be honest about these in the demo)
+
+- v8: phone approval has never run with a real call (needs claude-call-me + Bolna credentials on the laptop); label it simulated until it has. The GitHub CI and release workflows are written but have not run. The token benchmark is one workload with estimated tokens. Vercel production has SSO protection "all_except_custom_domains", so the vercel.app URL may need a custom domain or a protection change to be public.
 
 - Guard (v6): shell analysis is pattern-based (an agent can write a script, then run it); `approve` needs a TTY, which is a speed bump, not a proof; remote HTTP MCP servers are not proxied yet; not yet tried on the Windows laptop or with a third-party MCP server (npx download was blocked in the cloud container).
 
@@ -123,6 +147,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 - The Windows launchers can't be tested in the cloud container.
 
 ## Next steps
+
+00. v8: merge the PR (Vercel deploys production on merge). On the laptop: `git pull`, `test.bat` (166), `provenant.bat serve --workspace D:\AUTO\provenant` from an MCP client. Try a real phone approval with claude-call-me and only then call it working. Push a `v0.8.0` tag (or run the release workflow by hand) if tag pushes are allowed from the laptop.
 
 0. v6: merge the `feat/real-guard` PR. On the laptop: `git pull`, `test.bat` (124), `provenant.bat setup`, restart Claude Desktop, then `provenant.bat log -f` during the demo. Add a Guard segment to DEMO_SCRIPT.md (live Claude Code blocked from `rm -rf` / `.env`).
 
