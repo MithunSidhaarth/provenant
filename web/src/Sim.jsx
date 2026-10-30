@@ -45,8 +45,8 @@ export function Lab() {
   };
   const inj = res?.before?.trace?.steps?.[0]?.result?.injection_indicators || [];
   return (
-    <Section id="lab" kicker="Attack lab" title={<>Write your own <em>poison.</em></>}
-      lede="Paste anything an agent might read: an email, a web page, a support ticket. The scripted agent obeys whatever it finds, so you see what an unprotected agent does and what Provenant lets through.">
+    <Section id="lab" kicker="Attack lab · simulated tools" title={<>Write your own <em>poison.</em></>}
+      lede="Simulation only: paste a sample email, web page or support ticket. A scripted test runner compares policy outcomes; it does not launch a real agent or execute real tools, and these results are not live activity statistics.">
       <div className="lab-grid">
         <Reveal className="card">
           <div className="presets">{LAB_SAMPLES.map((s) => <button key={s.label} className="preset" onClick={() => setText(s.text)}>{s.label}</button>)}</div>
@@ -101,8 +101,8 @@ export function Playground({ tools }) {
   };
   const step = res?.trace?.steps?.[0]?.result;
   return (
-    <Section id="playground" kicker="Policy playground" title={<>Ask the gate <em>anything.</em></>}
-      lede="Build one tool call by hand. Say where its arguments came from (the user's request or retrieved text) and watch which rules fire.">
+    <Section id="playground" kicker="Policy playground · dry run" title={<>Ask the gate <em>anything.</em></>}
+      lede="Evaluate a hypothetical tool call against the policy. This dry run does not execute the tool and is kept separate from the live Guard audit feed.">
       <div className="lab-grid">
         <Reveal className="card">
           <div className="presets">{PG_PRESETS.map((p, i) => (
@@ -155,8 +155,8 @@ export function Approvals({ refreshKey, onChange }) {
     catch (e) { setErr(e); }
   };
   return (
-    <Section id="approvals" kicker="Human in the loop" title={<>High-impact calls <em>wait for a name.</em></>}
-      lede="A held call gets a single-use grant bound to its exact arguments. Change one character and the grant no longer matches.">
+    <Section id="approvals" kicker="Demo approval queue · simulated calls" title={<>High-impact calls <em>wait for a name.</em></>}
+      lede="This section creates simulated Shield scenarios only. It is not the live Guard approval queue and approving here does not approve a real agent action. Real Guard approvals are managed from the local CLI.">
       <Reveal className="card approvals">
         <div className="appr-top">
           <label className="inline">Approving as<input value={name} onChange={(e) => setName(e.target.value)} placeholder="your name" /></label>
@@ -278,8 +278,8 @@ export function Audit({ refreshKey }) {
   const doTamper = async () => { try { setTamper(await api("/api/audit/tamper-demo", {})); } catch (e) { setErr(e); } };
   const entries = (data?.entries || []).slice(-14).reverse();
   return (
-    <Section id="audit" kicker="Evidence trail" title={<>Every decision, <em>hash-chained.</em></>}
-      lede="Each entry carries the hash of the one before it. Edit any line and verification points at it.">
+    <Section id="audit" kicker="Demo evidence trail" title={<>Demo decisions, <em>hash-chained.</em></>}
+      lede="This is the in-memory audit chain for the simulation above, not the live Guard audit log. Each demo entry carries the hash of the one before it.">
       <ErrorNote error={err} />
       <div className="guard-grid two">
         <Reveal className="card">
