@@ -1,6 +1,6 @@
 # Teammate 2 (P2): architecture, MCP and Claude integration, enforcement
 
-**Slides 4 to 7. 2 minutes.** P1 hands to you with: "So how can step three be guaranteed, when the model already obeyed?"
+**Slides 4 and 5. 2 minutes.** P1 hands to you with: "So how can step three be guaranteed, when the model already obeyed?"
 
 ## Slide 4: The model is never the security boundary (0:30)
 
@@ -10,7 +10,7 @@
 >
 > And it fails closed. If nothing matches, if the policy file is broken, if anything throws, the answer is DENY.
 
-## Slide 5: One gate, every entry point (0:35)
+## Slide 4 (continued): One gate, every entry point (0:35)
 
 > There are three ways in, all on the left. MCP clients like Claude Desktop, Cursor and VS Code. Claude Code, through its hooks. And our own gated tool server.
 >
@@ -18,13 +18,13 @@
 >
 > The loop at the bottom matters most. What the agent reads goes back through the gate, so reading a malicious email changes what the agent is allowed to do next.
 
-## Slide 6: Drops into the agents people already use (0:30)
+## Slide 5, right side: Drops into the agents people already use (0:30)
 
 > No code changes for the user. provenant setup shows a plan, backs up each config, asks, then wraps every MCP server. Only allowed calls reach the server. We also pin each tool's definition. If a server changes a tool's description after you approved it, a "rug pull", the new definition is withheld.
 >
 > For Claude Code we use its hooks. DENY blocks the call, and REQUIRE APPROVAL becomes Claude's own "ask the human" prompt. We ran real Claude Code with permission checks switched off, told it to delete everything and read .env, and the hook blocked both.
 
-## Slide 7: Defense in depth, all deterministic (0:25)
+## Slide 5, left side: Six deterministic checks (0:25)
 
 > Six independent checks. I'll name two. Provenance: an address the agent copied from something it read can't receive your data. That's exactly why the phishing send is denied. And single-use grants: an approved call can't be replayed or swapped for different arguments.
 >

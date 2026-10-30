@@ -1,6 +1,6 @@
 # Team presenter runbook
 
-P1: problem, vision, use case (slides 1 to 3). P2: architecture, MCP and Claude integration, enforcement (slides 4 to 7). P3, mithun: live demo, evaluation, limitations, close (slides 8 to 11). Total 6.5 minutes, then Q&A.
+P1: problem, vision, use case (slides 1 to 3). P2: architecture, MCP and Claude integration, enforcement (slides 4 and 5). P3, mithun: live demo, evaluation, limitations, close (slides 6 to 8). Total 6.5 minutes, then Q&A.
 
 Files: deck `presentation/Provenant_Hackathon_Final.pptx` (PDF backup beside it), scripts in `team/`, demo steps in `docs/DEMO_RUNBOOK.md`, answers in `team/QA_BANK.md`.
 
@@ -28,13 +28,13 @@ Files: deck `presentation/Provenant_Hackathon_Final.pptx` (PDF backup beside it)
 | Slide | Who | Cue to start | Handover line |
 |---|---|---|---|
 | 1 to 3 | P1 | Host introduces you | "So how can step three be guaranteed, when the model already obeyed? [P2]." |
-| 4 to 7 | P2 | P1's handover | "Enough slides. [mithun] will show it live." |
+| 4 to 5 | P2 | P1's handover | "Enough slides. [mithun] will show it live." |
 | 8 | P3 | P2's handover | Run the four demo steps (DEMO_RUNBOOK.md) |
 | 9 to 11 | P3 | Demo done | "Happy to take questions." |
 
-P1 clicks the slides for P2. P3 drives the laptop during the demo, and P1 clicks back to slide 9 when P3 says "back to the slides".
+P1 clicks the slides for P2. P3 drives the laptop during the demo, and P1 clicks back to slide 7 when P3 says "back to the slides".
 
-### What P3 says during the demo (slide 8)
+### What P3 says during the demo (slide 6)
 
 1. `provenant mail demo` (Enter): "This is a fake Microsoft phishing email: reserved domains, nothing real. The scanner says HIGH, seven reasons. The agent obeyed the hidden instruction and tried to send the invoices. Provenant: DENY, because that address came from the email, not from me. Nothing was sent."
 2. Switch to the console tab, scroll to **Demo scenarios**: "It's recorded, and labelled DEMO. Our live numbers only count real agent traffic."

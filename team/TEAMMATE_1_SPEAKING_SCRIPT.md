@@ -14,7 +14,7 @@
 >
 > Most teams answer this with a better prompt, or a model that checks the model. *(point at the italic line)* But the model is the thing being attacked. You can't make the target the guard.
 
-## Slide 3: One phishing email, end to end (0:45)
+## Slide 3: One phishing email, without and with Provenant (0:45)
 
 > Here's the story you'll see live in two minutes.
 >
