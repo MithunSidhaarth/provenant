@@ -4,7 +4,7 @@ This file is the single source of truth for any agent or person who picks up thi
 
 **Keep it current.** After every milestone, update the "Status", "Version history" and "Next steps" sections. Commit and push the update with the work.
 
-Last updated: 2026-10-30 13:40 UTC, after v5 (main @ 628e507, plus this file).
+Last updated: 2026-10-30 14:20 UTC, v6 dashboard redesign on branch `cue-redesign` (PR open, not merged yet).
 
 ## Product
 
@@ -46,8 +46,8 @@ Hard rules from the brief, which must never be broken:
 | `agentshield/llm_agent.py` | optional real Claude agent (`claude-opus-5-5`). Tested only with a fake client. |
 | `agentshield/mcp_gateway.py` | JSON-RPC stdio gateway with HMAC-pinned manifests |
 | `agentshield/server.py` | HTTP API + dashboard host on 127.0.0.1:8765, with a self-only CSP and a static allow-list |
-| `dashboard/` | `index.html`, `app.js` (textContent only), `style.css` (brutalist), `fx.js` (Three.js particle field) |
-| `dashboard/vendor/` | pinned three.js 0.169.0, anime.js 3.2.2, Motion 11.11.17 and OFL fonts, plus `licenses/` |
+| `dashboard/` | `index.html`, `app.js` (textContent only), `style.css` (Cue design language, see v6), `fx.js` (Three.js particle field) |
+| `dashboard/vendor/` | pinned three.js 0.169.0, anime.js 3.2.2, Motion 11.11.17 and OFL fonts (Archivo variable, Instrument Serif italic, JetBrains Mono from Fontsource 5.3.0), plus `licenses/` |
 | `policy/policy.json` | agent permissions, data classes, limits |
 | `scenarios/*.json` | 7 scenarios with `expected_protected` |
 | `tests/` | 99 unittest tests |
@@ -80,6 +80,7 @@ python3 -m agentshield.mcp_gateway             # JSON-RPC over stdio
 | v4 | a256d34, cdf51f9 | Optional Claude agent, MCP gateway with pinned manifests, risk-scored approvals, natural-language intents (EN/HI/KN/Hinglish), Windows .bat launchers, receipt-loop fix | 97 |
 | v4.1 | 6ba7f08, 4c5ffd1 | `find_python.bat`: version-checked probing, then full paths for Store or python.org installs | 97 |
 | v5 | 628e507 | Renamed to Provenant (user-facing). Brutalist dashboard. Procedural gaussian-splat particle field that reacts to DENY/ALLOW/approval. anime.js + Motion. Everything vendored offline. Motion/lite toggle and fps watchdog. Self-only CSP. Comparison runs on load. | 99 |
+| v6 | branch `cue-redesign` | Dashboard rebuilt in the design language of cue.mithunsidhaarth.in (mithun's own site): void/bone/amber palette (molten = DENY, phosphor = ALLOW, amber = human, Klein blue = untrusted content), Archivo 900 + Instrument Serif italic + JetBrains Mono, grain overlay, a fixed top "notch" with live chain/approval status and a section menu, a boot intro that drops the notch while it loads and verifies the chain, receipts for verified outcomes, a Klein-blue approvals desk with key-style approve/reject. Particle colours match. No API or behaviour change. | 99 |
 
 Headline numbers (v4/v5):
 - Fuzzer: 90/90 variants live without Provenant and 100% contained with it. 95.6% are stopped by DENY alone, and detection is 83.3%.
