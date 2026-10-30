@@ -200,8 +200,8 @@ export function Evidence() {
   useEffect(() => { go("fuzz"); }, []);
   const s = fuzz?.summary;
   return (
-    <Section id="evidence" kicker="Proof, not claims" title={<>It attacks itself <em>before anyone else does.</em></>}
-      lede="Ninety mutated injections across fifteen disguises, run live against the real policy. Then the red team looks for the variants that slipped detection and proposes the fix.">
+    <Section id="evidence" kicker="Automated policy evaluation · not agent telemetry" title={<>It attacks itself <em>before anyone else does.</em></>}
+      lede="These percentages come from an automated test campaign against the policy, not from customer traffic or real agent sessions. The red team then searches for missed variants and proposes fixes.">
       <ErrorNote error={err} />
       <div className="stats">
         {[["containment_pct", "contained", 1], ["detection_pct", "flagged as injection", 1], ["hard_denied_pct", "hard-denied", 1], ["task_false_positive_pct", "legit tasks broken", 1]].map(([k, l, d], i) => (
