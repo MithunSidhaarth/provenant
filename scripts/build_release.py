@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -78,6 +79,11 @@ def main(argv: list[str]) -> int:
         for p in out.iterdir():
             shutil.copy2(p, site / p.name)
         wheel = next(a.name for a in arts if a.suffix == ".whl")
+        # Pin the wheel's SHA-256 in the Windows installer, which refuses any other file. The wheel does not
+        # contain install.ps1, so this does not change the hash.
+        ps1 = ROOT / "install.ps1"
+        ps1.write_text(re.sub(r"(\$PvWheelSha256 = ')[0-9a-f]{64}(')", lambda m: m.group(1) + prov["artifacts"][wheel] + m.group(2),
+                              ps1.read_text(encoding="utf-8")), encoding="utf-8", newline="\n")
         sdist = next(a.name for a in arts if a.suffix == ".gz")
         # Public URLs on GitHub (the repository is public): the Vercel deployment may sit behind Vercel
         # Authentication, which answers a download with an HTML login page. dist/ is committed with the code.
