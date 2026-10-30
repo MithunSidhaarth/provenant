@@ -15,10 +15,28 @@ Provenant also runs **in front of real tools**, not just in the simulation. It i
 - **Any MCP agent** (Claude Desktop, Cursor, Windsurf, VS Code): every MCP server is launched through the Provenant proxy. Only ALLOWed `tools/call` requests reach the real server.
 - **Claude Code**: hooks run before and after every tool call. DENY blocks the call, and REQUIRE_APPROVAL becomes Claude Code's own "ask the human" prompt.
 
-```bash
-python3 provenant.py setup     # Windows: provenant.bat setup   (or: pip install . && provenant setup)
-provenant log -f               # watch ok / BLOCK / HOLD / TAINT live
+**Install in one line** (it asks before changing anything, backs up every config, and `provenant unwrap` undoes it):
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex
 ```
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.sh | sh
+# or, with pipx
+pipx install https://github.com/MithunSidhaarth/provenant/archive/refs/heads/main.zip && provenant setup
+```
+
+From a clone you can run `python3 provenant.py setup` (or `provenant.bat setup`) with no install at all. Then:
+
+```bash
+provenant status       # what is protected
+provenant log -f       # every tool call live: OK / BLOCK / HOLD / TAINT
+provenant approve      # walk through held calls (a person at a terminal only)
+```
+
+![provenant status, live log and a dry-run check](docs/img/provenant-cli.png)
 
 Real Claude Code, even with `--permission-mode bypassPermissions`, cannot `rm -rf ./*` or `cat .env` once the hook is installed. The details, the full rule table and the limits are in [docs/REAL_GUARD.md](docs/REAL_GUARD.md).
 

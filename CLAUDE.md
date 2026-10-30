@@ -49,20 +49,20 @@ Hard rules from the brief, which must never be broken:
 | `agentshield/guard_policy.json` | built-in real-tool policy (`~/.provenant/policy.json` overrides) |
 | `agentshield/mcp_proxy.py` | real stdio MCP proxy: launches the real server, gates `tools/call`, pins manifests, taints on results |
 | `agentshield/cc_hook.py` | Claude Code PreToolUse / PostToolUse / UserPromptSubmit hook |
-| `agentshield/cli.py`, `provenant.py`, `provenant.bat`, `pyproject.toml` | `provenant` command: setup, wrap/unwrap client configs, install/uninstall claude-code, status, log -f, approve |
+| `agentshield/cli.py`, `ui.py`, `provenant.py`, `provenant.bat`, `pyproject.toml`, `install.ps1`, `install.sh` | `provenant` command (coloured UI; setup with plan + confirm, status [--json] via `status_dict()`, log -f, interactive approve, check, verify [--json], wrap/unwrap, install/uninstall claude-code) and one-line installers |
 | `agentshield/server.py` | HTTP API + dashboard host on 127.0.0.1:8765, with a self-only CSP and a static allow-list |
 | `dashboard/` | `index.html`, `app.js` (textContent only), `style.css` (brutalist), `fx.js` (Three.js particle field) |
 | `dashboard/vendor/` | pinned three.js 0.169.0, anime.js 3.2.2, Motion 11.11.17 and OFL fonts, plus `licenses/` |
 | `policy/policy.json` | agent permissions, data classes, limits |
 | `scenarios/*.json` | 7 scenarios with `expected_protected` |
-| `tests/` | 124 unittest tests (`test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py` are the v6 ones) |
+| `tests/` | 127 unittest tests (`test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py`, `test_cli.py` are the v6 ones) |
 | `docs/` | ARCHITECTURE.md, THREAT_MODEL.md (T1 to T16), DEMO_SCRIPT.md (6 minutes), REAL_GUARD.md (v6 guide) |
 | `run.bat`, `demo.bat`, `test.bat`, `find_python.bat` | Windows launchers |
 
 ## How to run and test
 
 ```bash
-python3 -m unittest discover -s tests -t .     # 124 tests, about 6 s
+python3 -m unittest discover -s tests -t .     # 127 tests, about 7 s
 python3 -m agentshield.server --open           # http://127.0.0.1:8765/
 python3 -m agentshield.demo                    # terminal before/after + fuzzer summary
 python3 -m agentshield.mcp_gateway             # JSON-RPC over stdio (simulated tools)
@@ -86,7 +86,8 @@ python3 provenant.py log -f                    # v6: live ok/BLOCK/HOLD/TAINT fe
 | v3 | 0a6dcee | Benign false-positive corpus, self red-team loop, plain-language summaries, prior-work attribution | ~85 |
 | v4 | a256d34, cdf51f9 | Optional Claude agent, MCP gateway with pinned manifests, risk-scored approvals, natural-language intents (EN/HI/KN/Hinglish), Windows .bat launchers, receipt-loop fix | 97 |
 | v4.1 | 6ba7f08, 4c5ffd1 | `find_python.bat`: version-checked probing, then full paths for Store or python.org installs | 97 |
-| v6 | feat/real-guard | Provenant Guard: real MCP proxy + Claude Code hook in front of real tools; real-tool policy; persistent shared audit chain; `provenant setup/wrap/install/status/log -f/approve`; pip-installable. Real Claude Code in bypassPermissions mode was blocked from `rm -rf ./*` and `cat .env`. | 124 |
+| v6.1 | feat/guard-polish | Guard CLI polish (colour badges, setup plan + confirm, interactive approve, masked secrets in feed, `status_dict()` for the dashboard) and one-line installers (`install.ps1`, `install.sh`, pipx). | 127 |
+| v6 | a8ebbd1 (PR #2) | Provenant Guard: real MCP proxy + Claude Code hook in front of real tools; real-tool policy; persistent shared audit chain; `provenant setup/wrap/install/status/log -f/approve`; pip-installable. Real Claude Code in bypassPermissions mode was blocked from `rm -rf ./*` and `cat .env`. | 124 |
 | v5 | 628e507 | Renamed to Provenant (user-facing). Brutalist dashboard. Procedural gaussian-splat particle field that reacts to DENY/ALLOW/approval. anime.js + Motion. Everything vendored offline. Motion/lite toggle and fps watchdog. Self-only CSP. Comparison runs on load. | 99 |
 
 Headline numbers (v4/v5):
@@ -119,7 +120,7 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 
 ## Next steps
 
-0. v6: merge the `feat/real-guard` PR. On the laptop: `git pull`, `test.bat` (124), `provenant.bat setup`, restart Claude Desktop, then `provenant.bat log -f` during the demo. Add a Guard segment to DEMO_SCRIPT.md (live Claude Code blocked from `rm -rf` / `.env`).
+0. v6 is on main; v6.1 (CLI polish + installers) is a PR from `feat/guard-polish`. On the laptop: `git pull`, `test.bat` (127), `provenant.bat setup` (or test the real installer: `irm .../install.ps1 | iex` once merged), restart Claude Desktop, then `provenant.bat log -f` during the demo. Add a Guard segment to DEMO_SCRIPT.md (live Claude Code blocked from `rm -rf` / `.env`).
 
 1. Confirm v5 on the laptop: `git pull`, `test.bat` (99 tests), `run.bat`, "Motion: full", and no console errors.
 2. mithun decides open decision 1. If the choice is to fix the gap: add output-side redaction and/or semantic provenance (normalise and compare recipients and amounts), add fuzzer classes for paraphrase, and update the tests and README.

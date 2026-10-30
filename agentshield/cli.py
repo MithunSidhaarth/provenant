@@ -1,18 +1,9 @@
-"""`provenant`: one command to put Provenant between your agents and their real tools.
+"""`provenant`: put a deterministic firewall between your AI agents and their real tools.
 
-    provenant setup                    detect Claude Desktop, Cursor, Windsurf and Claude Code; wrap them all
-    provenant wrap <client|path>       route every stdio MCP server in a client config through the proxy
-    provenant unwrap <client|path>     restore the original config entries
-    provenant install claude-code      add the PreToolUse/PostToolUse/UserPromptSubmit hooks to Claude Code
-    provenant uninstall claude-code    remove them again
-    provenant status                   what is protected, policy version, audit chain, pending approvals
-    provenant pending | approve ID | reject ID | log [-f] | verify | check TOOL ARGS
-    provenant policy init              copy the built-in policy to ~/.provenant/policy.json to customise it
-    provenant proxy -- <cmd...>        run the MCP proxy (what wrapped configs launch)
-    provenant hook                     run the Claude Code hook (what Claude Code launches)
-
-Config edits are reversible: the original entry is kept inside the wrapped one and a timestamped backup
-of the whole file is written next to it. Standard library only; Windows, macOS and Linux.
+Run `provenant` with no arguments for the command list. Everything here is presentation and setup;
+the decisions are made by guard.py. Config edits are reversible: the original entry is kept inside the
+wrapped one and a timestamped backup of the whole file is written next to it.
+Standard library only; Windows, macOS and Linux.
 """
 from __future__ import annotations
 
@@ -24,6 +15,17 @@ import time
 from pathlib import Path
 
 from . import guard as guard_mod
+from . import ui
+from .ui import SYM, bold, cyan, dim, green, red, yellow
+
+try:
+    from importlib.metadata import version as _pkg_version
+    VERSION = _pkg_version("provenant")
+except Exception:
+    VERSION = "0.6.0"
+
+CLIENT_LABELS = {"claude-desktop": "Claude Desktop", "cursor": "Cursor", "windsurf": "Windsurf",
+                 "vscode": "VS Code (this folder)", "claude-code-project": "Claude Code (.mcp.json)"}
 
 ROOT = Path(__file__).resolve().parent.parent
 MARK = "_provenant_original"
@@ -113,27 +115,14 @@ def _resolve_client(target: str) -> Path:
     return known[target] if target in known else Path(target).expanduser()
 
 
-def cmd_wrap(target: str, undo: bool = False, workspace: str | None = None, dry: bool = False) -> int:
-    path = _resolve_client(target)
-    if not path.exists():
-        print(f"{target}: no config at {path}")
-        return 1
-    cfg = _load(path)
-    if undo:
-        names = unwrap_config(cfg)
-        print(f"{target}: restored {names or 'nothing'}")
-    else:
-        names, skipped = wrap_config(cfg, workspace)
-        print(f"{target}: protected {names or 'nothing new'}" + (f"; skipped {skipped}" if skipped else ""))
-    if names and not dry:
-        _save(path, cfg)
-        print(f"  wrote {path} (backup kept next to it). Restart the client to apply.")
-    return 0
-
-
-# --- Claude Code hooks -------------------------------------------------------------------------------
+# --- Claude Code hooks ---------------------------------------------------------------------------
 def _hook_command() -> str:
     return " ".join(f'"{p}"' if " " in p or "\\" in p else p for p in launcher() + ["hook"])
+
+
+def _is_our_hook(cmd: str) -> bool:
+    # Source checkouts launch provenant.py, pip installs launch `-m agentshield.cli`.
+    return isinstance(cmd, str) and cmd.endswith(" hook") and ("provenant" in cmd or "agentshield" in cmd)
 
 
 def install_claude_code(settings: Path, remove: bool = False) -> str:
@@ -143,7 +132,7 @@ def install_claude_code(settings: Path, remove: bool = False) -> str:
     changed = False
     for event, wants_matcher in HOOK_EVENTS.items():
         groups = hooks.setdefault(event, [])
-        mine = [g for g in groups if any("provenant" in h.get("command", "") and h.get("command", "").endswith("hook")
+        mine = [g for g in groups if any(_is_our_hook(h.get("command", ""))
                                          for h in g.get("hooks", []))]
         if remove:
             for g in mine:
@@ -166,103 +155,466 @@ def install_claude_code(settings: Path, remove: bool = False) -> str:
     return ("removed from " if remove else "installed in ") + str(settings) if changed else f"no change to {settings}"
 
 
-# --- status ----------------------------------------------------------------------------------------
-def cmd_status() -> int:
+
+
+# --- status --------------------------------------------------------------------------------------
+def _claude_code_settings() -> Path:
+    return Path.home() / ".claude" / "settings.json"
+
+
+def _hook_installed(settings: Path) -> bool:
+    try:
+        groups = _load(settings).get("hooks", {}).get("PreToolUse", [])
+    except (OSError, ValueError):
+        return False
+    return any(_is_our_hook(h.get("command", ""))
+               for g in groups for h in g.get("hooks", []))
+
+
+def status_dict() -> dict:
+    """Machine-readable status, shared by `provenant status` and the dashboard."""
     g = guard_mod.Guard()
-    print(f"Provenant home   {g.store.home}")
-    pol = os.environ.get("PROVENANT_POLICY") or (g.store.home / "policy.json" if (g.store.home / "policy.json").exists()
+    home = g.store.home
+    pol = os.environ.get("PROVENANT_POLICY") or (home / "policy.json" if (home / "policy.json").exists()
                                                  else guard_mod.DEFAULT_GUARD_POLICY)
-    print(f"Policy           {g.policy.version}  ({pol})" + (f"  LOAD ERROR: {g.policy.load_error}" if g.policy.load_error else ""))
     v = g.audit.verify()
-    print(f"Audit log        {v['checked']} entries, chain {'OK' if v['ok'] else 'BROKEN at #' + str(v['first_bad_seq'])}")
-    print(f"Pending          {len(g.pending())} call(s) waiting for a human")
+    clients = []
     for name, path in client_configs().items():
         if not path.exists():
             continue
         try:
             servers = _servers(_load(path))
-        except ValueError:
-            print(f"{name:<16} {path} (unreadable JSON)")
+        except (OSError, ValueError):
+            clients.append({"name": name, "path": str(path), "protected": [], "unprotected": [], "error": "unreadable JSON"})
             continue
-        prot = [n for n, e in servers.items() if isinstance(e, dict) and MARK in e]
-        print(f"{name:<16} {len(prot)}/{len(servers)} MCP servers protected  ({path})")
-    cc = Path.home() / ".claude" / "settings.json"
-    on = cc.exists() and "provenant" in cc.read_text(encoding="utf-8", errors="replace") and " hook" in cc.read_text(encoding="utf-8", errors="replace")
-    print(f"{'claude-code':<16} hook {'installed' if on else 'not installed'}  ({cc})")
+        prot = sorted(n for n, e in servers.items() if isinstance(e, dict) and MARK in e)
+        remote = sorted(n for n, e in servers.items() if isinstance(e, dict) and MARK not in e
+                        and not isinstance(e.get("command"), str))
+        clients.append({"name": name, "path": str(path), "protected": prot, "remote": remote,
+                        "unprotected": sorted(n for n in servers if n not in prot and n not in remote)})
+    return {"version": VERSION, "home": str(home), "policy_version": g.policy.version, "policy_path": str(pol),
+            "policy_error": g.policy.load_error,
+            "audit": {"ok": v["ok"], "checked": v["checked"], "first_bad_seq": v["first_bad_seq"]},
+            "pending": len(g.pending()), "clients": clients,
+            "claude_code_hook": _hook_installed(_claude_code_settings())}
+
+
+def cmd_status() -> int:
+    s = status_dict()
+    print(ui.banner(s["version"]))
+    print(ui.section("Protection"))
+    any_client = False
+    for c in s["clients"]:
+        any_client = True
+        total = len(c["protected"]) + len(c["unprotected"])
+        remote = dim(f"  (remote, not proxied yet: {', '.join(c['remote'])})") if c.get("remote") else ""
+        if c.get("error"):
+            print(ui.row(red(SYM["no"]), CLIENT_LABELS.get(c["name"], c["name"]), red(c["error"]), 18))
+        elif not total:
+            print(ui.row(dim(SYM["dot"]), CLIENT_LABELS.get(c["name"], c["name"]), dim("no local MCP servers") + remote, 18))
+        elif not c["unprotected"]:
+            print(ui.row(green(SYM["ok"]), CLIENT_LABELS.get(c["name"], c["name"]),
+                         f"{total} MCP server{'s' * (total != 1)} protected  " + dim(", ".join(c["protected"])) + remote, 18))
+        else:
+            print(ui.row(yellow(SYM["warn"]), CLIENT_LABELS.get(c["name"], c["name"]),
+                         yellow(f"{len(c['protected'])}/{total} protected  ") + dim("run: provenant setup") + remote, 18))
+    print(ui.row(green(SYM["ok"]) if s["claude_code_hook"] else dim(SYM["dot"]), "Claude Code",
+                 "hook installed" if s["claude_code_hook"] else dim("hook not installed  (provenant install claude-code)"), 18))
+    if not any_client:
+        print(ui.row(dim(SYM["dot"]), "MCP clients", dim("none found (Claude Desktop, Cursor, Windsurf)"), 18))
+    print(ui.section("Guard"))
+    print(ui.row(red(SYM["no"]) if s["policy_error"] else green(SYM["ok"]), "Policy",
+                 (red(s["policy_error"]) if s["policy_error"] else s["policy_version"]) + "  " + dim(ui.short_path(s["policy_path"])), 18))
+    a = s["audit"]
+    print(ui.row(green(SYM["ok"]) if a["ok"] else red(SYM["no"]), "Audit chain",
+                 f"{a['checked']} entries, intact" if a["ok"] else red(f"BROKEN at entry #{a['first_bad_seq']}"), 18))
+    print(ui.row(yellow(SYM["hold"]) if s["pending"] else green(SYM["ok"]), "Approvals",
+                 yellow(f"{s['pending']} waiting  ") + dim("provenant approve") if s["pending"] else "nothing waiting", 18))
+    print(ui.row(dim(SYM["dot"]), "State", dim(ui.short_path(s["home"])), 18))
+    print()
+    return 0 if a["ok"] and not s["policy_error"] else 1
+
+
+# --- setup ---------------------------------------------------------------------------------------
+def _ask(question: str, default: bool = True) -> bool:
+    if not sys.stdin or not sys.stdin.isatty():
+        return default
+    hint = "[Y/n]" if default else "[y/N]"
+    try:
+        ans = input(f"  {question} {dim(hint)} ").strip().lower()
+    except EOFError:
+        return default
+    return default if not ans else ans in ("y", "yes")
+
+
+def cmd_setup(yes: bool = False, dry: bool = False) -> int:
+    print(ui.banner(VERSION))
+    print(ui.section("Looking for agents on this machine"))
+    plan: list[tuple[str, Path, dict, list[str]]] = []
+    for name, path in client_configs().items():
+        if name in ("vscode", "claude-code-project"):
+            continue
+        label = CLIENT_LABELS[name]
+        if not path.exists():
+            print(ui.row(dim(SYM["dot"]), label, dim("not installed"), 18))
+            continue
+        try:
+            cfg = _load(path)
+        except (OSError, ValueError):
+            print(ui.row(red(SYM["no"]), label, red("config is not valid JSON; skipped"), 18))
+            continue
+        probe = json.loads(json.dumps(cfg))
+        names, skipped = wrap_config(probe)
+        already = [n for n, e in _servers(cfg).items() if isinstance(e, dict) and MARK in e]
+        if names:
+            print(ui.row(cyan(SYM["arrow"]), label, f"will protect {len(names)}: " + bold(", ".join(names)) +
+                         (dim(f"  (already: {', '.join(already)})") if already else ""), 18))
+            plan.append((label, path, probe, names))
+        elif already:
+            print(ui.row(green(SYM["ok"]), label, f"{len(already)} already protected " + dim(", ".join(already)), 18))
+        else:
+            print(ui.row(dim(SYM["dot"]), label, dim("no local MCP servers configured"), 18))
+        for s in skipped:
+            if "already" not in s:
+                print("      " + dim(f"{SYM['dot']} {s}"))
+    cc = _claude_code_settings()
+    want_hook = ((Path.home() / ".claude").exists() or shutil.which("claude")) and not _hook_installed(cc)
+    if _hook_installed(cc):
+        print(ui.row(green(SYM["ok"]), "Claude Code", "hook already installed", 18))
+    elif want_hook:
+        print(ui.row(cyan(SYM["arrow"]), "Claude Code", "will install the safety hook " + dim(ui.short_path(cc)), 18))
+    else:
+        print(ui.row(dim(SYM["dot"]), "Claude Code", dim("not installed"), 18))
+
+    if not plan and not want_hook:
+        print("\n  " + green("Everything found is already protected.") + "  " + dim("provenant status") + "\n")
+        return 0
+    if dry:
+        print("\n  " + dim("Dry run: nothing changed.") + "\n")
+        return 0
+    print("\n  " + dim("Every edited file is backed up next to itself; `provenant unwrap <client>` undoes it."))
+    if not yes and not _ask("Apply these changes?"):
+        print("  Nothing changed.\n")
+        return 1
+    print()
+    for label, path, cfg, names in plan:
+        _save(path, cfg)
+        print(ui.row(green(SYM["ok"]), label, f"protected {', '.join(names)}", 18))
+    if want_hook:
+        install_claude_code(cc)
+        print(ui.row(green(SYM["ok"]), "Claude Code", "hook installed", 18))
+    print(ui.section("Next"))
+    if plan:
+        print(f"  1. Restart {', '.join(l for l, *_ in plan)} so it launches its tools through Provenant.")
+    print(f"  {2 if plan else 1}. Watch every tool call live:     {cyan('provenant log -f')}")
+    print(f"  {3 if plan else 2}. Try the policy without risk:   {cyan('provenant check Bash ' + chr(39) + '{\"command\":\"rm -rf ~\"}' + chr(39))}")
+    print()
     return 0
 
 
-def follow_log() -> int:
-    path = guard_mod.Store().home / "audit.jsonl"
+def cmd_wrap(target: str, undo: bool = False, workspace: str | None = None, dry: bool = False) -> int:
+    path = _resolve_client(target)
+    label = CLIENT_LABELS.get(target, target)
+    if not path.exists():
+        print(ui.row(red(SYM["no"]), label, f"no config at {path}", 18))
+        return 1
+    cfg = _load(path)
+    if undo:
+        names = unwrap_config(cfg)
+        print(ui.row(green(SYM["ok"]), label, f"restored {', '.join(names)}" if names else dim("nothing to restore"), 18))
+    else:
+        names, skipped = wrap_config(cfg, workspace)
+        print(ui.row(green(SYM["ok"]), label, f"protected {', '.join(names)}" if names else dim("nothing new to protect"), 18))
+        for s in skipped:
+            print("      " + dim(f"{SYM['dot']} {s}"))
+    if names and not dry:
+        _save(path, cfg)
+        print("      " + dim(f"wrote {path} (backup kept next to it). Restart the client to apply."))
+    return 0
+
+
+# --- audit feed ----------------------------------------------------------------------------------
+def _mask(text: str) -> str:
+    for rx, name in getattr(guard_mod, "SECRET_PATTERNS_C", []):
+        text = rx.sub(f"[{name}]", text)
+    return text
+
+
+def _summary(tool: str, args) -> str:
+    if isinstance(args, dict):
+        for k in ("command", "cmd", "file_path", "path", "url", "to", "pattern", "query", "notebook_path"):
+            if isinstance(args.get(k), str) and args[k]:
+                return _mask(args[k])
+        return _mask(json.dumps(args, ensure_ascii=False))
+    return _mask(str(args))
+
+
+def _short_tool(tool: str) -> str:
+    if isinstance(tool, str) and tool.startswith("mcp__"):
+        parts = tool.split("__")
+        return f"{parts[1]}.{parts[-1]}" if len(parts) >= 3 else tool
+    return str(tool)
+
+
+class _Feed:
+    """Pairs each tool_request with its policy_decision so a line can show what was asked and why."""
+
+    def __init__(self) -> None:
+        self.requests: dict[str, dict] = {}
+        self.holds: dict[str, str] = {}
+
+    def render(self, e: dict) -> str | None:
+        d = e.get("data") if isinstance(e.get("data"), dict) else {}
+        t = e.get("ts", "")[11:19]
+        ev = e.get("event")
+        w = ui.width()
+        if ev == "tool_request":
+            self.requests[d.get("call_id", "")] = d
+            return None
+        if ev == "policy_decision":
+            req = self.requests.pop(d.get("call_id", ""), {})
+            tool = _short_tool(d.get("tool"))
+            what = ui.clip(_summary(d.get("tool"), req.get("args")), max(20, w - 40 - len(tool)))
+            line = f"  {dim(t)} {ui.badge(d.get('decision', '?'))} {bold(tool)}  {what}"
+            reasons = d.get("reasons") or []
+            if reasons and d.get("decision") != "ALLOW":
+                col = red if d.get("decision") == "DENY" else yellow
+                line += "\n" + " " * 20 + col(SYM["bar"] + " " + ui.clip("; ".join(reasons), w - 24))
+            return line
+        if ev == "approval_requested":
+            return " " * 20 + yellow(f"{SYM['bar']} held as {d.get('approval_id')}  ") + dim(f"approve: provenant approve {d.get('approval_id')}")
+        if ev in ("approval_granted", "approval_rejected"):
+            ok = ev == "approval_granted"
+            return f"  {dim(t)} {(green if ok else red)(('  ' + SYM['ok'] + ' approved' if ok else '  ' + SYM['no'] + ' rejected'))} " \
+                   f"{d.get('approval_id')} by {str(d.get('approver', '')).removeprefix('human:')}"
+        if ev == "approval_used":
+            return " " * 20 + green(f"{SYM['bar']} ran once under {d.get('approval_id')}")
+        if ev == "tool_result" and d.get("injection_indicators"):
+            labels = ", ".join(sorted({f.get('label', '?') for f in d["injection_indicators"]}))
+            return f"  {dim(t)} {ui.on_yellow(' TAINT ') if ui.COLOR else '[TAINT]'} {bold(_short_tool(d.get('tool')))}  " \
+                   + yellow(ui.clip(f"injection in output ({labels}); side effects now need a human", ui.width() - 40))
+        if ev in ("manifest_withheld", "manifest_refused"):
+            what = ", ".join(sorted(d.get("withheld", {}))) or d.get("tool", "")
+            return f"  {dim(t)} {ui.badge('DENY')} {bold('manifest')}  tool definition changed or poisoned: {what}"
+        if ev == "proxy_start":
+            return f"  {dim(t)} {dim('  ' + SYM['arrow'] + ' proxy up for')} {bold(str(d.get('server')))}"
+        return None
+
+
+def cmd_log(n: int = 25, follow: bool = False) -> int:
+    store = guard_mod.Store()
+    feed = _Feed()
+    print(ui.banner(VERSION, "live tool-call feed" if follow else "recent tool calls") + "\n")
+    entries = store.audit.snapshot()
+    shown = 0
+    for e in entries[-max(n * 3, n):]:
+        line = feed.render(e)
+        if line:
+            print(line)
+            shown += 1
+    if not shown and not follow:
+        print("  " + dim("No tool calls yet. Use an agent, or try: provenant check Bash '{\"command\":\"ls\"}'"))
+    if not follow:
+        print()
+        return 0
+    print("  " + dim(f"watching {store.home / 'audit.jsonl'}  (Ctrl+C to stop)"), flush=True)
+    path = store.home / "audit.jsonl"
     path.touch()
     with path.open(encoding="utf-8") as fh:
         fh.seek(0, os.SEEK_END)
         try:
             while True:
                 line = fh.readline()
-                if not line:
-                    time.sleep(0.3)
+                if not line or not line.endswith("\n"):
+                    if line:
+                        fh.seek(fh.tell() - len(line.encode("utf-8")))
+                    time.sleep(0.25)
                     continue
-                e = json.loads(line)
-                d = e.get("data", {})
-                if e["event"] == "policy_decision":
-                    mark = {"ALLOW": "  ok ", "DENY": "BLOCK", "REQUIRE_APPROVAL": " HOLD"}.get(d.get("decision"), "  ?  ")
-                    why = "; ".join(d.get("reasons", []))
-                    print(f"{e['ts'][11:19]} {mark} {d.get('tool')}" + (f"  <- {why}" if why else ""), flush=True)
-                elif e["event"] in ("approval_granted", "approval_rejected", "approval_used", "manifest_withheld",
-                                    "manifest_refused", "proxy_start"):
-                    print(f"{e['ts'][11:19]}  ...  {e['event']} {json.dumps(d, ensure_ascii=False)[:140]}", flush=True)
-                elif e["event"] == "tool_result" and d.get("injection_indicators"):
-                    print(f"{e['ts'][11:19]} TAINT {d.get('tool')} output has injection indicators "
-                          f"{[f['label'] for f in d['injection_indicators']]}", flush=True)
+                try:
+                    out = feed.render(json.loads(line))
+                except ValueError:
+                    continue
+                if out:
+                    print(out, flush=True)
         except KeyboardInterrupt:
+            print()
             return 0
+
+
+# --- approvals -----------------------------------------------------------------------------------
+def _print_pending(rows: list[dict]) -> None:
+    now = time.time()
+    for i, p in enumerate(rows, 1):
+        mins = max(0, int((p["expires_at"] - now) // 60))
+        meta = f"from {p.get('source', '?')}, expires in {mins} min"
+        print(f"\n  {yellow(SYM['hold'])} {bold(p['approval_id'])}  {dim(meta)}")
+        print(f"      {bold(_short_tool(p['tool']))}  {ui.clip(_summary(p['tool'], p['args']), ui.width() - 30)}")
+        for r in p.get("reasons", []):
+            print("      " + dim(f"{SYM['dot']} {ui.clip(r, ui.width() - 10)}"))
+
+
+def cmd_pending() -> int:
+    rows = guard_mod.Guard().pending()
+    print(ui.banner(VERSION, "calls waiting for a human"))
+    if not rows:
+        print("  " + green(SYM["ok"]) + " Nothing is waiting for approval.\n")
+        return 0
+    _print_pending(rows)
+    print("\n  " + dim("provenant approve <id>   or   provenant approve   (walks through each one)") + "\n")
+    return 0
+
+
+def cmd_decide(approve: bool, approval_id: str | None, who: str | None) -> int:
+    import getpass
+    if not sys.stdin.isatty():
+        # An agent's shell tool has no terminal; a person typing does. The policy also DENYs agents running this.
+        print(red(f"  {SYM['no']} refused: approvals must be typed by a person at a terminal"))
+        return 2
+    g = guard_mod.Guard()
+    approver = "human:" + (who or getpass.getuser())
+    rows = g.pending()
+    if approval_id:
+        targets = [p for p in rows if p["approval_id"] == approval_id] or [{"approval_id": approval_id}]
+        ask_each = False
+    else:
+        if not rows:
+            print("  " + green(SYM["ok"]) + " Nothing is waiting for approval.")
+            return 0
+        targets, ask_each = rows, True
+    rc = 0
+    for p in targets:
+        if ask_each:
+            _print_pending([p])
+            if not _ask("Approve this call?" if approve else "Reject this call?", default=False):
+                print("      " + dim("skipped"))
+                continue
+        r = g.decide(p["approval_id"], approver, approve)
+        if r["ok"]:
+            msg = (f"approved {p['approval_id']}. The agent may now retry that exact call once."
+                   if approve else f"rejected {p['approval_id']}.")
+            print("      " + (green if approve else yellow)(SYM["ok"] + " " + msg))
+        else:
+            print("      " + red(f"{SYM['no']} {p['approval_id']}: {r['reason']}"))
+            rc = 1
+    print()
+    return rc
+
+
+# --- check / verify ------------------------------------------------------------------------------
+def cmd_check(tool: str, args_json: str, workspace: str) -> int:
+    try:
+        args = json.loads(args_json)
+    except ValueError:
+        print(red(f"  {SYM['no']} arguments must be JSON, e.g. '{{\"command\": \"ls\"}}'"))
+        return 2
+    g = guard_mod.Guard()
+    res = g.policy.evaluate(guard_mod.GuardCall(tool, args, "cli-check", workspace, "cli"), g.store.load_session("cli-check"))
+    print(f"\n  {ui.badge(res.decision.value)} {bold(tool)}  {ui.clip(_summary(tool, args), ui.width() - 30)}")
+    for f in res.findings:
+        if f.decision.value != "ALLOW":
+            col = red if f.decision.value == "DENY" else yellow
+            print("          " + col(f"{SYM['bar']} {f.rule}: ") + f.reason)
+    print("\n  " + dim("Dry run: nothing was executed or logged.") + "\n")
+    return 0
+
+
+def cmd_verify(as_json: bool = False) -> int:
+    v = guard_mod.Store().audit.verify()
+    if as_json:
+        print(json.dumps(v))
+        return 0 if v["ok"] else 1
+    if v["ok"]:
+        print(f"\n  {green(SYM['ok'])} Audit chain intact: {v['checked']} entries.  head {dim(str(v.get('head', ''))[:16])}\n")
+        return 0
+    print(f"\n  {red(SYM['no'])} Audit chain BROKEN at entry #{v['first_bad_seq']}: {v['problem']}\n")
+    return 1
+
+
+# --- entry point ---------------------------------------------------------------------------------
+def _help() -> str:
+    c = lambda s: cyan(f"{s:<42}")
+    return ui.banner(VERSION) + "\n".join([
+        ui.section("Get protected"),
+        f"    {c('provenant setup')}find your agents and protect them all",
+        f"    {c('provenant status')}what is protected right now",
+        ui.section("Watch and decide"),
+        f"    {c('provenant log -f')}live feed of every tool call: OK / BLOCK / HOLD",
+        f"    {c('provenant pending')}calls waiting for a human",
+        f"    {c('provenant approve [id]')}let one held call run once (asks if no id)",
+        f"    {c('provenant reject [id]')}refuse a held call",
+        f"    {c('provenant check TOOL JSON')}dry-run a call through the policy",
+        f"    {c('provenant verify')}check the audit log has not been tampered with",
+        ui.section("Fine control"),
+        f"    {c('provenant wrap|unwrap CLIENT')}claude-desktop, cursor, windsurf, vscode, or a path",
+        f"    {c('provenant install|uninstall claude-code')}the Claude Code safety hook (--project for this repo)",
+        f"    {c('provenant policy init')}copy the policy to ~/.provenant to customise it",
+        f"    {c('provenant pins reset [server]')}re-approve tool definitions after an upgrade",
+        "",
+        "  " + dim("Docs: https://github.com/MithunSidhaarth/provenant/blob/main/docs/REAL_GUARD.md"),
+        ""])
+
+
+def _opt(rest: list[str], name: str, default=None):
+    return rest[rest.index(name) + 1] if name in rest and rest.index(name) + 1 < len(rest) else default
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help", "help"):
-        print(__doc__)
+        print(_help())
         return 0
     cmd, rest = argv[0], argv[1:]
+    if cmd in ("-V", "--version", "version"):
+        print(f"provenant {VERSION}")
+        return 0
     if cmd == "proxy":
         from .mcp_proxy import main as proxy_main
         return proxy_main(rest)
     if cmd == "hook":
         from .cc_hook import main as hook_main
         return hook_main()
+    if cmd == "setup":
+        return cmd_setup(yes="--yes" in rest or "-y" in rest, dry="--dry-run" in rest)
+    if cmd == "status":
+        if "--json" in rest:
+            print(json.dumps(status_dict(), indent=2))
+            return 0
+        return cmd_status()
+    if cmd == "log":
+        return cmd_log(int(_opt(rest, "-n", 25)), follow="-f" in rest or "--follow" in rest)
+    if cmd == "pending":
+        return cmd_pending()
+    if cmd in ("approve", "reject"):
+        ids = [a for a in rest if not a.startswith("-") and a != _opt(rest, "--as")]
+        return cmd_decide(cmd == "approve", ids[0] if ids else None, _opt(rest, "--as"))
+    if cmd == "check":
+        pos = [a for a in rest if a != "--workspace" and a != _opt(rest, "--workspace")]
+        if not pos:
+            print("  usage: provenant check TOOL '{\"arg\": \"value\"}' [--workspace DIR]")
+            return 2
+        return cmd_check(pos[0], pos[1] if len(pos) > 1 else "{}", _opt(rest, "--workspace", os.getcwd()))
+    if cmd == "verify":
+        return cmd_verify("--json" in rest)
     if cmd in ("wrap", "unwrap"):
         if not rest:
-            print(f"usage: provenant {cmd} <{'|'.join(client_configs())}|path/to/config.json> [--dry-run]")
+            print(f"  usage: provenant {cmd} <{'|'.join(client_configs())}|path/to/config.json> [--dry-run]")
             return 2
-        ws = rest[rest.index("--workspace") + 1] if "--workspace" in rest else None
-        return cmd_wrap(rest[0], undo=cmd == "unwrap", workspace=ws, dry="--dry-run" in rest)
+        return cmd_wrap(rest[0], undo=cmd == "unwrap", workspace=_opt(rest, "--workspace"), dry="--dry-run" in rest)
     if cmd in ("install", "uninstall"):
         if not rest or rest[0] != "claude-code":
-            print(f"usage: provenant {cmd} claude-code [--project]")
+            print(f"  usage: provenant {cmd} claude-code [--project]")
             return 2
-        settings = (Path.cwd() / ".claude" / "settings.json") if "--project" in rest else Path.home() / ".claude" / "settings.json"
-        print(install_claude_code(settings, remove=cmd == "uninstall"))
+        settings = (Path.cwd() / ".claude" / "settings.json") if "--project" in rest else _claude_code_settings()
+        msg = install_claude_code(settings, remove=cmd == "uninstall")
+        print("  " + (green(SYM["ok"]) + " " if not msg.startswith("no change") else dim(SYM["dot"]) + " ") + msg)
         return 0
-    if cmd == "setup":
-        for name, path in client_configs().items():
-            if path.exists() and name != "vscode" and name != "claude-code-project":
-                cmd_wrap(name)
-        if (Path.home() / ".claude").exists() or shutil.which("claude"):
-            print(install_claude_code(Path.home() / ".claude" / "settings.json"))
-        print("Done. Watch decisions live with: provenant log -f")
-        return 0
-    if cmd == "status":
-        return cmd_status()
-    if cmd == "log" and rest[:1] in (["-f"], ["--follow"]):
-        return follow_log()
     if cmd == "policy" and rest[:1] == ["init"]:
         dst = guard_mod.Store().home / "policy.json"
         if dst.exists():
-            print(f"{dst} already exists")
+            print(f"  {dim(SYM['dot'])} {dst} already exists")
             return 1
         shutil.copy2(guard_mod.DEFAULT_GUARD_POLICY, dst)
-        print(f"wrote {dst}; edit it to customise the policy (agents cannot: the folder is protected)")
+        print(f"  {green(SYM['ok'])} wrote {dst}\n    edit it to customise the policy (agents cannot: that folder is protected)")
         return 0
     if cmd == "pins" and rest[:1] == ["reset"]:
         pins = guard_mod.Store().home / "pins"
@@ -271,9 +623,10 @@ def main(argv: list[str] | None = None) -> int:
             if len(rest) < 2 or p.stem == rest[1]:
                 p.unlink()
                 n += 1
-        print(f"cleared {n} pin file(s); tools will be re-pinned on next listing")
+        print(f"  {green(SYM['ok'])} cleared {n} pin file(s); tools are re-pinned on their next listing")
         return 0
-    return guard_mod.main(argv)
+    print(f"  {red(SYM['no'])} unknown command '{cmd}'. Run {cyan('provenant')} for the list.")
+    return 2
 
 
 if __name__ == "__main__":

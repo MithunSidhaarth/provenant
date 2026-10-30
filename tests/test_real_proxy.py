@@ -119,7 +119,7 @@ class RealProxy(unittest.TestCase):
         self.rpc("tools/list")
         self.call("run_command", command="echo a")
         self.call("run_command", command="rm -rf /")
-        out = subprocess.run([sys.executable, str(ROOT / "provenant.py"), "verify"], env=self.env,
+        out = subprocess.run([sys.executable, str(ROOT / "provenant.py"), "verify", "--json"], env=self.env,
                              capture_output=True, text=True)
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertTrue(json.loads(out.stdout)["ok"])
