@@ -726,6 +726,9 @@ def _help() -> str:
         f"    {c('provenant setup')}find your AI clients, show the plan, ask, then protect them",
         f"    {c('provenant verify')}safe enforcement test: allow, block, hold, audit",
         f"    {c('provenant status [--json]')}installed / configured / connected / verified",
+        f"    {c('provenant dashboard')}open the local security command center",
+        f"    {c('provenant test [--json]')}run safe enforcement, environment and audit checks",
+        f"    {c('provenant update [--check]')}upgrade from PyPI or check available versions",
         f"    {c('provenant doctor [--json]')}diagnose Python, PATH, configs, policy, audit, model",
         f"    {c('provenant rollback')}undo every client change Provenant made",
         ui.section("Watch and decide"),
@@ -767,6 +770,15 @@ def main(argv: list[str] | None = None) -> int:
     if cmd in ("-V", "--version", "version"):
         print(f"provenant {VERSION}")
         return 0
+    if cmd == "dashboard":
+        from .maintenance import dashboard
+        return dashboard(rest)
+    if cmd == "update":
+        from .maintenance import update
+        return update(rest)
+    if cmd == "test":
+        from .maintenance import test
+        return test("--json" in rest)
     if cmd == "proxy":
         from .mcp_proxy import main as proxy_main
         return proxy_main(rest)

@@ -34,6 +34,10 @@ From a clone you can run `python3 provenant.py setup` (or `provenant.bat setup`)
 
 ```bash
 provenant status       # what is protected
+provenant dashboard    # open the local security command center at 127.0.0.1:8765
+provenant test          # safe enforcement + environment + audit-chain checks
+provenant update        # upgrade from the official PyPI package (once published)
+provenant update --check # check available PyPI versions without installing
 provenant log -f       # every tool call live: OK / BLOCK / HOLD / TAINT
 provenant approve      # walk through held calls (a person at a terminal only)
 ```
