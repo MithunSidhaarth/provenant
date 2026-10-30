@@ -275,6 +275,11 @@ def main() -> int:
         "attacks": [{k: r[k] for k in ("id", "category", "note", "tool", "args", "expected", "actual", "reasons", "pass")} for r in att],
     }, indent=1, ensure_ascii=False))
     write_report(result)
+    site = ROOT / "dashboard" / "eval"           # the static site reads these; same files, no hand-edited numbers
+    site.mkdir(exist_ok=True)
+    for name in ("results.json", "REPORT.md", "token_benchmark.json", "TOKEN_BENCHMARK.md"):
+        if (OUT / name).exists():
+            (site / name).write_bytes((OUT / name).read_bytes())
     ok = (c["attacks"]["contained"] == c["attacks"]["total"] and not c["benign"]["false_positives"]
           and lv["passed"] == lv["total"] and not st["failed"])
     print(json.dumps({"attacks_contained": f"{c['attacks']['contained']}/{c['attacks']['total']}",

@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createRoot } from "react-dom/client";
-import { motion, useScroll, useSpring } from "motion/react";
+import { motion, useScroll, useSpring, MotionConfig } from "motion/react";
 import { api } from "./api.js";
 import { ToastHost, useToast } from "./ui.jsx";
 import { Intro, Hero } from "./Hero.jsx";
 import { Guard } from "./Guard.jsx";
 import { Lab, Playground, Approvals, Evidence, Audit, Policy } from "./Sim.jsx";
+import { HowItWorks, PhoneApproval, Efficiency, Features, Download, Trust, FinalCTA, DemoVideo } from "./Product.jsx";
 
-const NAV = [["guard", "Guard"], ["lab", "Lab"], ["playground", "Playground"], ["approvals", "Approvals"],
-  ["evidence", "Evidence"], ["audit", "Audit"], ["policy", "Policy"]];
+const NAV = [["how", "How it works"], ["guard", "Try it"], ["phone", "Phone"], ["efficiency", "Efficiency"],
+  ["features", "Features"], ["download", "Install"], ["trust", "Trust"], ["lab", "Lab"]];
 
 function Nav({ chain, pending, onReset }) {
   const [active, setActive] = useState("");
@@ -53,7 +54,7 @@ function Footer() {
       <div className="footer-big">Provenant</div>
       <div className="footer-cols">
         <div><b>What it is</b><p>A deterministic policy enforcement point between AI agents and their tools. Built for PARALLAX 2026, AgentShield track.</p></div>
-        <div><b>Honest limits</b><p>The scenarios are a simulation with fake data. The Guard runs on real tools but is a hackathon build, not an audited product.</p></div>
+        <div><b>Honest limits</b><p>The Lab, Playground and approval demos are a simulation with fake data. The gateway runs on real tools but is a hackathon build, not an audited product. Single user; no shared hosting.</p></div>
         <div><b>Built with</b><p>Python standard library · React · Motion · anime.js · Bricolage Grotesque, Geist and Geist Mono (OFL). Licences in <a href="/vendor/licenses/react-LICENSE.txt">/vendor/licenses</a>.</p></div>
         <div><b>Source</b><p><a href="https://github.com/MithunSidhaarth/provenant" rel="noopener">github.com/MithunSidhaarth/provenant</a></p></div>
       </div>
@@ -94,17 +95,25 @@ function App() {
       <Nav chain={chain} pending={pending} onReset={reset} />
       <main>
         <Hero ready={ready} scenarios={scenarios} onRun={refresh} />
+        <DemoVideo />
+        <HowItWorks />
         <Guard />
+        <PhoneApproval />
+        <Efficiency />
+        <Features />
+        <Download />
+        <Trust />
         <Lab />
         <Playground tools={policy?.tools || []} />
         <Approvals refreshKey={tick} onChange={refresh} />
         <Evidence />
         <Audit refreshKey={tick} />
         <Policy policy={policy} />
+        <FinalCTA />
       </main>
       <Footer />
     </>
   );
 }
 
-createRoot(document.getElementById("root")).render(<ToastHost><App /></ToastHost>);
+createRoot(document.getElementById("root")).render(<MotionConfig reducedMotion="user"><ToastHost><App /></ToastHost></MotionConfig>);

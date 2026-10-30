@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, anima
 import { api, argsLine, reduced } from "./api.js";
 import { Stamp, Badge, ErrorNote } from "./ui.jsx";
 
-const HEADLINE = [["Same", "agent."], ["Same", "attack."], ["Different", "world."]];
+const HEADLINE = [["Your", "agent", "can", "act."], ["Provenant", "decides"], ["whether", "it", "should."]];
 
 // The load sequence: a hairline draws across the screen, the screen splits along it, the page is underneath.
 export function Intro({ onDone }) {
@@ -33,9 +33,9 @@ export function Intro({ onDone }) {
 function Headline({ ready }) {
   let n = 0;
   return (
-    <h1 className="hero-title" aria-label="Same agent. Same attack. Different world.">
+    <h1 className="hero-title" aria-label="Your agent can act. Provenant decides whether it should.">
       {HEADLINE.map((line, li) => (
-        <span className={`hl-line${li === 2 ? " accent" : ""}`} key={li} aria-hidden="true">
+        <span className={`hl-line${li === 1 ? " accent" : ""}`} key={li} aria-hidden="true">
           {line.map((w) => {
             const i = n++;
             return (
@@ -151,13 +151,17 @@ export function Hero({ ready, scenarios, onRun }) {
       <div className="hero-grid" aria-hidden="true" />
       <div className="hero-copy">
         <motion.div className="eyebrow" initial={{ opacity: 0 }} animate={ready ? { opacity: 1 } : {}} transition={{ delay: 0.5 }}>
-          A deterministic firewall for AI agents · MCP · Claude Code
+          Model-independent policy enforcement for AI agents · MCP · Claude Code
         </motion.div>
         <Headline ready={ready} />
         <motion.p className="hero-lede" initial={{ opacity: 0, y: 12 }} animate={ready ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.7, duration: 0.8 }}>
-          A poisoned document tells the agent to steal a secret. On the left nothing stops it. On the right
-          Provenant checks every tool call against policy and provenance before it runs. Drag the line.
+          A security and governance layer that intercepts agent tool calls, enforces deterministic policy, and
+          routes sensitive actions to a human before anything runs.
         </motion.p>
+        <motion.div className="hero-cta" initial={{ opacity: 0, y: 10 }} animate={ready ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.8 }}>
+          <a className="btn primary big" href="#download">Download Provenant</a>
+          <a className="btn ghost big" href="#video" onClick={(e) => { if (!document.getElementById("video")) { e.preventDefault(); document.getElementById("how")?.scrollIntoView(); } }}>Watch the demo</a>
+        </motion.div>
       </div>
 
       <motion.div className="scenario-bar" role="tablist" aria-label="Attack scenario"
@@ -176,6 +180,7 @@ export function Hero({ ready, scenarios, onRun }) {
         animate={ready ? { opacity: 1, y: 0, scale: 1 } : {}} transition={{ delay: 0.95, duration: 1, ease: [0.16, 1, 0.3, 1] }}
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
         <ErrorNote error={err} />
+        <div className="stage-label">Simulation · fake data · drag the line to compare</div>
         {cur && <div className="stage-task"><span>Task</span>{cur.user_task}</div>}
         <div className="stage-panes" key={runKey}>
           <Pane report={data?.before} side="before" play={play} />
@@ -190,8 +195,8 @@ export function Hero({ ready, scenarios, onRun }) {
       </motion.div>
       <AnimatePresence>
         {ready && (
-          <motion.a href="#guard" className="scroll-cue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.4 }}>
-            Protect your own agents <span aria-hidden="true">↓</span>
+          <motion.a href="#how" className="scroll-cue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.4 }}>
+            See how it works <span aria-hidden="true">↓</span>
           </motion.a>
         )}
       </AnimatePresence>

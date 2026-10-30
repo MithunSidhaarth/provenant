@@ -25,7 +25,9 @@ from .tools import TOOLS
 
 DASHBOARD = ROOT / "dashboard"
 CTYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
-          ".css": "text/css; charset=utf-8", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8"}
+          ".css": "text/css; charset=utf-8", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8",
+          ".json": "application/json; charset=utf-8", ".md": "text/markdown; charset=utf-8", ".whl": "application/zip",
+          ".gz": "application/gzip", ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".pdf": "application/pdf"}
 # A fixed allow-list built at startup: request paths are looked up, never joined onto the filesystem.
 STATIC = {"/": "index.html", **{"/" + f.relative_to(DASHBOARD).as_posix(): f.relative_to(DASHBOARD).as_posix()
                                 for f in sorted(DASHBOARD.rglob("*")) if f.is_file() and f.suffix in CTYPES}}

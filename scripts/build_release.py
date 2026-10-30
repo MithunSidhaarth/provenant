@@ -68,8 +68,8 @@ def main(argv: list[str]) -> int:
                         "tool": "python -m build (setuptools backend)", "script": "scripts/build_release.py"},
             "artifacts": {a.name: sha256(a) for a in arts}}
     (out / "provenance.json").write_text(json.dumps(prov, indent=1))
-    files = sorted(p for p in out.iterdir() if p.name != "SHA256SUMS")
-    (out / "SHA256SUMS").write_text("".join(f"{sha256(p)}  {p.name}\n" for p in files))
+    files = sorted(p for p in out.iterdir() if p.name != "SHA256SUMS.txt")
+    (out / "SHA256SUMS.txt").write_text("".join(f"{sha256(p)}  {p.name}\n" for p in files))
     if "--publish-site" in argv:
         site = ROOT / "dashboard" / "download"
         shutil.rmtree(site, ignore_errors=True)
