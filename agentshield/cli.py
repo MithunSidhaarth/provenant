@@ -747,6 +747,8 @@ def _help() -> str:
         f"    {c('provenant call APPROVAL_ID')}phone the human about one held call",
         f"    {c('provenant pins reset [server]')}re-approve tool definitions after an upgrade",
         f"    {c('provenant model status|test')}optional model-assisted risk labels (off by default)",
+        f"    {c('provenant mail setup|status|test')}scan MCP email results; configure Bolna phone alerts",
+        f"    {c('provenant mail enable|disable')}turn high-risk email phone alerts on or off",
         "",
         "  " + dim("Docs: https://github.com/MithunSidhaarth/provenant/blob/main/docs/REAL_GUARD.md"),
         ""])
@@ -785,6 +787,9 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_rollback(yes="--yes" in rest or "-y" in rest, dry="--dry-run" in rest, only=only, as_json="--json" in rest)
     if cmd == "model":
         return cmd_model(rest)
+    if cmd == "mail":
+        from . import mail_security
+        return mail_security.main(rest)
     if cmd == "log":
         return cmd_log(int(_opt(rest, "-n", 25)), follow="-f" in rest or "--follow" in rest)
     if cmd == "pending":
