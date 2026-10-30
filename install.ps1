@@ -4,7 +4,8 @@
 # adds a `provenant` command to your user PATH, then runs `provenant setup`, which shows what it will
 # protect and asks before changing anything.
 $ErrorActionPreference = 'Stop'
-$Src = if ($env:PROVENANT_SRC) { $env:PROVENANT_SRC } else { 'https://github.com/MithunSidhaarth/provenant/archive/refs/heads/main.zip' }
+$Version = '0.9.0'   # kept equal to pyproject.toml by tests/test_packaging.py
+$Src = if ($env:PROVENANT_SRC) { $env:PROVENANT_SRC } else { "https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-$Version-py3-none-any.whl" }
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
 
 $Ok = [char]0x2713; $No = [char]0x2717; $Dia = [char]0x25C6; $Dot = [char]0x00B7
@@ -61,3 +62,6 @@ Done "'provenant' works in any new terminal"
 Step 4 "Protecting your agents   "
 Write-Host ""
 & (Join-Path $bin 'provenant.cmd') setup
+Write-Host ""
+Write-Host "  Next: provenant verify   (safe enforcement test), then provenant status"
+Write-Host "  Open a NEW terminal first if 'provenant' is not recognized here, or run: py -m provenant verify" -ForegroundColor DarkGray

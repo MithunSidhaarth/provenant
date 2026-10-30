@@ -34,6 +34,10 @@
       "dest": "/api/index.py"
     },
     {
+      "src": "/getting-started/?",
+      "dest": "/dashboard/getting-started.html"
+    },
+    {
       "src": "/",
       "dest": "/dashboard/index.html"
     },

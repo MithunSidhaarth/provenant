@@ -3,7 +3,7 @@
   "private": true,
   "description": "Source for the Provenant dashboard. `npm run build` writes the bundle to ../dashboard; the server needs no Node at runtime.",
   "scripts": {
-    "build": "esbuild src/main.jsx --bundle --minify --format=iife --target=es2020 --jsx=automatic --loader:.js=jsx --legal-comments=linked --define:process.env.NODE_ENV='\"production\"' --outfile=../dashboard/app.js",
+    "build": "esbuild src/main.jsx --bundle --minify --format=iife --target=es2020 --jsx=automatic --loader:.js=jsx --legal-comments=linked --define:process.env.NODE_ENV='\"production\"' --outfile=../dashboard/app.js && esbuild src/GetStarted.jsx --bundle --minify --format=iife --target=es2020 --jsx=automatic --loader:.js=jsx --legal-comments=linked --define:process.env.NODE_ENV='\"production\"' --outfile=../dashboard/start.js",
     "watch": "npm run build -- --watch"
   },
   "dependencies": {

@@ -9,9 +9,10 @@ const INSTALL = {
   wheel: {
     label: "Download",
     steps: [
-      ["Install the release", `pip install ${typeof location !== "undefined" ? location.origin : ""}/download/provenant-0.8.0-py3-none-any.whl`],
-      ["Protect every client", "provenant setup"],
-      ["Check what is protected", "provenant status"],
+      ["Install the release", "python -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl"],
+      ["Protect every client", "python -m provenant setup"],
+      ["Prove enforcement", "python -m provenant verify"],
+      ["Check what is protected", "python -m provenant status"],
       ["Watch decisions live", "provenant log -f"],
     ],
   },

@@ -22,7 +22,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("provenant")
 except Exception:
-    VERSION = "0.6.0"
+    VERSION = "0.9.0"
 
 CLIENT_LABELS = {"claude-desktop": "Claude Desktop", "cursor": "Cursor", "windsurf": "Windsurf",
                  "vscode": "VS Code (this folder)", "claude-code-project": "Claude Code (.mcp.json)"}
@@ -199,9 +199,36 @@ def status_dict() -> dict:
             "claude_code_hook": _hook_installed(_claude_code_settings())}
 
 
-def cmd_status() -> int:
+def status_full() -> dict:
+    """status_dict() plus the layered protection state (installed / engine / configured / connected / verified)."""
+    from . import onboarding
     s = status_dict()
+    store = guard_mod.Store()
+    s["protection"] = onboarding.protection(s, store.audit.snapshot(), store.home)
+    return s
+
+
+LEVEL_LABELS = {"installed": "Installed", "engine": "Engine ready", "configured": "Configured",
+                "connected": "Connected", "verified": "Verified"}
+
+
+def cmd_status() -> int:
+    s = status_full()
+    p = s["protection"]
     print(ui.banner(s["version"]))
+    print(ui.section("Where you are"))
+    lv = p["last_verify"] or {}
+    detail = {"installed": "the provenant package runs",
+              "engine": "policy loads and the audit chain verifies",
+              "configured": "a client config or the Claude Code hook points at Provenant",
+              "connected": ("traffic seen from " + ", ".join(p["connected_via"])) if p["connected_via"]
+              else "no client tool call has gone through Provenant yet",
+              "verified": f"enforcement test passed at {lv.get('at')}" if p["layers"]["verified"]
+              else "enforcement test not run against this policy: provenant verify"}
+    for name, label in LEVEL_LABELS.items():
+        on = p["layers"][name]
+        print(ui.row(green(SYM["ok"]) if on else dim(SYM["dot"]), label, detail[name] if on else dim(detail[name]), 18))
+    print("\n  " + bold(p["summary"]) + (f"  {dim('Next:')} {cyan(p['next'])}" if p["next"] else ""))
     print(ui.section("Protection"))
     any_client = False
     for c in s["clients"]:
@@ -247,12 +274,12 @@ def _ask(question: str, default: bool = True) -> bool:
     return default if not ans else ans in ("y", "yes")
 
 
-def cmd_setup(yes: bool = False, dry: bool = False) -> int:
+def cmd_setup(yes: bool = False, dry: bool = False, only: list[str] | None = None) -> int:
     print(ui.banner(VERSION))
     print(ui.section("Looking for agents on this machine"))
     plan: list[tuple[str, Path, dict, list[str]]] = []
     for name, path in client_configs().items():
-        if name in ("vscode", "claude-code-project"):
+        if name in ("vscode", "claude-code-project") or (only and name not in only):
             continue
         label = CLIENT_LABELS[name]
         if not path.exists():
@@ -278,8 +305,11 @@ def cmd_setup(yes: bool = False, dry: bool = False) -> int:
             if "already" not in s:
                 print("      " + dim(f"{SYM['dot']} {s}"))
     cc = _claude_code_settings()
-    want_hook = ((Path.home() / ".claude").exists() or shutil.which("claude")) and not _hook_installed(cc)
-    if _hook_installed(cc):
+    want_hook = (not only or "claude-code" in only) and \
+        ((Path.home() / ".claude").exists() or shutil.which("claude")) and not _hook_installed(cc)
+    if only and "claude-code" not in only:
+        pass
+    elif _hook_installed(cc):
         print(ui.row(green(SYM["ok"]), "Claude Code", "hook already installed", 18))
     elif want_hook:
         print(ui.row(cyan(SYM["arrow"]), "Claude Code", "will install the safety hook " + dim(ui.short_path(cc)), 18))
@@ -292,25 +322,42 @@ def cmd_setup(yes: bool = False, dry: bool = False) -> int:
     if dry:
         print("\n  " + dim("Dry run: nothing changed.") + "\n")
         return 0
-    print("\n  " + dim("Every edited file is backed up next to itself; `provenant unwrap <client>` undoes it."))
+    print("\n  " + dim("Each edited file gets a timestamped backup next to it; `provenant rollback` undoes everything."))
+    if not yes and not (sys.stdin and sys.stdin.isatty()):
+        print("  " + yellow("Not a terminal, so nothing was changed.") + " Re-run with " + cyan("--yes") +
+              " to apply this plan non-interactively.\n")
+        return 1
     if not yes and not _ask("Apply these changes?"):
         print("  Nothing changed.\n")
         return 1
     print()
+    failed, applied = 0, []
     for label, path, cfg, names in plan:
-        _save(path, cfg)
-        print(ui.row(green(SYM["ok"]), label, f"protected {', '.join(names)}", 18))
+        try:
+            _save(path, cfg)
+            ok = all(MARK in _servers(_load(path)).get(n, {}) for n in names)   # read back what was written
+        except (OSError, ValueError) as exc:
+            ok, names = False, [f"{type(exc).__name__}: {exc}"]
+        failed += not ok
+        applied += [label] if ok else []
+        print(ui.row(green(SYM["ok"]) if ok else red(SYM["no"]), label,
+                     f"protected {', '.join(names)}" if ok else red(f"failed: {', '.join(names)}"), 18))
     if want_hook:
-        install_claude_code(cc)
-        print(ui.row(green(SYM["ok"]), "Claude Code", "hook installed", 18))
+        try:
+            install_claude_code(cc)
+            ok = _hook_installed(cc)
+        except (OSError, ValueError):
+            ok = False
+        failed += not ok
+        print(ui.row(green(SYM["ok"]) if ok else red(SYM["no"]), "Claude Code", "hook installed" if ok else red("hook install failed"), 18))
     print(ui.section("Next"))
-    if plan:
-        print(f"  1. Restart {', '.join(l for l, *_ in plan)} so it launches its tools through Provenant.")
-    print(f"  {2 if plan else 1}. Watch every tool call live:     {cyan('provenant log -f')}")
-    try_cmd = cyan("provenant check Bash '{\"command\":\"rm -rf ~\"}'")
-    print(f"  {3 if plan else 2}. Try the policy without risk:   {try_cmd}")
+    if applied:
+        print(f"  1. Restart {', '.join(applied)} so it launches its tools through Provenant.")
+    print(f"  {2 if applied else 1}. Prove enforcement safely:      {cyan('provenant verify')}")
+    print(f"  {3 if applied else 2}. See what is protected:        {cyan('provenant status')}")
+    print(f"  {dim('Undo all of this any time:      provenant rollback')}")
     print()
-    return 0
+    return 1 if failed else 0
 
 
 def cmd_wrap(target: str, undo: bool = False, workspace: str | None = None, dry: bool = False) -> int:
@@ -520,6 +567,106 @@ def cmd_check(tool: str, args_json: str, workspace: str) -> int:
 
 
 def cmd_verify(as_json: bool = False) -> int:
+    """The safe enforcement self-test (onboarding.self_test), then which integrations are actually live."""
+    from . import onboarding
+    r = onboarding.self_test()
+    s = status_full()
+    r["protection"] = s["protection"]
+    if as_json:
+        print(json.dumps(r, indent=2))
+        return 0 if r["passed"] else 1
+    print(ui.banner(VERSION))
+    print(ui.section("Enforcement test  " + dim("(harmless, local, simulated; nothing destructive runs)")))
+    for st in r["steps"]:
+        mark = green(SYM["ok"]) if st["passed"] else red(SYM["no"])
+        print(f"  {mark} {st['action']}")
+        print("      " + dim(f"expected {st['expected']}, got ") + (st["got"] if st["passed"] else red(st["got"])) +
+              (dim("  " + "; ".join(st["reasons"])) if st.get("reasons") else ""))
+    print(ui.section("Audit entries written"))
+    for e in r["audit_entries"]:
+        print(f"    #{e['seq']:<6} {ui.badge(e['decision'])} {e['tool']}  " + dim(e["hash"]))
+    print()
+    if r["passed"]:
+        print("  " + green(bold("Enforcement verified.")) + " The policy engine on this machine blocks, holds and records as expected.")
+    else:
+        print("  " + red(bold("Enforcement test FAILED.")) + " Run " + cyan("provenant doctor") + ".")
+    p = r["protection"]
+    print("  " + dim("Not proven by this test: ") + p["summary"] + (f"  {dim('Next:')} {cyan(p['next'])}" if p["next"] else ""))
+    print()
+    return 0 if r["passed"] else 1
+
+
+def cmd_doctor(as_json: bool = False) -> int:
+    from . import onboarding
+    r = onboarding.doctor()
+    if as_json:
+        print(json.dumps(r, indent=2))
+        return 0 if r["ok"] else 1
+    print(ui.banner(VERSION))
+    icons = {"ok": green(SYM["ok"]), "warn": yellow(SYM["warn"]), "fail": red(SYM["no"]), "info": dim(SYM["dot"])}
+    for c in r["checks"]:
+        print(f"  {icons[c['status']]} {c['summary']}")
+        if c.get("fix"):
+            print("      " + dim("fix: ") + c["fix"])
+    print("\n  " + (green("No problems found.") if r["ok"] else red("Problems found; see the fixes above.")) + "\n")
+    return 0 if r["ok"] else 1
+
+
+def cmd_rollback(yes: bool, dry: bool, only: list[str] | None, as_json: bool = False) -> int:
+    from . import onboarding
+    plan = onboarding.rollback_plan(only)
+    if not as_json:
+        print(ui.banner(VERSION))
+        print(ui.section("Undo Provenant's client changes"))
+        for item in plan:
+            label = CLIENT_LABELS.get(item["client"], item["client"])
+            what = item.get("error") or ("remove the safety hook" if item.get("remove_hook") else f"restore {', '.join(item['restore'])}")
+            print(ui.row(cyan(SYM["arrow"]) if not item.get("error") else red(SYM["no"]), label, what + "  " + dim(ui.short_path(item["path"])), 18))
+    actionable = [i for i in plan if not i.get("error")]
+    if not actionable:
+        print(json.dumps({"plan": plan, "done": []}) if as_json else "  " + green("Nothing to undo.") + "\n")
+        return 0
+    if dry or (not yes and not _ask("Restore these configurations?", default=False)):
+        print(json.dumps({"plan": plan, "done": []}) if as_json else "  Nothing changed.\n")
+        return 0 if dry else 1
+    done = onboarding.apply_rollback(actionable)
+    if as_json:
+        print(json.dumps({"plan": plan, "done": done}))
+    else:
+        for d in done:
+            print(ui.row(green(SYM["ok"]) if d["ok"] else red(SYM["no"]), CLIENT_LABELS.get(d["client"], d["client"]),
+                         "restored" if d["ok"] else red(d.get("error", "failed")), 18))
+        print("\n  " + dim("Backups of every earlier version stay next to each file. Restart your clients to apply.") + "\n")
+    return 0 if all(d["ok"] for d in done) else 1
+
+
+def cmd_model(rest: list[str]) -> int:
+    from . import classifier
+    home = guard_mod.Store().home
+    clf, err = classifier.load(home)
+    sub = rest[0] if rest else "status"
+    if sub == "status":
+        d = {"config": str(classifier.config_path(home)), "error": err, **clf.describe()}
+        d["escalation_enabled_by_policy"] = isinstance(guard_mod.GuardPolicy.from_file().config.get("model_assist"), dict)
+        print(json.dumps(d, indent=2))
+        return 1 if err else 0
+    if sub == "test":
+        if not clf.enabled:
+            print(json.dumps({"ok": False, "error": err or "model assistance is not enabled in " + str(classifier.config_path(home))}))
+            return 1
+        payload = classifier.minimal_payload("Bash", {"command": "ls -la"}, "shell", clf.send, clf.max_chars)
+        try:
+            a = clf.classify(payload)
+            print(json.dumps({"ok": True, "sent": payload, "advice": a.to_dict()}, indent=2))
+            return 0
+        except classifier.ClassifierError as exc:
+            print(json.dumps({"ok": False, "error": str(exc)}))
+            return 1
+    print("  usage: provenant model status|test")
+    return 2
+
+
+def cmd_verify_audit(as_json: bool = False) -> int:
     v = guard_mod.Store().audit.verify()
     if as_json:
         print(json.dumps(v))
@@ -573,15 +720,18 @@ def _help() -> str:
     c = lambda s: cyan(f"{s:<48}")
     return ui.banner(VERSION) + "\n".join([
         ui.section("Get protected"),
-        f"    {c('provenant setup')}find your agents and protect them all",
-        f"    {c('provenant status')}what is protected right now",
+        f"    {c('provenant setup')}find your AI clients, show the plan, ask, then protect them",
+        f"    {c('provenant verify')}safe enforcement test: allow, block, hold, audit",
+        f"    {c('provenant status [--json]')}installed / configured / connected / verified",
+        f"    {c('provenant doctor [--json]')}diagnose Python, PATH, configs, policy, audit, model",
+        f"    {c('provenant rollback')}undo every client change Provenant made",
         ui.section("Watch and decide"),
         f"    {c('provenant log -f')}live feed of every tool call: OK / BLOCK / HOLD",
         f"    {c('provenant pending')}calls waiting for a human",
         f"    {c('provenant approve [id]')}let one held call run once (asks if no id)",
         f"    {c('provenant reject [id]')}refuse a held call",
         f"    {c('provenant check TOOL JSON')}dry-run a call through the policy",
-        f"    {c('provenant verify')}check the audit log has not been tampered with",
+        f"    {c('provenant audit verify')}check the audit log has not been tampered with",
         ui.section("Fine control"),
         f"    {c('provenant wrap|unwrap CLIENT')}claude-desktop, cursor, windsurf, vscode, or a path",
         f"    {c('provenant install|uninstall claude-code')}the Claude Code safety hook (--project for this repo)",
@@ -593,6 +743,7 @@ def _help() -> str:
         f"    {c('provenant config claude-desktop')}print an mcpServers snippet for provenant-tools",
         f"    {c('provenant call APPROVAL_ID')}phone the human about one held call",
         f"    {c('provenant pins reset [server]')}re-approve tool definitions after an upgrade",
+        f"    {c('provenant model status|test')}optional model-assisted risk labels (off by default)",
         "",
         "  " + dim("Docs: https://github.com/MithunSidhaarth/provenant/blob/main/docs/REAL_GUARD.md"),
         ""])
@@ -617,13 +768,20 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "hook":
         from .cc_hook import main as hook_main
         return hook_main()
+    only = [rest[i + 1] for i, a in enumerate(rest[:-1]) if a == "--client"] or None
     if cmd == "setup":
-        return cmd_setup(yes="--yes" in rest or "-y" in rest, dry="--dry-run" in rest)
+        return cmd_setup(yes="--yes" in rest or "-y" in rest, dry="--dry-run" in rest, only=only)
     if cmd == "status":
         if "--json" in rest:
-            print(json.dumps(status_dict(), indent=2))
+            print(json.dumps(status_full(), indent=2))
             return 0
         return cmd_status()
+    if cmd == "doctor":
+        return cmd_doctor("--json" in rest)
+    if cmd == "rollback":
+        return cmd_rollback(yes="--yes" in rest or "-y" in rest, dry="--dry-run" in rest, only=only, as_json="--json" in rest)
+    if cmd == "model":
+        return cmd_model(rest)
     if cmd == "log":
         return cmd_log(int(_opt(rest, "-n", 25)), follow="-f" in rest or "--follow" in rest)
     if cmd == "pending":
@@ -638,6 +796,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         return cmd_check(pos[0], pos[1] if len(pos) > 1 else "{}", _opt(rest, "--workspace", os.getcwd()))
     if cmd == "verify":
+        if "--audit-only" in rest:
+            return cmd_verify_audit("--json" in rest)
         return cmd_verify("--json" in rest)
     if cmd in ("wrap", "unwrap"):
         if not rest:

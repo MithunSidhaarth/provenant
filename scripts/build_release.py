@@ -23,6 +23,7 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+PUBLIC_BASE = "https://github.com/MithunSidhaarth/provenant/raw/main/dist"
 
 
 def sha256(p: Path) -> str:
@@ -76,8 +77,14 @@ def main(argv: list[str]) -> int:
         site.mkdir(parents=True)
         for p in out.iterdir():
             shutil.copy2(p, site / p.name)
-        (site / "latest.json").write_text(json.dumps({"version": v, "commit": commit, "wheel": next(a.name for a in arts if a.suffix == ".whl"),
-                                                      "sdist": next(a.name for a in arts if a.suffix == ".gz"),
+        wheel = next(a.name for a in arts if a.suffix == ".whl")
+        sdist = next(a.name for a in arts if a.suffix == ".gz")
+        # Public URLs on GitHub (the repository is public): the Vercel deployment may sit behind Vercel
+        # Authentication, which answers a download with an HTML login page. dist/ is committed with the code.
+        (site / "latest.json").write_text(json.dumps({"version": v, "commit": commit, "wheel": wheel, "sdist": sdist,
+                                                      "size": {a.name: a.stat().st_size for a in arts},
+                                                      "urls": {"wheel": f"{PUBLIC_BASE}/{wheel}", "sdist": f"{PUBLIC_BASE}/{sdist}",
+                                                               "sha256sums": f"{PUBLIC_BASE}/SHA256SUMS.txt"},
                                                       "sha256": prov["artifacts"]}, indent=1))
     print(json.dumps(prov, indent=1))
     return 0

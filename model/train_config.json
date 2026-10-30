@@ -1,0 +1,14 @@
+{
+  "_status": "NOT TRAINED. This is the configuration a training run would use; no checkpoint exists yet.",
+  "base_model_candidates": [
+    {"id": "Qwen/Qwen2.5-14B-Instruct", "license_to_verify": "Apache-2.0 (check the model page before use)"},
+    {"id": "microsoft/phi-4", "license_to_verify": "MIT (check the model page before use)"}
+  ],
+  "method": "QLoRA (4-bit NF4 base, LoRA adapters)",
+  "lora": {"r": 16, "alpha": 32, "dropout": 0.05, "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]},
+  "training": {"epochs": 3, "learning_rate": 0.0002, "batch_size": 4, "grad_accum": 4, "max_seq_len": 1024,
+               "seed": 1337, "eval_every_steps": 50},
+  "data": {"train": "model/data/train.jsonl", "val": "model/data/val.jsonl", "test": "model/data/test.jsonl"},
+  "hardware_note": "Measure before choosing: a 4-bit 14B QLoRA run typically needs one 24-48 GB GPU. Record the GPU, wall time and cost actually used in the model card.",
+  "serving_note": "Serve behind an OpenAI-compatible endpoint (vLLM, llama.cpp server, Ollama or TGI) and point ~/.provenant/model.json at it."
+}
