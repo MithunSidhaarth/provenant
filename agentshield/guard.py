@@ -799,7 +799,7 @@ class Guard:
         s = self.store.load_session(sid)
         s["user_texts"].append(text[:4000])
         self.store.save_session(s)
-        self.audit.append("user_prompt", sid, {"source": source, "chars": len(text)})
+        self.audit.append("user_prompt", sid, {"source": source, "chars": len(text), "mode": self.mode})
 
     @_locked
     def check(self, call: GuardCall, hold: bool = True, grant: bool = True) -> Verdict:
@@ -822,14 +822,14 @@ class Guard:
         session["call_count"] = session.get("call_count", 0) + 1
         self.store.save_session(session)
         self.audit.append("policy_decision", call.session_id, {"call_id": call.call_id, "tool": call.tool,
-                                                               "source": call.source, **_audit_result(result)})
+                                                               "source": call.source, "mode": self.mode, **_audit_result(result)})
         v = Verdict(result.decision, result.reasons, result.to_dict()["findings"], call.call_id,
                     fingerprint=result.call_fingerprint)
         if result.decision == APPROVE and hold:
             granted = self.store.db.consume_approval(result.call_fingerprint, self.mode, self.clock(), call.call_id)
             if granted:
                 self.audit.append("approval_used", call.session_id, {"approval_id": granted["approval_id"],
-                                                                     "call_id": call.call_id,
+                                                                     "call_id": call.call_id, "mode": self.mode, "source": call.source,
                                                                      "fingerprint": result.call_fingerprint})
                 v.decision, v.approval_id, v.approved_by = ALLOW, granted["approval_id"], granted["decided_by"]
             else:
@@ -851,7 +851,7 @@ class Guard:
             ok = False
         try:
             self.audit.append("grant_redeemed" if ok else "grant_refused", call.session_id,
-                              {"call_id": call.call_id, "grant_id": verdict.grant_id})
+                              {"call_id": call.call_id, "grant_id": verdict.grant_id, "mode": self.mode, "source": call.source})
         except Exception:
             return False
         return ok
@@ -867,7 +867,7 @@ class Guard:
                                        "source": call.source, "reasons": result.reasons, "created_at": now,
                                        "expires_at": now + float(self.policy.config.get("approval_ttl_seconds", 900))})
         self.audit.append("approval_requested", call.session_id, {"approval_id": aid, "tool": call.tool,
-                                                                  "fingerprint": result.call_fingerprint})
+                                                                  "mode": self.mode, "source": call.source, "fingerprint": result.call_fingerprint})
         return aid
 
     @_locked
@@ -882,7 +882,7 @@ class Guard:
             p = self.store.db.get_approval(approval_id)
             self.audit.append("approval_granted" if approve else "approval_rejected", p["session_id"],
                               {"approval_id": approval_id, "approver": approver, "channel": channel,
-                               "fingerprint": p["fingerprint"], **({"evidence": evidence} if evidence else {})})
+                               "mode": self.mode, "source": p.get("source", "unknown"), "fingerprint": p["fingerprint"], **({"evidence": evidence} if evidence else {})})
         return r
 
     def get_approval(self, approval_id: str) -> dict | None:
@@ -910,7 +910,7 @@ class Guard:
         s["injection_flags"] += flags
         self.store.save_session(s)
         self.audit.append("tool_result", sid, {"tool": tool, "trust": "untrusted", "chars": len(text),
-                                               "injection_indicators": flags})
+                                               "mode": self.mode, "source": ("claude-code" if sid.startswith("cc:") else "mcp"), "injection_indicators": flags})
         return flags
 
 

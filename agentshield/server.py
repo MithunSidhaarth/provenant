@@ -171,24 +171,29 @@ class App:
 
     def guard_log(self, after: int) -> dict:
         if HOSTED:
-            return {"entries": [], "total": 0, "hosted": True}
+            return {"entries": [], "total": 0, "cursor": after, "hosted": True}
         entries = self.guard().audit.snapshot()
+        # The shared chain also contains explicitly simulated/demo records. Only count
+        # events whose producer stamped them as live; old untagged records are ambiguous
+        # and are deliberately excluded rather than presented as real agent activity.
+        live_entries = [e for e in entries if e.get("data", {}).get("mode") == "live" and e.get("data", {}).get("source") in ("mcp", "claude-code")]
         keep = ("seq", "ts", "event", "session_id", "data", "hash")
-        decisions = [e for e in entries if e.get("event") == "policy_decision"]
+        decisions = [e for e in live_entries if e.get("event") == "policy_decision"]
         decision_names = [e.get("data", {}).get("decision") for e in decisions]
         stats = {
-            "audit_entries": len(entries),
-            "tool_requests_observed": sum(e.get("event") == "tool_request" for e in entries),
+            "audit_entries": len(live_entries),
+            "tool_requests_observed": sum(e.get("event") == "tool_request" for e in live_entries),
             "policy_decisions": len(decisions),
             "allowed": decision_names.count("ALLOW"),
             "blocked": decision_names.count("DENY"),
             "held": decision_names.count("REQUIRE_APPROVAL"),
-            "tool_results_observed": sum(e.get("event") == "tool_result" for e in entries),
-            "approval_requests": sum(e.get("event") == "approval_requested" for e in entries),
-            "last_event_at": entries[-1].get("ts") if entries else None,
+            "tool_results_observed": sum(e.get("event") == "tool_result" for e in live_entries),
+            "approval_requests": sum(e.get("event") == "approval_requested" for e in live_entries),
+            "last_event_at": live_entries[-1].get("ts") if live_entries else None,
         }
-        return {"entries": [_mask({k: e.get(k) for k in keep}, 600) for e in entries if e["seq"] > after][-300:],
-                "total": len(entries), "stats": stats}
+        return {"entries": [_mask({k: e.get(k) for k in keep}, 600)
+                            for e in live_entries if e["seq"] > after][-300:],
+                "total": len(live_entries), "cursor": entries[-1]["seq"] if entries else after, "stats": stats}
 
     def guard_pending(self) -> list[dict]:
         if HOSTED:

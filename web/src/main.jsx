@@ -38,10 +38,10 @@ function Nav({ chain, pending, onReset }) {
         ))}
       </div>
       <div className="nav-status">
-        <a href="#audit" className={`pill ${chain?.ok ? "allow" : chain ? "deny" : ""}`} title="Audit hash chain">
-          <i />{chain ? (chain.ok ? `chain ok · ${chain.checked}` : "chain broken") : "chain …"}
+        <a href="#audit" className={`pill ${chain?.ok ? "allow" : chain ? "deny" : ""}`} title="Simulated demo audit chain">
+          <i />{chain ? (chain.ok ? `demo chain · ${chain.checked}` : "demo chain broken") : "demo chain …"}
         </a>
-        <a href="#approvals" className={`pill ${pending ? "hold" : ""}`}><i />{pending} held</a>
+        <a href="#approvals" className={`pill ${pending ? "hold" : ""}`}><i />{pending} demo held</a>
         <button className="pill btnlike" onClick={onReset} title="Clear runs, approvals and the in-memory audit log">Reset</button>
       </div>
       <motion.div className="nav-progress" style={{ scaleX: progress }} />
@@ -55,7 +55,7 @@ function Footer() {
       <div className="footer-big">Provenant</div>
       <div className="footer-cols">
         <div><b>What it is</b><p>A deterministic policy enforcement point between AI agents and their tools. Built for PARALLAX 2026, AgentShield track.</p></div>
-        <div><b>Honest limits</b><p>The Lab, Playground and approval demos are a simulation with fake data. The gateway runs on real tools but is a hackathon build, not an audited product. Single user; no shared hosting.</p></div>
+        <div><b>Honest limits</b><p>The Lab, Playground, architecture animation and phone transcript are explicit simulations, not live agent activity. Only the local Guard feed reads observed, mode-tagged audit events. The Vercel site cannot inspect your machine and does not collect remote agent telemetry. The gateway is a hackathon build, not an audited product.</p></div>
         <div><b>Built with</b><p>Python standard library · React · Motion · anime.js · Bricolage Grotesque, Geist and Geist Mono (OFL). Licences in <a href="/vendor/licenses/react-LICENSE.txt">/vendor/licenses</a>.</p></div>
         <div><b>Source</b><p><a href="https://github.com/MithunSidhaarth/provenant" rel="noopener">github.com/MithunSidhaarth/provenant</a></p></div>
       </div>

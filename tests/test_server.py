@@ -175,6 +175,9 @@ class GuardViews(_ServerCase):
         code, log, _ = self.req("/api/guard/log?after=0")
         self.assertEqual(code, 200)
         self.assertTrue(log["entries"])
+        live_decisions = [e for e in log["entries"] if e.get("event") == "policy_decision"]
+        self.assertTrue(live_decisions)
+        self.assertTrue(all(e.get("data", {}).get("mode") == "live" for e in live_decisions))
         self.assertNotIn(self.TOKEN, json.dumps(log))
         self.assertTrue(all("mac" not in e for e in log["entries"]))
         code, pend, _ = self.req("/api/guard/pending")
@@ -187,13 +190,18 @@ class GuardViews(_ServerCase):
     def test_guard_log_reports_live_audit_backed_statistics(self):
         audit = self.httpd.app.guard().audit
         before = self.req("/api/guard/log?after=0")[1]["stats"]
-        audit.append("tool_request", "stats-test", {"tool": "Read", "args": {}})
-        audit.append("policy_decision", "stats-test", {"tool": "Read", "decision": "ALLOW", "reasons": []})
-        audit.append("tool_result", "stats-test", {"tool": "Read", "trust": "untrusted", "chars": 5})
-        audit.append("tool_request", "stats-test", {"tool": "Bash", "args": {}})
-        audit.append("policy_decision", "stats-test", {"tool": "Bash", "decision": "DENY", "reasons": ["test block"]})
-        audit.append("policy_decision", "stats-test", {"tool": "WebFetch", "decision": "REQUIRE_APPROVAL", "reasons": ["test hold"]})
-        audit.append("approval_requested", "stats-test", {"tool": "WebFetch", "approval_id": "test-approval"})
+        audit.append("tool_request", "stats-test", {"tool": "Read", "mode": "live", "source": "mcp", "args": {}})
+        audit.append("policy_decision", "stats-test", {"tool": "Read", "mode": "live", "source": "mcp", "decision": "ALLOW", "reasons": []})
+        audit.append("tool_result", "stats-test", {"tool": "Read", "mode": "live", "source": "mcp", "trust": "untrusted", "chars": 5})
+        audit.append("tool_request", "stats-test", {"tool": "Bash", "mode": "live", "source": "mcp", "args": {}})
+        audit.append("policy_decision", "stats-test", {"tool": "Bash", "mode": "live", "source": "mcp", "decision": "DENY", "reasons": ["test block"]})
+        audit.append("policy_decision", "stats-test", {"tool": "WebFetch", "mode": "live", "source": "mcp", "decision": "REQUIRE_APPROVAL", "reasons": ["test hold"]})
+        audit.append("approval_requested", "stats-test", {"tool": "WebFetch", "mode": "live", "source": "mcp", "approval_id": "test-approval"})
+        # Simulated decisions share the hash chain but must never inflate real-agent metrics.
+        audit.append("tool_request", "demo-test", {"tool": "Bash", "mode": "demo", "source": "mcp", "args": {}})
+        audit.append("policy_decision", "demo-test", {"tool": "Bash", "mode": "demo", "source": "mcp", "decision": "DENY", "reasons": ["demo only"]})
+        # Untagged legacy events are ambiguous and deliberately excluded.
+        audit.append("policy_decision", "legacy-test", {"tool": "Bash", "decision": "ALLOW", "source": "mcp", "reasons": []})
         code, log, _ = self.req("/api/guard/log?after=0")
         self.assertEqual(code, 200)
         stats = log["stats"]
@@ -205,6 +213,8 @@ class GuardViews(_ServerCase):
         self.assertEqual(stats["tool_results_observed"], before["tool_results_observed"] + 1)
         self.assertEqual(stats["approval_requests"], before["approval_requests"] + 1)
         self.assertTrue(stats["last_event_at"])
+        self.assertFalse(any(e["session_id"] in ("demo-test", "legacy-test") for e in log["entries"]))
+        self.assertEqual(log["cursor"], max(e["seq"] for e in audit.snapshot()))
 
     def test_hosted_mode_hides_the_machine(self):
         server_mod.HOSTED = True
