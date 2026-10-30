@@ -51,6 +51,7 @@ jobs:
           python -m pip install --no-deps dist/*.whl
           provenant --version
           provenant verify
+          provenant mail status
       - uses: actions/attest-build-provenance@7668571508540a607bdfd90a87a560489fe372eb # v2.1.0
         with:
           subject-path: "dist/*.whl, dist/*.tar.gz"
