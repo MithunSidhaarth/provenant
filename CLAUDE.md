@@ -51,8 +51,11 @@ Hard rules from the brief, which must never be broken:
 | `agentshield/cc_hook.py` | Claude Code PreToolUse / PostToolUse / UserPromptSubmit hook |
 | `agentshield/cli.py`, `provenant.py`, `provenant.bat`, `pyproject.toml` | `provenant` command: setup, wrap/unwrap client configs, install/uninstall claude-code, status, log -f, approve |
 | `agentshield/server.py` | HTTP API + dashboard host on 127.0.0.1:8765, with a self-only CSP and a static allow-list |
-| `dashboard/` | `index.html`, `app.js` (textContent only), `style.css` (brutalist), `fx.js` (Three.js particle field) |
-| `dashboard/vendor/` | pinned three.js 0.169.0, anime.js 3.2.2, Motion 11.11.17 and OFL fonts, plus `licenses/` |
+| `dashboard/` | `index.html`, `app.js` (esbuild bundle of `web/src`, committed), `style.css` (Split design) |
+| `web/src/` | React 18 + Motion 11 + anime.js 3 source: `main.jsx`, `Hero.jsx` (intro + draggable before/after), `Guard.jsx` (MCP section, install, checker, feed, red-team), `Sim.jsx` (lab, playground, approvals, evidence, audit, policy). Rebuild: `cd web && npm install && npm run build` |
+| `api/index.py`, `vercel.json` | hosted demo on Vercel (static `dashboard/` + the stdlib server as a Python function, `PROVENANT_HOSTED=1`) |
+| `dashboard/vendor/` | OFL fonts (Bricolage Grotesque, Geist, Geist Mono) plus `licenses/` |
+| `docs/guard_redteam.json` | Guard red-team results (128 attacks) shown on the dashboard |
 | `policy/policy.json` | agent permissions, data classes, limits |
 | `scenarios/*.json` | 7 scenarios with `expected_protected` |
 | `tests/` | 124 unittest tests (`test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py` are the v6 ones) |
@@ -86,6 +89,7 @@ python3 provenant.py log -f                    # v6: live ok/BLOCK/HOLD/TAINT fe
 | v3 | 0a6dcee | Benign false-positive corpus, self red-team loop, plain-language summaries, prior-work attribution | ~85 |
 | v4 | a256d34, cdf51f9 | Optional Claude agent, MCP gateway with pinned manifests, risk-scored approvals, natural-language intents (EN/HI/KN/Hinglish), Windows .bat launchers, receipt-loop fix | 97 |
 | v4.1 | 6ba7f08, 4c5ffd1 | `find_python.bat`: version-checked probing, then full paths for Store or python.org installs | 97 |
+| v7 | split-redesign | Dashboard rebuilt from scratch in React + Motion + anime.js (Split design: load sequence, draggable before/after hero, DENY stamps). New Guard/MCP section: install steps, status, dry-run checker, live feed, held calls, red-team results. Guard endpoints hardened (masking, Host check, derived fields). Hosted demo on Vercel. | 131 |
 | v6 | feat/real-guard | Provenant Guard: real MCP proxy + Claude Code hook in front of real tools; real-tool policy; persistent shared audit chain; `provenant setup/wrap/install/status/log -f/approve`; pip-installable. Real Claude Code in bypassPermissions mode was blocked from `rm -rf ./*` and `cat .env`. | 124 |
 | v5 | 628e507 | Renamed to Provenant (user-facing). Brutalist dashboard. Procedural gaussian-splat particle field that reacts to DENY/ALLOW/approval. anime.js + Motion. Everything vendored offline. Motion/lite toggle and fps watchdog. Self-only CSP. Comparison runs on load. | 99 |
 
@@ -98,7 +102,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 
 ## Status
 
-- main is v5 and is running on the laptop at 127.0.0.1:8765. v4 was confirmed with 97/97 tests on the laptop. The v5 pull still needs confirming there, including "Motion: full" on the real GPU.
+- v7 (dashboard rebuild + Guard section) is on branch `split-redesign` with a PR to main and a hosted demo on Vercel (project `provenant`, team meth2). Rebuild the bundle with `cd web && npm run build` after any change in `web/src`.
+- main was v5 and is running on the laptop at 127.0.0.1:8765. v4 was confirmed with 97/97 tests on the laptop. The v5 pull still needs confirming there, including "Motion: full" on the real GPU.
 - Feature freeze: **11:00 IST, Oct 31 2026**. Submission window: **14:00 to 16:00 IST, Oct 31 2026**.
 
 ## Open decisions
