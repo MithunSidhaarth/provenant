@@ -28,6 +28,60 @@ jobs:
           python provenant.py policy test
           python provenant.py policy lint
 
+  installer-windows:
+    # Runs install.ps1 for real on Windows PowerShell 5.1 (powershell) and PowerShell 7 (pwsh), both as a file and
+    # piped into iex like the public one-liner. PROVENANT_SRC points at a wheel built from this commit.
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.10"
+      - run: python -m pip install build
+      - run: python -m build --wheel --outdir wheelhouse
+      - name: install.ps1 as a file
+        shell: ${{ matrix.shell }}
+        env:
+          PROVENANT_NO_SETUP: "1"
+          PROVENANT_BIN: ${{ runner.temp }}\bin one
+        run: |
+          $env:PROVENANT_SRC = (Resolve-Path (Get-ChildItem wheelhouse\*.whl | Select-Object -First 1)).Path
+          & .\install.ps1
+          if ($LASTEXITCODE -ne 0) { throw "installer exit code $LASTEXITCODE" }
+          & "$env:PROVENANT_BIN\provenant.cmd" --version
+          if ($LASTEXITCODE -ne 0) { throw "provenant --version failed" }
+          & "$env:PROVENANT_BIN\provenant.cmd" verify
+          if ($LASTEXITCODE -ne 0) { throw "provenant verify failed" }
+      - name: install.ps1 piped into iex, twice (repeat run)
+        shell: ${{ matrix.shell }}
+        env:
+          PROVENANT_NO_SETUP: "1"
+          PROVENANT_BIN: ${{ runner.temp }}\bin one
+        run: |
+          $env:PROVENANT_SRC = (Resolve-Path (Get-ChildItem wheelhouse\*.whl | Select-Object -First 1)).Path
+          Get-Content .\install.ps1 -Raw | Invoke-Expression
+          if ($LASTEXITCODE -ne 0) { throw "first iex run failed" }
+          Get-Content .\install.ps1 -Raw | Invoke-Expression
+          if ($LASTEXITCODE -ne 0) { throw "second iex run failed" }
+          $n = ([Environment]::GetEnvironmentVariable('Path','User') -split ';' | Where-Object { $_ -eq $env:PROVENANT_BIN }).Count
+          if ($n -ne 1) { throw "PATH entry count is $n, expected 1" }
+      - name: a bad source fails safely
+        shell: ${{ matrix.shell }}
+        env:
+          PROVENANT_NO_SETUP: "1"
+          PROVENANT_BIN: ${{ runner.temp }}\bin two
+        run: |
+          Set-Content -Path bad.whl -Value "<html>sign in</html>"
+          $env:PROVENANT_SRC = (Resolve-Path bad.whl).Path
+          & .\install.ps1
+          if ($LASTEXITCODE -eq 0) { throw "installer accepted an HTML file" }
+          if (Test-Path "$env:PROVENANT_BIN\provenant.cmd") { throw "wrapper written for a bad wheel" }
+          $global:LASTEXITCODE = 0
+
   security-eval:
     runs-on: ubuntu-latest
     steps:

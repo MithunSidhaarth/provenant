@@ -21,3 +21,13 @@ If `provenant` is not found: `py -m provenant ...` / `python3 -m provenant ...`.
 - Not deployed; download URL goes live only after merge to main. Then run `python3 scripts/check_download.py --install`.
 - install.ps1 never run on real Windows; Cursor/Windsurf untested in the real apps.
 - No browser/accessibility pass of the new page yet; no model trained or benchmarked.
+
+## 0.9.1: Windows installer repair
+- Root cause: Windows PowerShell 5.1 strips double quotes from arguments passed to native programs. The 0.9.0 installer
+  ran `python -c 'import sys; print(".".join(...))'`, which Python received as `print(..join(...))` (SyntaxError); the failed
+  command's null output then hit `.Trim()` ("cannot call a method on a null-valued expression"). The served script was
+  identical to the repository's; it was not stale or cached. PowerShell 7.3+ passes quotes through, so 7 did not show it.
+- install.ps1 rewritten: quote-free Python snippets, exit code checked after every native call, candidate interpreters
+  probed and validated, wheel validated (zip, metadata version, entry point, SHA-256 pinned by build_release.py), import and
+  wrapper verified, PATH deduplicated, no `exit` under iex. See tests/test_installer.py and the `installer-windows` CI job.
+- Not run on real Windows from here. The `installer-windows` job has not executed yet.

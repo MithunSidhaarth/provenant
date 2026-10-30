@@ -124,6 +124,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 
 ## Status
 
+- **0.9.1 (branch fix/windows-installer):** install.ps1 rewritten after the 0.9.0 Windows PowerShell 5.1 quoting failure (double quotes stripped from `python -c` arguments). Tests: tests/test_installer.py; real-Windows check is the `installer-windows` CI job, **not yet run**. Wheel pinned by SHA-256 inside install.ps1 (build_release.py rewrites it: rebuild the release last, after all code edits).
+
 - Guard red-team round 2 on branch `feat/guard-redteam2` (PR into main, off v8). 100 new attacks found 41 gaps in the v8 guard (cloud/DB destructive silently allowed, credential-theft, regulated IDs); all fixed in guard.py + guard_policy.json (now guard-2026.10-4). Whole corpus 225/225 contained, 53/53 benign, 166/166 tests, run_eval green. Dashboard JSON at docs/guard_redteam.json + /mnt/project-files/provenant-redteam/results.json. See docs/REDTEAM_ROUND2.md.
 - **0.9.0 (PR feat/onboarding-0.9, not merged):** see UPDATE.md. The wheel URL in the site and installers is a GitHub raw URL under `dist/`, so it works only after this branch is merged to main. Run `python3 scripts/check_download.py --install` after merge. No model is trained or hosted; the site says so. install.ps1 still never run on real Windows.
 
