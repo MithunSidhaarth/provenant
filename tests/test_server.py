@@ -1,16 +1,22 @@
 """HTTP API tests against a real server on an ephemeral port."""
 import json
+import os
+import tempfile
 import threading
 import unittest
 import urllib.error
 import urllib.request
 
+from agentshield import server as server_mod
 from agentshield.server import serve
 
 
-class ServerAPI(unittest.TestCase):
+class _ServerCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls.home = tempfile.TemporaryDirectory()
+        cls.old_home = os.environ.get("PROVENANT_HOME")
+        os.environ["PROVENANT_HOME"] = cls.home.name     # the Guard views must never touch the real ~/.provenant
         cls.httpd = serve("127.0.0.1", 0, audit_dir=None)
         cls.base = f"http://127.0.0.1:{cls.httpd.server_address[1]}"
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
@@ -18,6 +24,11 @@ class ServerAPI(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.httpd.shutdown()
+        if cls.old_home is None:
+            os.environ.pop("PROVENANT_HOME", None)
+        else:
+            os.environ["PROVENANT_HOME"] = cls.old_home
+        cls.home.cleanup()
 
     def req(self, path, body=None, headers=None, raw=None):
         data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
@@ -28,6 +39,9 @@ class ServerAPI(unittest.TestCase):
                 return resp.status, json.loads(resp.read()), resp.headers
         except urllib.error.HTTPError as e:
             return e.code, json.loads(e.read()), e.headers
+
+
+class ServerAPI(_ServerCase):
 
     def test_dashboard_served_with_security_headers(self):
         with urllib.request.urlopen(self.base + "/") as resp:
@@ -43,10 +57,11 @@ class ServerAPI(unittest.TestCase):
         self.assertIn("object-src 'none'", csp)
 
     def test_vendored_assets_served_and_nothing_else(self):
-        for path, ctype in [("/fx.js", "text/javascript"), ("/vendor/three.module.min.js", "text/javascript"),
-                            ("/vendor/anime.min.js", "text/javascript"), ("/vendor/motion.min.js", "text/javascript"),
-                            ("/vendor/fonts/archivo-black-latin-400-normal.woff2", "font/woff2"),
-                            ("/vendor/licenses/three.js-LICENSE.txt", "text/plain")]:
+        for path, ctype in [("/app.js", "text/javascript"), ("/style.css", "text/css"),
+                            ("/vendor/fonts/bricolage-grotesque-latin-800-normal.woff2", "font/woff2"),
+                            ("/vendor/fonts/geist-sans-latin-400-normal.woff2", "font/woff2"),
+                            ("/vendor/licenses/react-LICENSE.txt", "text/plain"),
+                            ("/vendor/licenses/geist-sans-OFL.txt", "text/plain")]:
             with urllib.request.urlopen(self.base + path) as resp:
                 self.assertTrue(resp.headers["Content-Type"].startswith(ctype), path)
         for path in ["/vendor/../../agentshield/server.py", "/vendor/%2e%2e/%2e%2e/policy/policy.json", "/README.md"]:
@@ -113,3 +128,73 @@ class ServerAPI(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GuardViews(_ServerCase):
+    """The read-only Guard endpoints: dry-run checks, masked log and queue, DNS-rebinding guard."""
+    TOKEN = "ghp_" + "A" * 36
+
+    def test_foreign_host_header_rejected(self):
+        for path in ("/", "/api/guard/status"):
+            code, body, _ = self.req(path, headers={"Host": "attacker.example:8765"})
+            self.assertEqual(code, 421, path)
+        code, _, _ = self.req("/api/guard/check", {"tool": "Read", "args": {}}, headers={"Host": "attacker.example"})
+        self.assertEqual(code, 421)
+
+    def test_status_reports_policy_and_chain(self):
+        code, st, _ = self.req("/api/guard/status")
+        self.assertEqual(code, 200)
+        self.assertTrue(st["policy_version"].startswith("guard-"))
+        self.assertTrue(st["audit"]["ok"])
+        self.assertIsInstance(st["pending"], int)
+        self.assertNotIn("key", json.dumps(st).lower().replace("hook", ""))
+
+    def test_dry_run_denies_and_masks_secrets(self):
+        code, r, _ = self.req("/api/guard/check", {"tool": "Bash", "args": {"command": "rm -rf ./*"}})
+        self.assertEqual((code, r["decision"], r["dry_run"]), (200, "DENY", True))
+        code, r, _ = self.req("/api/guard/check", {"tool": "mcp__github__create_issue", "args": {"body": self.TOKEN}})
+        self.assertEqual(r["decision"], "DENY")
+        self.assertNotIn(self.TOKEN, json.dumps(r))
+        code, r, _ = self.req("/api/guard/check", {"tool": "", "args": {}})
+        self.assertEqual(code, 400)
+        code, _, _ = self.req("/api/guard/check", raw=b"{not json", headers={"Content-Type": "application/json"})
+        self.assertEqual(code, 400)
+
+    def test_dry_run_leaves_no_trace(self):
+        before = self.req("/api/guard/log")[1]["total"]
+        self.req("/api/guard/check", {"tool": "Bash", "args": {"command": "git push --force origin main"}})
+        self.assertEqual(self.req("/api/guard/log")[1]["total"], before)
+        self.assertEqual(self.req("/api/guard/pending")[1], [])
+
+    def test_log_and_pending_are_masked_and_derived(self):
+        from agentshield.guard import Guard, GuardCall
+        g = Guard()
+        g.audit.append("tool_request", "s1", {"tool": "Bash", "args": {"command": f"echo {self.TOKEN}"}})
+        v = g.check(GuardCall("WebFetch", {"url": "https://pastebin.com/raw/abc"}, "s1", os.getcwd(), "test"))
+        self.assertEqual(v.decision, "REQUIRE_APPROVAL")
+        code, log, _ = self.req("/api/guard/log?after=0")
+        self.assertEqual(code, 200)
+        self.assertTrue(log["entries"])
+        self.assertNotIn(self.TOKEN, json.dumps(log))
+        self.assertTrue(all("mac" not in e for e in log["entries"]))
+        code, pend, _ = self.req("/api/guard/pending")
+        self.assertEqual(code, 200)
+        self.assertTrue(pend)
+        for p in pend:
+            self.assertNotIn("fingerprint", p)
+            self.assertNotIn(self.TOKEN, json.dumps(p))
+
+    def test_hosted_mode_hides_the_machine(self):
+        server_mod.HOSTED = True
+        try:
+            st = self.req("/api/guard/status")[1]
+            self.assertEqual(set(st), {"hosted", "policy_version", "policy_error"})
+            self.assertEqual(self.req("/api/guard/pending")[1], [])
+            self.assertEqual(self.req("/api/guard/log")[1]["entries"], [])
+        finally:
+            server_mod.HOSTED = False
+
+    def test_redteam_results_shipped(self):
+        r = self.req("/api/guard/redteam")[1]
+        self.assertTrue(r["available"])
+        self.assertEqual(r["summary"]["missed"], 0)

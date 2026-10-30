@@ -3,151 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Provenant</title>
+<title>Provenant · a firewall for AI agents</title>
+<meta name="description" content="Provenant checks every AI agent tool call against policy and provenance before it runs. Works with MCP and Claude Code.">
+<meta name="theme-color" content="#0b0b0c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0b0c'/%3E%3Cpath d='M16 5v22' stroke='%235fd6a4' stroke-width='3'/%3E%3Cpath d='M8 10h16M8 22h16' stroke='%23ededee' stroke-width='2.4'/%3E%3C/svg%3E">
+<link rel="preload" href="/vendor/fonts/bricolage-grotesque-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/vendor/fonts/geist-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/style.css">
-<script src="/vendor/anime.min.js" defer></script>
-<script src="/vendor/motion.min.js" defer></script>
 <script src="/app.js" defer></script>
-<script type="module" src="/fx.js"></script>
 </head>
 <body>
-<canvas id="fx" aria-hidden="true"></canvas>
-<header class="topbar">
-  <div class="brand">
-    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7L16 2z" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="m10.5 16 4 4 7-8" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="square"/></svg>
-    <div>
-      <div class="brand-name">Provenant</div>
-      <div class="brand-sub">AgentShield track · simulation only</div>
-    </div>
-  </div>
-  <div class="top-status">
-    <button class="pill" id="chainPill" title="Re-verify the audit hash chain">Audit chain: checking…</button>
-    <button class="pill" id="approvalPill" data-tab="approvals">0 pending approvals</button>
-    <span class="pill muted" id="policyPill">policy …</span>
-    <button class="pill" id="motionBtn" title="Switch the 3D background and animations on or off">Motion: full</button>
-    <button class="btn ghost small" id="resetBtn" title="Clear runs, approvals and the in-memory audit log">Reset demo</button>
-  </div>
-</header>
-
-<section class="masthead">
-  <h1 class="display"><span>The self-red-teaming</span> <span class="acid">firewall</span> <span>for AI agents.</span></h1>
-  <div class="counters">
-    <div class="ctr deny"><b id="cDeny">0</b><span>blocked</span></div>
-    <div class="ctr approve"><b id="cHeld">0</b><span>held for a human</span></div>
-    <div class="ctr allow"><b id="cAllow">0</b><span>allowed</span></div>
-    <div class="ctr"><b id="cChain">0</b><span>audit entries, hash-chained</span></div>
-  </div>
-  <div class="ticker" aria-hidden="true"><div class="ticker-track" id="ticker">EVERY TOOL CALL PASSES ONE ENFORCEMENT POINT · NO FINDINGS MEANS DENY · RETRIEVED CONTENT IS DATA, NEVER INSTRUCTIONS · HIGH-IMPACT ACTIONS WAIT FOR A NAMED HUMAN · THE LOG PROVES WHAT HAPPENED · </div></div>
-</section>
-
-<nav class="tabs" role="tablist">
-  <button class="tab active" data-tab="replay">Attack replay</button>
-  <button class="tab" data-tab="lab">Attack Lab</button>
-  <button class="tab" data-tab="approvals">Approvals <span class="count" id="approvalCount">0</span></button>
-  <button class="tab" data-tab="audit">Audit trail</button>
-  <button class="tab" data-tab="playground">Policy playground</button>
-  <button class="tab" data-tab="depth">Defense in depth</button>
-  <button class="tab" data-tab="policy">Agent &amp; policy</button>
-</nav>
-
-<main>
-  <section class="view active" id="view-replay">
-    <aside class="scenario-list" id="scenarioList"></aside>
-    <div class="scenario-main">
-      <div id="scenarioHeader"></div>
-      <div id="compare" class="compare"></div>
-    </div>
-  </section>
-
-  <section class="view" id="view-lab">
-    <div class="panel">
-      <div class="panel-head"><h2>Attack Lab: paste anything untrusted</h2><span><span class="chip">SIMULATED WORST-CASE AGENT</span><span class="chip attack">LIVE</span></span></div>
-      <p class="hint">Type or paste a document, email or web page, in plain English or Hindi, Kannada or Hinglish, or hidden in base64 or invisible Unicode. The agent here is a simulated worst-case model: it obeys any instruction it finds in content. You see the same content replayed without and with Provenant.</p>
-      <div class="presets" id="labSamples"></div>
-      <label class="field">Untrusted content<textarea id="labContent" rows="8" spellcheck="false"></textarea></label>
-      <label class="field">User request (trusted)<input id="labTask" value="Summarise the attached document (doc lab_upload) for me."></label>
-      <div class="row"><button class="btn primary" id="labRun">Ingest and replay</button><span class="hint" id="labHint"></span></div>
-    </div>
-    <div id="labCompare" class="compare"></div>
-    <div class="panel spaced">
-      <div class="panel-head"><h2>Injection mutation fuzzer</h2><button class="btn" id="fuzzRun">Run 90-variant campaign</button></div>
-      <p class="hint">Six attack seeds (exfiltration, fraud, PII harvest, destruction, beaconing, internal phishing) across fifteen classes, from plain English to obfuscated encodings. Each variant runs twice, without and with Provenant, and is judged from world state. Two classes, ROT13 and reversed text, are intentionally outside what Provenant decodes. They show what still holds when detection is blind.</p>
-      <div id="fuzzResult"></div>
-    </div>
-    <div class="panel">
-      <div class="panel-head"><h2>Self red-team loop</h2><button class="btn" id="redteamRun">Find gaps and propose fixes</button></div>
-      <p class="hint">Runs the fuzzer and a benign corpus. For each class with a miss, it takes the smallest failing document as a reproduction, proposes a policy change, replays the whole campaign on a copy of the policy, and writes a regression test. Nothing goes live until a person accepts it.</p>
-      <div id="redteamResult"></div>
-    </div>
-  </section>
-
-  <section class="view" id="view-approvals">
-    <div class="panel">
-      <h2>Pending approvals</h2>
-      <p class="hint">High-impact actions stop here. Nothing runs until a named person approves. Before running, the call is checked again against current policy and against the exact arguments that were requested.</p>
-      <label class="field inline">Approving as <span class="prefix">human:</span><input id="approverName" value="demo-operator" maxlength="40"></label>
-      <div id="approvalList"></div>
-    </div>
-  </section>
-
-  <section class="view" id="view-audit">
-    <div class="grid2">
-      <div class="panel">
-        <h2>Chain integrity</h2>
-        <p class="hint">Each entry stores the hash of the previous one plus an HMAC. Editing, deleting or reordering any entry breaks verification at that exact point.</p>
-        <div id="verifyResult" class="result-box"></div>
-        <div class="row"><button class="btn" id="verifyBtn">Verify chain</button></div>
-      </div>
-      <div class="panel">
-        <h2>Tamper demonstration</h2>
-        <p class="hint">Copies the log, rewrites one DENY decision to ALLOW the way an attacker covering their tracks would, then verifies the copy. The real log is not touched.</p>
-        <div id="tamperResult" class="result-box"></div>
-        <div class="row"><button class="btn danger" id="tamperBtn">Forge a log entry</button></div>
-      </div>
-    </div>
-    <div class="panel">
-      <div class="panel-head">
-        <h2>Audit entries</h2>
-        <div class="row">
-          <select id="auditFilter"><option value="">All events</option><option value="policy_decision">Decisions</option><option value="tool_result">Tool results</option><option value="approval">Approvals</option></select>
-          <button class="btn ghost small" id="auditRefresh">Refresh</button>
-        </div>
-      </div>
-      <div class="table-wrap"><table class="audit"><thead><tr><th>#</th><th>Time (UTC)</th><th>Event</th><th>Session</th><th>Summary</th><th>Hash</th></tr></thead><tbody id="auditBody"></tbody></table></div>
-    </div>
-  </section>
-
-  <section class="view" id="view-playground">
-    <div class="grid2">
-      <div class="panel">
-        <h2>Propose a tool call</h2>
-        <p class="hint">Send any call, including broken ones, through the same enforcement point the agent uses. Allowed calls run against the simulated world only.</p>
-        <div class="presets" id="presets"></div>
-        <label class="field">Tool<input id="pgTool" list="toolNames" autocomplete="off"><datalist id="toolNames"></datalist></label>
-        <label class="field">Arguments (JSON)<textarea id="pgArgs" rows="6" spellcheck="false"></textarea></label>
-        <label class="field">User request (trusted)<input id="pgTask"></label>
-        <label class="field">Content the agent has already read (untrusted, optional)<textarea id="pgCtx" rows="3" spellcheck="false"></textarea></label>
-        <div class="row"><button class="btn primary" id="pgRun">Evaluate</button></div>
-      </div>
-      <div class="panel"><h2>Decision</h2><div id="pgResult" class="empty">No call evaluated yet.</div></div>
-    </div>
-  </section>
-
-  <section class="view" id="view-depth">
-    <div class="panel">
-      <h2>Defense in depth: rule ablation</h2>
-      <p class="hint">Each row switches off one policy rule and replays every attack. A green cell means the attack was still fully contained by the remaining rules. A red cell shows what got through, which tells you that rule is the only thing stopping that attack.</p>
-      <div class="row"><button class="btn" id="depthBtn">Run ablation</button></div>
-      <div id="depthResult"></div>
-    </div>
-  </section>
-
-  <section class="view" id="view-policy">
-    <div class="panel"><h2>Agent permissions</h2><div id="agentInfo"></div></div>
-    <div class="panel"><h2>Tools</h2><div class="table-wrap"><table class="tools"><thead><tr><th>Tool</th><th>Requires</th><th>Side effect</th><th>High impact</th><th>Output</th><th>Control args</th></tr></thead><tbody id="toolBody"></tbody></table></div></div>
-    <div class="panel"><h2>Evaluation order</h2><ol class="rules" id="ruleList"></ol></div>
-  </section>
-</main>
-<div id="toast" class="toast" role="status"></div>
+<div id="root"></div>
+<noscript><p class="noscript">Provenant's dashboard needs JavaScript. The command line works without it: <code>python3 provenant.py status</code>.</p></noscript>
 </body>
 </html>

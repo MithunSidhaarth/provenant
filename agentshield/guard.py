@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import contextlib
 import fnmatch
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -34,7 +36,9 @@ from urllib.parse import urlsplit
 from .audit import AuditLog
 from .detectors import scan_injection, scan_sensitive
 from .models import Decision, Finding, PolicyResult, canonical_json, most_restrictive, new_id, sha256_hex
+from .netguard import classify_host
 from .normalize import canonical, obfuscation_signals, views
+from .state import StateDB, StateUnavailable
 
 ALLOW, DENY, APPROVE = Decision.ALLOW, Decision.DENY, Decision.REQUIRE_APPROVAL
 DEFAULT_GUARD_POLICY = Path(__file__).resolve().parent / "guard_policy.json"   # built-in; ~/.provenant/policy.json overrides
@@ -49,6 +53,10 @@ SHELL_RULES: list[tuple[str, Decision, str]] = [
     (r"\brm\s+(-[a-z]*\s+)*-[a-z]*(r[a-z]*f|f[a-z]*r)[a-z]*\s+(--\s+)?(\"|')?" + _ROOTISH + r"(\"|')?(\s|;|&|\||$)", DENY,
      "recursive force-delete of a root, home or whole-workspace path"),
     (r"--no-preserve-root", DENY, "rm --no-preserve-root"),
+    (r"\bfind\s+(/|~/?|\$home|[a-z]:\\)(\s|$)[^|;&]*(-delete\b|-exec\s+(rm|shred)\b)", DENY,
+     "find -delete / -exec rm over a root or home path"),
+    (r">\s*/dev/(sd|nvme|hd|disk|xvd|mmcblk|vd)", DENY, "overwrites a raw block device via redirection"),
+    (r"\bshred\b[^|;&]*(/dev/|\s(/|~/?|\$home)(\s|$))", DENY, "shreds a disk or a root/home path"),
     (r"\bmkfs(\.\w+)?\b|\bdd\s+[^|;&]*\bof=/dev/(sd|nvme|hd|disk|xvd)", DENY, "formats or overwrites a disk"),
     (r":\(\)\s*\{\s*:\|:&\s*\};:", DENY, "fork bomb"),
     (r"\b(shutdown|reboot|halt|poweroff)\b|\binit\s+[06]\b", DENY, "shuts down or reboots the machine"),
@@ -84,6 +92,7 @@ SHELL_RULES: list[tuple[str, Decision, str]] = [
     (r"\b(crontab|schtasks|systemctl\s+(enable|start)|launchctl\s+load|new-scheduledtask)", APPROVE,
      "installs persistence (scheduled task or service)"),
     (r"\b(kill|pkill|killall|taskkill)\b", APPROVE, "kills processes"),
+    (r"\bshred\b|\bfind\b[^|;&]*(-delete\b|-exec\s+rm\b)", APPROVE, "deletes files irrecoverably or in bulk"),
     (r"\bdocker\s+(run|exec)\b[^|;&]*(--privileged|-v\s+/:)", DENY, "privileged container or host root mount"),
     (r"\b(ssh|scp|sftp|rsync)\b[^|;&]*@", APPROVE, "connects to a remote machine"),
     (r"\b(curl|wget|iwr|invoke-webrequest|irm|invoke-restmethod)\b[^|;&]*\s-(x\s*(post|put|delete|patch)|d\b|-data\b|f\b)",
@@ -102,6 +111,11 @@ SECRET_PATTERNS = [
     (r"(sk|rk)_live_[0-9A-Za-z]{20,}", "stripe_live_key"),
     (r"-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY", "private_key"),
     (r"eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}", "jwt"),
+    (r"glpat-[A-Za-z0-9_\-]{20,}", "gitlab_token"),
+    (r"hf_[A-Za-z0-9]{34,}", "huggingface_token"),
+    (r"npm_[A-Za-z0-9]{36}", "npm_token"),
+    (r"SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43}", "sendgrid_key"),
+    (r"(?i)\b(password|passwd|pwd|secret|api[_-]?key|access[_-]?token)\s*[=:]\s*['\"]?[^\s'\"]{8,}", "credential_assignment"),
 ]
 SECRET_PATTERNS_C = [(re.compile(p), name) for p, name in SECRET_PATTERNS]
 
@@ -109,8 +123,34 @@ URL_RE = re.compile(r"\b(?:https?|ftp|wss?)://[^\s\"'<>`)\]}]+", re.IGNORECASE)
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
 PATH_KEYS = {"file_path", "path", "paths", "notebook_path", "filename", "file", "source", "destination", "dest",
              "target", "directory", "dir", "src", "dst", "old_path", "new_path"}
+COMMAND_KEYS = {"command", "cmd", "script", "shell", "commandline", "command_line"}
 WRITE_CONTENT_KEYS = {"content", "new_string", "new_source", "edits", "text", "body", "data"}
 _PRIVATE_HOST = re.compile(r"^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|\[?::1\]?$|metadata\.google\.internal)")
+
+
+def redact_secrets(text: str) -> str:
+    for rx, name in SECRET_PATTERNS_C:
+        text = rx.sub(lambda m, n=name: f"[REDACTED:{n}:{sha256_hex(m.group(0))[:8]}]", text)
+    return text
+
+
+def audit_view(args: Any, detail: str) -> dict:
+    """What the audit log keeps about tool arguments. minimal (default): a digest and the argument names only.
+    standard: values truncated to 200 characters. full: everything (explicit opt-in). Secrets are always redacted."""
+    digest = sha256_hex(canonical_json(args))
+    if detail == "full":
+        return {"args": args, "args_digest": digest}
+    if detail == "standard":
+        def cut(v):
+            if isinstance(v, str):
+                return v[:200] + ("…" if len(v) > 200 else "")
+            if isinstance(v, dict):
+                return {k: cut(x) for k, x in list(v.items())[:50]}
+            if isinstance(v, list):
+                return [cut(x) for x in v[:50]]
+            return v
+        return {"args": cut(args), "args_digest": digest}
+    return {"arg_keys": sorted(args)[:50] if isinstance(args, dict) else [], "args_digest": digest}
 
 
 def scan_secrets(text: str) -> list[dict]:
@@ -174,6 +214,16 @@ class SharedAuditLog(AuditLog):
         self._store = store
         self.entries, self._offset = [], 0          # loaded under the lock on first use, never mid-write
 
+    def _scrub(self, obj: Any) -> Any:
+        """Recognisable secrets never reach the log, whatever the configured detail level."""
+        if isinstance(obj, str):
+            return redact_secrets(obj)
+        if isinstance(obj, dict):
+            return {k: self._scrub(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [self._scrub(v) for v in obj]
+        return obj
+
     def _reload(self) -> None:
         """Read only what other processes appended since we last looked."""
         if not self.path.exists():
@@ -194,6 +244,21 @@ class SharedAuditLog(AuditLog):
             self._note_written()
             return entry
 
+    def base(self) -> tuple[int, str]:
+        """After retention pruning the chain resumes from a MAC-signed (seq, prev_hash) record. A missing or
+        forged record makes verification fail rather than silently restarting from genesis."""
+        rp = self.path.parent / "retention.json"
+        if not rp.exists():
+            return 0, "0" * 64
+        try:
+            r = json.loads(rp.read_text(encoding="utf-8"))
+            body = canonical_json({"first_seq": r["first_seq"], "prev_hash": r["prev_hash"]})
+            if not hmac.compare_digest(r["mac"], hmac.new(self._key, body.encode(), hashlib.sha256).hexdigest()):
+                raise ValueError("bad mac")
+            return int(r["first_seq"]), str(r["prev_hash"])
+        except Exception:
+            return -1, "invalid-retention-record"
+
     def snapshot(self) -> list[dict]:
         with self._store.lock():
             self._reload()
@@ -211,13 +276,22 @@ def provenant_home() -> Path:
     return Path(os.environ.get("PROVENANT_HOME") or Path.home() / ".provenant")
 
 
-class Store:
-    """Everything the guard keeps between short-lived processes. Writes are atomic replaces."""
+def runtime_mode() -> str:
+    """live unless explicitly demo. The hosted site sets PROVENANT_HOSTED=1, which forces demo."""
+    if os.environ.get("PROVENANT_HOSTED") == "1":
+        return "demo"
+    return "demo" if os.environ.get("PROVENANT_MODE", "live").lower() == "demo" else "live"
 
-    def __init__(self, home: Path | str | None = None) -> None:
+
+class Store:
+    """Everything the guard keeps between short-lived processes: the HMAC key, the shared audit chain
+    (append-only JSONL under a cross-process lock) and the SQLite authorization state (sessions, approvals,
+    grants, checkpoints). Demo and live keep separate databases, and every record also carries its mode."""
+
+    def __init__(self, home: Path | str | None = None, mode: str | None = None) -> None:
         self.home = Path(home) if home else provenant_home()
         self.home.mkdir(parents=True, exist_ok=True)
-        (self.home / "sessions").mkdir(exist_ok=True)
+        self.mode = mode or runtime_mode()
         key_file = self.home / "key"
         env_key = os.environ.get("AGENTSHIELD_AUDIT_KEY")
         if env_key:
@@ -236,6 +310,7 @@ class Store:
                 time.sleep(0.02)
             self.key = k.encode()
         self._depth = threading.local()
+        self.db = StateDB(self.home / ("state.db" if self.mode == "live" else "demo-state.db"))
         self.audit = SharedAuditLog(self.home / "audit.jsonl", key=self.key, store=self)
 
     @contextlib.contextmanager
@@ -277,37 +352,18 @@ class Store:
             except OSError:
                 pass
 
-    def _read(self, path: Path, default):
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return default
-
-    def _write(self, path: Path, obj) -> None:
-        tmp = path.with_suffix(path.suffix + f".{os.getpid()}.tmp")
-        tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=1), encoding="utf-8")
-        os.replace(tmp, path)
-
-    def _session_path(self, sid: str) -> Path:
-        return self.home / "sessions" / (re.sub(r"[^A-Za-z0-9_.\-]", "_", sid)[:120] + ".json")
-
     def load_session(self, sid: str) -> dict:
-        s = self._read(self._session_path(sid), None)
-        return s if isinstance(s, dict) else {"session_id": sid, "user_texts": [], "untrusted_texts": [],
-                                              "injection_flags": [], "call_count": 0}
+        return self.db.load_session(sid, {"session_id": sid, "user_texts": [], "untrusted_texts": [],
+                                          "injection_flags": [], "call_count": 0, "mode": self.mode})
 
     def save_session(self, s: dict) -> None:
         s["untrusted_texts"] = s["untrusted_texts"][-200:]
         s["user_texts"] = s["user_texts"][-50:]
         s["injection_flags"] = s["injection_flags"][-50:]
-        self._write(self._session_path(s["session_id"]), s)
+        self.db.save_session(s["session_id"], self.mode, s)
 
     def approvals(self) -> dict:
-        a = self._read(self.home / "approvals.json", {})
-        return a if isinstance(a, dict) else {}
-
-    def save_approvals(self, a: dict) -> None:
-        self._write(self.home / "approvals.json", a)
+        return {a["approval_id"]: a for a in self.db.list_approvals()}
 
 
 # --- the engine -----------------------------------------------------------------------------------
@@ -368,6 +424,18 @@ class GuardPolicy:
                 return cat
         return "unknown"
 
+    def effective_category(self, tool: str, args: Any) -> str:
+        """The name says what a tool claims to be; the arguments say what it can do. A tool called get_shell or
+        list_and_run that takes a command is a shell, and read_or_write with content is a write."""
+        cat = self.category(tool)
+        if isinstance(args, dict):
+            keys = {k.lower() for k in args}
+            if keys & COMMAND_KEYS and any(isinstance(args[k], (str, list)) for k in args if k.lower() in COMMAND_KEYS):
+                return "shell"
+            if cat in ("read", "unknown", "network") and keys & PATH_KEYS and keys & {"content", "new_string", "edits", "data"}:
+                return "write"
+        return cat
+
     def untrusted_output(self, tool: str) -> bool:
         base = tool.split("__")[-1].lower() if tool.startswith("mcp__") else tool.lower()
         return any(fnmatch.fnmatchcase(base, p) for p in self.config.get("untrusted_output_tools", []))
@@ -384,7 +452,7 @@ class GuardPolicy:
             findings += self._structure(call)
             if any(f.decision == DENY for f in findings):
                 return PolicyResult(DENY, findings, fp, self.version)
-            cat = self.category(call.tool)
+            cat = self.effective_category(call.tool, call.args)
             findings.append(Finding("category", ALLOW, f"{call.tool} classified as '{cat}'", {"category": cat}))
             for rule in (self._tool_rule, self._budget, self._shell, self._paths, self._network, self._dlp,
                          self._provenance, self._injection_context):
@@ -445,6 +513,9 @@ class GuardPolicy:
     def _shell(self, call, session, cat) -> list[Finding]:
         out, seen = [], set()
         for v in self._commands(call, cat):
+            if "rootdel" not in seen and _root_delete(v):
+                seen.add("rootdel")
+                out.append(Finding("shell", DENY, "command: recursive delete of a root, home or whole-filesystem path"))
             for rx, dec, reason in SHELL_RULES_C:
                 if reason not in seen and rx.search(v):
                     seen.add(reason)
@@ -509,18 +580,19 @@ class GuardPolicy:
             host = host_of(u)
             if not host:
                 out.append(Finding("network", DENY, f"URL '{u[:80]}' has no parsable host"))
-            elif _PRIVATE_HOST.match(host) or re.fullmatch(r"\d+\.\d+\.\d+\.\d+", host):
+            elif (hc := classify_host(host)).restricted or _PRIVATE_HOST.match(host):
                 out.append(Finding("network", DENY, f"{host} is a local, private or raw-IP address (SSRF / metadata risk)",
-                                   {"host": host}))
+                                   {"host": host, "detail": hc.restricted, "ip": hc.ip}))
             elif not any(fnmatch.fnmatchcase(host, p) or host == p.lstrip("*.") for p in ncfg["allowed_hosts"]):
                 dec = Decision(ncfg["unlisted_host"])
                 out.append(Finding("network", dec, f"{host} is not on the allowed host list", {"host": host}))
         return out
 
     def _dlp(self, call, session, cat) -> list[Finding]:
-        blob = "\n".join(_strings(call.args))
+        leaves = _strings(call.args)
+        blob = "\n".join(leaves)
         hits = []
-        for v in views(blob):
+        for v in views(blob) + ["".join(leaves)]:      # also a key split across several arguments
             hits += [h for h in scan_secrets(v) if h not in hits]
         if not hits:
             return []
@@ -561,6 +633,34 @@ class GuardPolicy:
                             "this session has read content containing prompt-injection indicators; side effects need a human",
                             {"indicators": session["injection_flags"][:3]})]
         return []
+
+
+_ROOT_TARGET = re.compile(r"^(/|/\*|~|~/|~/\*|\$home/?\*?|\$\{home\}/?\*?|\.|\./|\./\*|\*|\.\*|[a-z]:\\?\*?|[a-z]:/\*?|"
+                          r"%userprofile%\\?\*?|\$env:userprofile\\?\*?|/(home|users|etc|usr|var|boot|root)/?\*?)$", re.IGNORECASE)
+_DELETERS = {"rm", "ri", "remove-item", "del", "erase", "rd", "rmdir"}
+
+
+def _root_delete(cmd: str) -> bool:
+    """rm/Remove-Item and aliases with any spelling of a recursive flag aimed at a root, home or wildcard path."""
+    for seg in re.split(r"[;&|\n]+", cmd):
+        try:
+            toks = shlex.split(seg, posix=True)
+        except ValueError:
+            toks = seg.split()
+        if not toks:
+            continue
+        i = 0
+        while i < len(toks) and toks[i].lower() in ("sudo", "doas", "command", "builtin", "nohup", "time", "xargs", "exec"):
+            i += 1
+        if i >= len(toks) or PurePosixPath(toks[i].lower().replace("\\", "/")).name.removesuffix(".exe") not in _DELETERS:
+            continue
+        flags = [t.lower() for t in toks[i + 1:] if t.startswith("-") or t.startswith("/")]
+        targets = [t for t in toks[i + 1:] if not t.startswith("-") or t in ("-",)]
+        recursive = any(f in ("--recursive", "-recurse", "/s") or f.startswith("--recursive") or f.startswith("-rec")
+                        or (re.fullmatch(r"-[a-z]+", f) and "r" in f) for f in flags)
+        if recursive and any(_ROOT_TARGET.match(t.rstrip("/") or "/") or _ROOT_TARGET.match(t) for t in targets if t != "--"):
+            return True
+    return False
 
 
 def _shell_tokens(cmd: str) -> list[str]:
@@ -614,6 +714,8 @@ class Verdict:
     call_id: str
     approval_id: str | None = None
     approved_by: str | None = None
+    grant_id: str | None = None          # ALLOW only: single-use, bound to this call's fingerprint and mode
+    fingerprint: str | None = None
 
     def message(self) -> str:
         if self.decision == ALLOW:
@@ -621,7 +723,8 @@ class Verdict:
         if self.decision == APPROVE:
             return (f"REQUIRE_APPROVAL: Provenant is holding this call as {self.approval_id}. Nothing has run. "
                     f"Reasons: {'; '.join(self.reasons)}. A human can approve it with "
-                    f"`python -m agentshield.guard approve {self.approval_id}`, then the identical call may be retried once.")
+                    f"`provenant approve {self.approval_id}` (or by phone with `provenant call {self.approval_id}`), "
+                    f"then the identical call may be retried once.")
         return "DENY: Provenant blocked this call. " + "; ".join(self.reasons)
 
 
@@ -631,6 +734,9 @@ def _locked(fn):
             return fn(self, *a, **kw)
     wrapper.__name__, wrapper.__doc__ = fn.__name__, fn.__doc__
     return wrapper
+
+
+HUMAN_CHANNELS = ("cli", "phone", "dashboard")
 
 
 class Guard:
@@ -643,6 +749,15 @@ class Guard:
     def audit(self) -> AuditLog:
         return self.store.audit
 
+    @property
+    def mode(self) -> str:
+        return self.store.mode
+
+    @property
+    def detail(self) -> str:
+        d = os.environ.get("PROVENANT_AUDIT_DETAIL") or self.policy.config.get("audit_detail", "minimal")
+        return d if d in ("minimal", "standard", "full") else "minimal"
+
     @_locked
     def note_user_text(self, sid: str, text: str, source: str) -> None:
         s = self.store.load_session(sid)
@@ -651,12 +766,14 @@ class Guard:
         self.audit.append("user_prompt", sid, {"source": source, "chars": len(text)})
 
     @_locked
-    def check(self, call: GuardCall, hold: bool = True) -> Verdict:
+    def check(self, call: GuardCall, hold: bool = True, grant: bool = True) -> Verdict:
         """Decide one call. With hold=True a REQUIRE_APPROVAL is stored for a human (and an earlier human
-        approval of this exact call is consumed). With hold=False the caller has its own human prompt."""
+        approval of this exact call is consumed). With hold=False the caller has its own human prompt.
+        An ALLOW carries a single-use grant; executors redeem it immediately before running the call."""
         session = self.store.load_session(call.session_id)
-        self.audit.append("tool_request", call.session_id, {"call_id": call.call_id, "tool": call.tool, "args": call.args,
-                                                            "source": call.source, "workspace": call.workspace})
+        self.audit.append("tool_request", call.session_id, {"call_id": call.call_id, "tool": call.tool,
+                                                            "source": call.source, "mode": self.mode,
+                                                            **audit_view(call.args, self.detail)})
         try:
             result = self.policy.evaluate(call, session)
             if not isinstance(result.decision, Decision):
@@ -667,68 +784,75 @@ class Guard:
         session["call_count"] = session.get("call_count", 0) + 1
         self.store.save_session(session)
         self.audit.append("policy_decision", call.session_id, {"call_id": call.call_id, "tool": call.tool,
-                                                               "source": call.source, **result.to_dict()})
-        v = Verdict(result.decision, result.reasons, result.to_dict()["findings"], call.call_id)
+                                                               "source": call.source, **_audit_result(result)})
+        v = Verdict(result.decision, result.reasons, result.to_dict()["findings"], call.call_id,
+                    fingerprint=result.call_fingerprint)
         if result.decision == APPROVE and hold:
-            granted = self._consume_approval(result.call_fingerprint, call)
+            granted = self.store.db.consume_approval(result.call_fingerprint, self.mode, self.clock(), call.call_id)
             if granted:
+                self.audit.append("approval_used", call.session_id, {"approval_id": granted["approval_id"],
+                                                                     "call_id": call.call_id,
+                                                                     "fingerprint": result.call_fingerprint})
                 v.decision, v.approval_id, v.approved_by = ALLOW, granted["approval_id"], granted["decided_by"]
             else:
                 v.approval_id = self._hold(call, result)
+        if grant and v.decision == ALLOW and result.call_fingerprint != "unhashable":
+            v.grant_id = new_id("grant")
+            self.store.db.issue_grant(v.grant_id, result.call_fingerprint, self.mode, call.session_id, self.clock(),
+                                      float(self.policy.config.get("grant_ttl_seconds", 60)))
         return v
 
+    def redeem(self, verdict: Verdict, call: GuardCall) -> bool:
+        """The executor's last check: the grant must exist, be unused, unexpired, in this mode, and match
+        this exact call. Anything else (including a state error) means the call does not run."""
+        try:
+            if verdict.decision != ALLOW or not verdict.grant_id or call.fingerprint() != verdict.fingerprint:
+                return False
+            ok = self.store.db.redeem_grant(verdict.grant_id, verdict.fingerprint, self.mode, self.clock())
+        except Exception:
+            ok = False
+        try:
+            self.audit.append("grant_redeemed" if ok else "grant_refused", call.session_id,
+                              {"call_id": call.call_id, "grant_id": verdict.grant_id})
+        except Exception:
+            return False
+        return ok
+
     def _hold(self, call: GuardCall, result: PolicyResult) -> str:
-        a = self.store.approvals()
         now = self.clock()
-        for aid, p in a.items():     # the same call asked twice is one request, not a queue flood
-            if p["fingerprint"] == result.call_fingerprint and p["status"] == "pending" and p["expires_at"] > now:
-                return aid
+        existing = self.store.db.find_pending(result.call_fingerprint, self.mode, now)
+        if existing:                 # the same call asked twice is one request, not a queue flood
+            return existing
         aid = new_id("appr")
-        a[aid] = {"approval_id": aid, "fingerprint": result.call_fingerprint, "status": "pending",
-                  "tool": call.tool, "args": call.args, "session_id": call.session_id, "source": call.source,
-                  "reasons": result.reasons, "created_at": now,
-                  "expires_at": now + float(self.policy.config.get("approval_ttl_seconds", 900))}
-        self.store.save_approvals(a)
+        self.store.db.create_approval({"approval_id": aid, "fingerprint": result.call_fingerprint, "mode": self.mode,
+                                       "tool": call.tool, "args": call.args, "session_id": call.session_id,
+                                       "source": call.source, "reasons": result.reasons, "created_at": now,
+                                       "expires_at": now + float(self.policy.config.get("approval_ttl_seconds", 900))})
         self.audit.append("approval_requested", call.session_id, {"approval_id": aid, "tool": call.tool,
                                                                   "fingerprint": result.call_fingerprint})
         return aid
 
-    def _consume_approval(self, fingerprint: str, call: GuardCall) -> dict | None:
-        a = self.store.approvals()
-        now = self.clock()
-        for aid, p in a.items():
-            if p["fingerprint"] == fingerprint and p["status"] == "approved" and p["expires_at"] > now:
-                p["status"] = "used"
-                p["used_at"] = now
-                self.store.save_approvals(a)
-                self.audit.append("approval_used", call.session_id, {"approval_id": aid, "call_id": call.call_id,
-                                                                     "fingerprint": fingerprint})
-                return p
-        return None
-
     @_locked
-    def decide(self, approval_id: str, approver: str, approve: bool) -> dict:
-        a = self.store.approvals()
-        p = a.get(approval_id)
-        if p is None:
-            return {"ok": False, "reason": "no such approval request"}
-        if p["status"] != "pending":
-            return {"ok": False, "reason": f"request is already {p['status']}"}
-        if self.clock() >= p["expires_at"]:
-            p["status"] = "expired"
-            self.store.save_approvals(a)
-            return {"ok": False, "reason": "request expired"}
+    def decide(self, approval_id: str, approver: str, approve: bool, channel: str = "cli",
+               evidence: dict | None = None) -> dict:
         if not approver.startswith("human:") or len(approver) < 7:
             return {"ok": False, "reason": "approvals must name a human approver (human:<name>)"}
-        p["status"], p["decided_by"], p["decided_at"] = ("approved" if approve else "rejected"), approver, self.clock()
-        self.store.save_approvals(a)
-        self.audit.append("approval_granted" if approve else "approval_rejected", p["session_id"],
-                          {"approval_id": approval_id, "approver": approver, "fingerprint": p["fingerprint"]})
-        return {"ok": True, "status": p["status"]}
+        if channel not in HUMAN_CHANNELS:
+            return {"ok": False, "reason": f"approvals are not accepted over channel '{channel}'"}
+        r = self.store.db.decide(approval_id, approve, approver, self.clock(), channel, evidence)
+        if r["ok"]:
+            p = self.store.db.get_approval(approval_id)
+            self.audit.append("approval_granted" if approve else "approval_rejected", p["session_id"],
+                              {"approval_id": approval_id, "approver": approver, "channel": channel,
+                               "fingerprint": p["fingerprint"], **({"evidence": evidence} if evidence else {})})
+        return r
+
+    def get_approval(self, approval_id: str) -> dict | None:
+        return self.store.db.get_approval(approval_id)
 
     def pending(self) -> list[dict]:
         now = self.clock()
-        return [p for p in self.store.approvals().values() if p["status"] == "pending" and p["expires_at"] > now]
+        return [p for p in self.store.db.list_approvals("pending") if p["expires_at"] > now and p["mode"] == self.mode]
 
     @_locked
     def ingest_output(self, sid: str, tool: str, output: Any) -> list[dict]:
@@ -750,6 +874,13 @@ class Guard:
         self.audit.append("tool_result", sid, {"tool": tool, "trust": "untrusted", "chars": len(text),
                                                "injection_indicators": flags})
         return flags
+
+
+def _audit_result(result: PolicyResult) -> dict:
+    d = result.to_dict()
+    for f in d["findings"]:          # evidence may quote argument values; keep only the rule and reason
+        f.pop("evidence", None)
+    return d
 
 
 # --- CLI: approvals and audit for the human ---------------------------------------------------------

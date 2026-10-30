@@ -134,7 +134,9 @@ agentshield/
 policy/policy.json   agent profiles, permissions, data classes, limits
 scenarios/*.json     7 synthetic scenarios with expected decisions
 fixtures/            synthetic documents, KB articles, sim:// pages
-dashboard/           index.html, app.js, style.css, fx.js (3D field); vendor/ holds pinned copies of three.js, anime.js, Motion and fonts
+dashboard/           index.html, app.js (bundled from web/src), style.css; vendor/ holds fonts and licences
+web/src/             React source for the dashboard (Hero, Guard, Sim views)
+api/index.py         Vercel entry point for the hosted demo
 tests/               policy, fail-closed, approvals, grants, audit, before/after, ablation, HTTP
 docs/                ARCHITECTURE.md, THREAT_MODEL.md, DEMO_SCRIPT.md
 ```
@@ -184,13 +186,16 @@ Everything else is ours: the policy engine, the gateway, the grants, the audit c
 
 ## Dashboard design
 
-The dashboard is brutalist: hard black and white with one acid accent. Red and amber are kept for DENY and REQUIRE_APPROVAL, so color always carries meaning. The first screen is still the without/with comparison. It runs automatically on load.
+The dashboard is a single page built around one idea: **same agent, same attack, different world.** It opens with a short load sequence (a hairline draws across the screen and the screen splits along it), then the hero runs a real `/api/compare` and lays the unprotected run and the protected run on top of each other. Drag the divider to wipe between them; DENY stamps land on each blocked step. Below it:
 
-The background is a **procedural gaussian-splat-style particle field**, not a captured 3D Gaussian Splatting scene. It is about 22,000 anisotropic point sprites with a gaussian falloff and additive blending, clustered around a "shield" sphere. Each DENY sends a red shockwave out of the shield that pushes particles away. ALLOW sends a soft acid ripple and REQUIRE_APPROVAL an amber one.
+- **Guard:** an animated map of MCP clients, the gate and real tools; install steps with copy buttons for Windows, macOS/Linux and pip; live protection status, held calls (with the `provenant approve` command, never a browser button), a dry-run checker with presets, a live decision feed from `~/.provenant`, and the 128-attack Guard red-team results.
+- **Lab, Playground, Approvals, Evidence, Audit, Policy:** the simulation views, rebuilt.
 
-- **Motion toggle (top right):** switches between full and lite. Lite never creates a WebGL context and turns off all animations. It is the default when the OS asks for reduced motion, and the choice is remembered.
-- **Low-GPU fallback:** a frame-rate watchdog halves the particle count when the field runs below 48 fps. If it is still slow after two halvings, it switches to lite. The device pixel ratio is capped at 1.5. Rendering pauses when the tab is hidden.
-- **Offline:** everything is served from `dashboard/vendor/`, with no CDN or font service. The CSP is `'self'`-only.
+Source is in `web/src` (React, Motion, anime.js), bundled with esbuild into `dashboard/app.js` (`cd web && npm install && npm run build`). The bundle is committed, so running the dashboard needs only Python. Everything is served from the same origin with a `'self'`-only CSP and no CDN or font service. `prefers-reduced-motion` turns the intro and animations off.
+
+The Guard endpoints are read-only. Dry runs call `GuardPolicy.evaluate` only, every string read from `~/.provenant` is passed through the secret masks, approvals return derived fields only, and requests with a Host header other than `127.0.0.1` or `localhost` are refused (DNS rebinding).
+
+**Hosted demo:** `vercel.json` serves `dashboard/` as static files and runs the same stdlib server as a Python function (`api/index.py`) with `PROVENANT_HOSTED=1`. In that mode the Guard views report only the policy (there is no local machine to inspect) and state is in memory per function instance.
 
 ## Attribution
 
@@ -198,11 +203,11 @@ All application and security logic was written from scratch for this hackathon. 
 
 | Library | Version | Licence | Used for |
 |---|---|---|---|
-| [three.js](https://threejs.org) (`three.module.min.js`) | 0.169.0 | MIT | WebGL renderer for the particle field |
-| [anime.js](https://animejs.com) (`anime.min.js`) | 3.2.2 | MIT | staggered entrances, counters, the DENY verdict shake |
-| [Motion](https://motion.dev) (`motion.min.js`, UMD build of `motion`) | 11.11.17 | MIT | tab/view transitions |
-| [Archivo Black](https://github.com/Omnibus-Type/ArchivoBlack) via Fontsource | 5.1.0 | SIL OFL 1.1 | display type |
-| [Space Grotesk](https://github.com/floriankarsten/space-grotesk) via Fontsource | 5.1.0 | SIL OFL 1.1 | body type |
-| [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) via Fontsource | 5.1.0 | SIL OFL 1.1 | code and labels |
+| [React](https://react.dev) + react-dom | 18.3.1 | MIT | UI |
+| [Motion](https://motion.dev) (`motion/react`) | 11.11.17 | MIT | intro, divider spring, layout and scroll animations |
+| [anime.js](https://animejs.com) | 3.2.2 | MIT | DENY stamps, number counters |
+| [esbuild](https://esbuild.github.io) (build only) | 0.23.1 | MIT | bundling `web/src` into `dashboard/app.js` |
+| [Bricolage Grotesque](https://github.com/ateliertriay/bricolage) via Fontsource | 5.3.0 | SIL OFL 1.1 | display type |
+| [Geist and Geist Mono](https://github.com/vercel/geist-font) via Fontsource | 5.3.0 / 5.3.0 | SIL OFL 1.1 | body type, code and labels |
 
-The particle shader, the shield and shockwave model, and the frame-rate watchdog in `dashboard/fx.js` are original. Playwright was used only during development, for screenshots and the browser walkthrough. It is not a dependency.
+The bundle's own licence notices are in `dashboard/app.js.LEGAL.txt`. Playwright was used only during development, for screenshots and the browser walkthrough. It is not a dependency.

@@ -530,9 +530,46 @@ def cmd_verify(as_json: bool = False) -> int:
     return 1
 
 
+# --- v8 commands (serve, call, audit, config, policy test/lint/explain) ---------------------------
+def cmd_audit(rest: list[str]) -> int:
+    from . import anchor
+    g = guard_mod.Guard()
+    sub = rest[0] if rest else "verify"
+    anchor_dir = os.environ.get("PROVENANT_ANCHOR_DIR")
+    if "--anchor" in rest:
+        anchor_dir = rest[rest.index("--anchor") + 1]
+    if sub == "checkpoint":
+        if not anchor_dir:
+            print("set --anchor DIR (or PROVENANT_ANCHOR_DIR) to a location outside ~/.provenant you control separately")
+            return 2
+        r = anchor.checkpoint(g, anchor_dir)
+    elif sub == "verify":
+        r = anchor.verify_against(g, anchor_dir) if anchor_dir else g.audit.verify()
+    elif sub == "prune":
+        if "--before" not in rest or "--archive" not in rest:
+            print("usage: provenant audit prune --before SEQ --archive FILE")
+            return 2
+        r = anchor.prune(g, int(rest[rest.index("--before") + 1]), rest[rest.index("--archive") + 1])
+    elif sub == "export":
+        r = anchor.export(g, rest[rest.index("--out") + 1] if "--out" in rest else "provenant-audit-export.json")
+    else:
+        print("usage: provenant audit checkpoint|verify|prune|export")
+        return 2
+    print(json.dumps(r, indent=1))
+    return 0 if r.get("ok") else 1
+
+
+def cmd_config(rest: list[str]) -> int:
+    """A copyable MCP client entry for provenant-tools, built from this install's real paths."""
+    ws = rest[rest.index("--workspace") + 1] if "--workspace" in rest else os.getcwd()
+    cmd = launcher() + ["serve", "--workspace", ws]
+    print(json.dumps({"mcpServers": {"provenant": {"command": cmd[0], "args": cmd[1:]}}}, indent=2))
+    return 0
+
+
 # --- entry point ---------------------------------------------------------------------------------
 def _help() -> str:
-    c = lambda s: cyan(f"{s:<42}")
+    c = lambda s: cyan(f"{s:<48}")
     return ui.banner(VERSION) + "\n".join([
         ui.section("Get protected"),
         f"    {c('provenant setup')}find your agents and protect them all",
@@ -548,6 +585,12 @@ def _help() -> str:
         f"    {c('provenant wrap|unwrap CLIENT')}claude-desktop, cursor, windsurf, vscode, or a path",
         f"    {c('provenant install|uninstall claude-code')}the Claude Code safety hook (--project for this repo)",
         f"    {c('provenant policy init')}copy the policy to ~/.provenant to customise it",
+        f"    {c('provenant policy test|lint|explain')}simulate the policy, find shadowed or overbroad rules",
+        f"    {c('provenant audit checkpoint|verify|prune|export')}external anchoring, retention and export",
+        ui.section("Gateway mode"),
+        f"    {c('provenant serve [--workspace DIR]')}provenant-tools: an MCP server the gateway executes",
+        f"    {c('provenant config claude-desktop')}print an mcpServers snippet for provenant-tools",
+        f"    {c('provenant call APPROVAL_ID')}phone the human about one held call",
         f"    {c('provenant pins reset [server]')}re-approve tool definitions after an upgrade",
         "",
         "  " + dim("Docs: https://github.com/MithunSidhaarth/provenant/blob/main/docs/REAL_GUARD.md"),
@@ -608,6 +651,24 @@ def main(argv: list[str] | None = None) -> int:
         msg = install_claude_code(settings, remove=cmd == "uninstall")
         print("  " + (green(SYM["ok"]) + " " if not msg.startswith("no change") else dim(SYM["dot"]) + " ") + msg)
         return 0
+    if cmd == "serve":
+        from .tool_server import main as serve_main
+        return serve_main(rest)
+    if cmd == "call":
+        if not rest:
+            print("  usage: provenant call APPROVAL_ID")
+            return 2
+        from .voice import phone_approve
+        r = phone_approve(guard_mod.Guard(), rest[0])
+        print(json.dumps(r))
+        return 0 if r.get("approved") else 1
+    if cmd == "audit":
+        return cmd_audit(rest)
+    if cmd == "config":
+        return cmd_config(rest)
+    if cmd == "policy" and rest[:1] in (["test"], ["lint"], ["explain"]):
+        from .policysim import main as sim_main
+        return sim_main(rest)
     if cmd == "policy" and rest[:1] == ["init"]:
         dst = guard_mod.Store().home / "policy.json"
         if dst.exists():

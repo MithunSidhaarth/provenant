@@ -25,11 +25,35 @@ from .tools import TOOLS
 
 DASHBOARD = ROOT / "dashboard"
 CTYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
-          ".css": "text/css; charset=utf-8", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8"}
+          ".css": "text/css; charset=utf-8", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8",
+          ".json": "application/json; charset=utf-8", ".md": "text/markdown; charset=utf-8", ".whl": "application/zip",
+          ".gz": "application/gzip", ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".pdf": "application/pdf"}
 # A fixed allow-list built at startup: request paths are looked up, never joined onto the filesystem.
 STATIC = {"/": "index.html", **{"/" + f.relative_to(DASHBOARD).as_posix(): f.relative_to(DASHBOARD).as_posix()
                                 for f in sorted(DASHBOARD.rglob("*")) if f.is_file() and f.suffix in CTYPES}}
 MAX_BODY = 64 * 1024
+ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
+# Hosted demo (Vercel): no local machine to inspect, so the Guard views report only the policy, and the Host
+# check is left to the platform. Never set this on a machine whose ~/.provenant you care about.
+HOSTED = os.environ.get("PROVENANT_HOSTED") == "1"
+
+
+def _mask(obj, limit: int = 2000):
+    """Copy a value with every known secret pattern replaced, for anything read from ~/.provenant."""
+    from . import guard as guard_mod
+    from .detectors import CANARY_RE, SSN_RE, CARD_RE
+    if isinstance(obj, str):
+        s = obj[:limit]
+        for rx, name in guard_mod.SECRET_PATTERNS_C:
+            s = rx.sub(f"[{name} masked]", s)
+        for rx, name in ((CANARY_RE, "canary"), (SSN_RE, "ssn"), (CARD_RE, "card")):
+            s = rx.sub(f"[{name} masked]", s)
+        return s
+    if isinstance(obj, dict):
+        return {str(k): _mask(v, limit) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_mask(v, limit) for v in obj[:200]]
+    return obj
 
 
 class App:
@@ -107,6 +131,85 @@ class App:
             rows.append(row)
         return {"scenarios": attacks, "rows": rows}
 
+    # --- Provenant Guard (real tools): read-only views of ~/.provenant plus a dry-run check ---------
+    # Approving a held real call stays a terminal-only action (`provenant approve`), so nothing here
+    # can lift a hold: the dashboard shows the queue and the command, never a button that approves.
+    def guard(self):
+        from . import guard as guard_mod
+        if getattr(self, "_guard", None) is None:
+            self._guard = guard_mod.Guard()
+        return self._guard
+
+    def guard_status(self) -> dict:
+        from . import cli
+        g = self.guard()
+        if HOSTED:
+            return {"hosted": True, "policy_version": g.policy.version, "policy_error": g.policy.load_error}
+        clients = []
+        for name, path in cli.client_configs().items():
+            row = {"client": name, "path": str(path), "present": path.exists(), "servers": [], "error": None}
+            if path.exists():
+                try:
+                    for sname, entry in cli._servers(cli._load(path)).items():
+                        row["servers"].append({"name": sname, "protected": isinstance(entry, dict) and cli.MARK in entry})
+                except ValueError as exc:
+                    row["error"] = str(exc)[:200]
+            clients.append(row)
+        cc = Path.home() / ".claude" / "settings.json"
+        text = cc.read_text(encoding="utf-8", errors="replace") if cc.exists() else ""
+        pins = []
+        pin_dir = g.store.home / "pins"
+        if pin_dir.is_dir():
+            for f in sorted(pin_dir.glob("*.json")):
+                try:
+                    pins.append({"server": f.stem, "tools": sorted(json.loads(f.read_text(encoding="utf-8")))})
+                except (ValueError, OSError):
+                    pins.append({"server": f.stem, "tools": [], "error": "unreadable"})
+        return {"home": str(g.store.home), "policy_version": g.policy.version, "policy_error": g.policy.load_error,
+                "audit": g.audit.verify(), "pending": len(g.pending()), "clients": clients, "pins": pins,
+                "claude_code_hook": bool(text) and "provenant" in text and " hook" in text}
+
+    def guard_log(self, after: int) -> dict:
+        if HOSTED:
+            return {"entries": [], "total": 0, "hosted": True}
+        entries = self.guard().audit.snapshot()
+        keep = ("seq", "ts", "event", "session_id", "data", "hash")
+        return {"entries": [_mask({k: e.get(k) for k in keep}, 600) for e in entries if e["seq"] > after][-300:],
+                "total": len(entries)}
+
+    def guard_pending(self) -> list[dict]:
+        if HOSTED:
+            return []
+        keep = ("approval_id", "tool", "args", "reasons", "source", "created_at", "expires_at")
+        return [_mask({k: p.get(k) for k in keep if k in p}, 400) for p in self.guard().pending()]
+
+    def guard_check(self, body: dict) -> dict:
+        from .guard import GuardCall
+        tool, args = body.get("tool"), body.get("args", {})
+        if not isinstance(tool, str) or not tool.strip():
+            raise ValueError("tool must be a non-empty string")
+        g = self.guard()
+        workspace = body.get("workspace") if isinstance(body.get("workspace"), str) and body["workspace"] else os.getcwd()
+        if HOSTED:
+            workspace = "/home/demo/project"
+        session = {"session_id": "dashboard-check", "user_texts": [], "untrusted_texts": [],
+                   "injection_flags": [], "call_count": 0}
+        if isinstance(body.get("user_text"), str) and body["user_text"].strip():
+            session["user_texts"].append(body["user_text"][:4000])
+        if isinstance(body.get("untrusted_text"), str) and body["untrusted_text"].strip():
+            session["untrusted_texts"].append(body["untrusted_text"][:20000])
+        res = g.policy.evaluate(GuardCall(tool, args, "dashboard-check", workspace, "dashboard"), session)
+        return {"dry_run": True, "workspace": workspace, **res.to_dict()}
+
+    def guard_redteam(self) -> dict:
+        f = ROOT / "docs" / "guard_redteam.json"
+        if not f.exists():
+            return {"available": False}
+        try:
+            return {"available": True, **_mask(json.loads(f.read_text(encoding="utf-8")), 4000)}
+        except ValueError:
+            return {"available": False, "error": "docs/guard_redteam.json is not valid JSON"}
+
     def policy(self) -> dict:
         tools = [{"name": t.name, "description": t.description, "permission": t.permission,
                   "side_effect": t.side_effect, "high_impact": t.high_impact, "untrusted_output": t.untrusted_output,
@@ -150,7 +253,16 @@ def make_handler(app: App):
                 raise ValueError("body must be a JSON object")
             return body
 
+        def _host_ok(self) -> bool:
+            if HOSTED:
+                return True
+            # DNS rebinding: a page on evil.example resolving to 127.0.0.1 still sends its own Host header.
+            host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
+            return host in ALLOWED_HOSTS or host == self.server.server_address[0]
+
         def do_GET(self):
+            if not self._host_ok():
+                return self._err(421, "unexpected Host header")
             u = urlparse(self.path)
             if u.path in STATIC:
                 f = DASHBOARD / STATIC[u.path]
@@ -181,9 +293,23 @@ def make_handler(app: App):
                     return self._send(200, app.fuzz())
                 if u.path == "/api/ablation":
                     return self._send(200, app.ablation())
+                if u.path == "/api/guard/status":
+                    return self._send(200, app.guard_status())
+                if u.path == "/api/guard/log":
+                    try:
+                        after = int(q.get("after", ["0"])[0])
+                    except ValueError:
+                        after = 0
+                    return self._send(200, app.guard_log(after))
+                if u.path == "/api/guard/pending":
+                    return self._send(200, app.guard_pending())
+                if u.path == "/api/guard/redteam":
+                    return self._send(200, app.guard_redteam())
             return self._err(404, "not found")
 
         def do_POST(self):
+            if not self._host_ok():
+                return self._err(421, "unexpected Host header")
             u = urlparse(self.path)
             try:
                 body = self._body()
@@ -212,6 +338,11 @@ def make_handler(app: App):
                     if u.path == "/api/lab":
                         try:
                             return self._send(200, app.lab(body))
+                        except ValueError as exc:
+                            return self._err(400, str(exc))
+                    if u.path == "/api/guard/check":
+                        try:
+                            return self._send(200, _mask(app.guard_check(body)))
                         except ValueError as exc:
                             return self._err(400, str(exc))
                     if u.path == "/api/playground":
