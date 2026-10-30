@@ -133,7 +133,7 @@ TOOLS: dict[str, ToolSpec] = {t.name: t for t in [
              untrusted_output=True, impl=_fetch_url),
     ToolSpec("get_secret", "Read a secret from the vault.", "secrets:read",
              {"name": ArgSpec("string", control=True, max_len=80)},
-             impl=_get_secret),
+             high_impact=True, impl=_get_secret),
     ToolSpec("delete_customer", "Permanently delete a customer record.", "crm:admin",
              {"customer_id": ArgSpec("string", control=True, max_len=20)},
              side_effect=True, high_impact=True, impl=_delete_customer),

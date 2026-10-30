@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentShield Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 4 7v8c0 7.5 5.1 13.4 12 15 6.9-1.6 12-7.5 12-15V7L16 2z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m10.5 16 4 4 7-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div>
+      <div class="brand-name">AgentShield</div>
+      <div class="brand-sub">Policy enforcement for tool-using AI agents · simulation only</div>
+    </div>
+  </div>
+  <div class="top-status">
+    <button class="pill" id="chainPill" title="Re-verify the audit hash chain">Audit chain: checking…</button>
+    <button class="pill" id="approvalPill" data-tab="approvals">0 pending approvals</button>
+    <span class="pill muted" id="policyPill">policy …</span>
+    <button class="btn ghost small" id="resetBtn" title="Clear runs, approvals and the in-memory audit log">Reset demo</button>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="replay">Attack replay</button>
+  <button class="tab" data-tab="approvals">Approvals <span class="count" id="approvalCount">0</span></button>
+  <button class="tab" data-tab="audit">Audit trail</button>
+  <button class="tab" data-tab="playground">Policy playground</button>
+  <button class="tab" data-tab="depth">Defense in depth</button>
+  <button class="tab" data-tab="policy">Agent &amp; policy</button>
+</nav>
+
+<main>
+  <section class="view active" id="view-replay">
+    <aside class="scenario-list" id="scenarioList"></aside>
+    <div class="scenario-main">
+      <div id="scenarioHeader"></div>
+      <div id="compare" class="compare"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-approvals">
+    <div class="panel">
+      <h2>Pending approvals</h2>
+      <p class="hint">High-impact actions stop here. Nothing runs until a named person approves. Before running, the call is checked again against current policy and against the exact arguments that were requested.</p>
+      <label class="field inline">Approving as <span class="prefix">human:</span><input id="approverName" value="demo-operator" maxlength="40"></label>
+      <div id="approvalList"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-audit">
+    <div class="grid2">
+      <div class="panel">
+        <h2>Chain integrity</h2>
+        <p class="hint">Each entry stores the hash of the previous one plus an HMAC. Editing, deleting or reordering any entry breaks verification at that exact point.</p>
+        <div id="verifyResult" class="result-box"></div>
+        <div class="row"><button class="btn" id="verifyBtn">Verify chain</button></div>
+      </div>
+      <div class="panel">
+        <h2>Tamper demonstration</h2>
+        <p class="hint">Copies the log, rewrites one DENY decision to ALLOW the way an attacker covering their tracks would, then verifies the copy. The real log is not touched.</p>
+        <div id="tamperResult" class="result-box"></div>
+        <div class="row"><button class="btn danger" id="tamperBtn">Forge a log entry</button></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Audit entries</h2>
+        <div class="row">
+          <select id="auditFilter"><option value="">All events</option><option value="policy_decision">Decisions</option><option value="tool_result">Tool results</option><option value="approval">Approvals</option></select>
+          <button class="btn ghost small" id="auditRefresh">Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table class="audit"><thead><tr><th>#</th><th>Time (UTC)</th><th>Event</th><th>Session</th><th>Summary</th><th>Hash</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-playground">
+    <div class="grid2">
+      <div class="panel">
+        <h2>Propose a tool call</h2>
+        <p class="hint">Send any call, including broken ones, through the same enforcement point the agent uses. Allowed calls run against the simulated world only.</p>
+        <div class="presets" id="presets"></div>
+        <label class="field">Tool<input id="pgTool" list="toolNames" autocomplete="off"><datalist id="toolNames"></datalist></label>
+        <label class="field">Arguments (JSON)<textarea id="pgArgs" rows="6" spellcheck="false"></textarea></label>
+        <label class="field">User request (trusted)<input id="pgTask"></label>
+        <label class="field">Content the agent has already read (untrusted, optional)<textarea id="pgCtx" rows="3" spellcheck="false"></textarea></label>
+        <div class="row"><button class="btn primary" id="pgRun">Evaluate</button></div>
+      </div>
+      <div class="panel"><h2>Decision</h2><div id="pgResult" class="empty">No call evaluated yet.</div></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-depth">
+    <div class="panel">
+      <h2>Defense in depth: rule ablation</h2>
+      <p class="hint">Each row switches off one policy rule and replays every attack. A green cell means the attack was still fully contained by the remaining rules. A red cell shows what got through, which tells you that rule is the only thing stopping that attack.</p>
+      <div class="row"><button class="btn" id="depthBtn">Run ablation</button></div>
+      <div id="depthResult"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-policy">
+    <div class="panel"><h2>Agent permissions</h2><div id="agentInfo"></div></div>
+    <div class="panel"><h2>Tools</h2><div class="table-wrap"><table class="tools"><thead><tr><th>Tool</th><th>Requires</th><th>Side effect</th><th>High impact</th><th>Output</th><th>Control args</th></tr></thead><tbody id="toolBody"></tbody></table></div></div>
+    <div class="panel"><h2>Evaluation order</h2><ol class="rules" id="ruleList"></ol></div>
+  </section>
+</main>
+<div id="toast" class="toast" role="status"></div>
+</body>
+</html>

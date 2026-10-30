@@ -35,11 +35,13 @@ class InvokeResult:
     output: Any = None
     error: str | None = None
     approval_id: str | None = None
+    injection_indicators: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {"call": self.call.to_dict(), "decision": self.decision.value, "reasons": self.reasons,
                 "findings": self.findings, "executed": self.executed, "output": self.output,
-                "error": self.error, "approval_id": self.approval_id}
+                "error": self.error, "approval_id": self.approval_id,
+                "injection_indicators": self.injection_indicators}
 
 
 @dataclass
@@ -94,12 +96,13 @@ class Gateway:
                                                  "policy_version": self.engine.version})
         return ctx
 
-    def _ingest_untrusted(self, ctx: SessionContext, call: ToolCall, output: Any) -> list[dict]:
+    def ingest_untrusted(self, ctx: SessionContext, source: str, output: Any) -> list[dict]:
+        """Record content the agent has seen that did not come from the user."""
         text = _output_text(output)
         ctx.untrusted_texts.append(text)
         flags = scan_injection(text)
         for f in flags:
-            f["source"] = f"{call.tool}:{call.call_id}"
+            f["source"] = source
         ctx.injection_flags.extend(flags)
         return flags
 
@@ -156,7 +159,7 @@ class Gateway:
             return InvokeResult(call, result.decision, result.reasons, result.to_dict()["findings"],
                                 executed=False, error=str(exc), approval_id=approval_id)
         spec = self.registry.spec(call.tool)
-        flags = self._ingest_untrusted(ctx, call, output) if spec.untrusted_output else []
+        flags = self.ingest_untrusted(ctx, f"{call.tool}:{call.call_id}", output) if spec.untrusted_output else []
         self.audit.append("tool_result", ctx.session_id,
                           {"call_id": call.call_id, "tool": call.tool, "approval_id": approval_id,
                            "trust": "untrusted" if spec.untrusted_output else "system",
@@ -164,7 +167,7 @@ class Gateway:
         # Untrusted output is handed back explicitly labelled as data, never as instructions.
         wrapped = {"trust": "untrusted-data", "content": output} if spec.untrusted_output else output
         return InvokeResult(call, result.decision, result.reasons, result.to_dict()["findings"],
-                            executed=True, output=wrapped, approval_id=approval_id)
+                            executed=True, output=wrapped, approval_id=approval_id, injection_indicators=flags)
 
     # --- approvals ---------------------------------------------------------------------
     def pending(self) -> list[PendingApproval]:
@@ -253,8 +256,8 @@ class UnprotectedGateway(Gateway):
         except Exception as exc:
             self.audit.append("tool_error", sid, {"call_id": call.call_id, "error": f"{type(exc).__name__}: {exc}"})
             return InvokeResult(call, Decision.ALLOW, ["no policy enforced"], [], executed=False, error=str(exc))
-        if spec.untrusted_output:
-            self._ingest_untrusted(ctx, call, output)
+        flags = self.ingest_untrusted(ctx, f"{call.tool}:{call.call_id}", output) if spec.untrusted_output else []
         self.audit.append("tool_result", sid, {"call_id": call.call_id, "tool": call.tool, "unprotected": True,
                                                "output": _clip(output)})
-        return InvokeResult(call, Decision.ALLOW, ["no policy enforced"], [], executed=True, output=output)
+        return InvokeResult(call, Decision.ALLOW, ["no policy enforced"], [], executed=True, output=output,
+                            injection_indicators=flags)

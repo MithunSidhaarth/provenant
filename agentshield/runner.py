@@ -69,7 +69,8 @@ class Run:
         self.trace: dict | None = None
 
     def execute(self) -> dict:
-        self.trace = self.agent.run(self.scenario["user_task"], self.scenario["plan"])
+        self.trace = self.agent.run(self.scenario["user_task"], self.scenario["plan"],
+                                    prior_context=self.scenario.get("prior_context"))
         return self.report()
 
     def report(self) -> dict:

@@ -69,10 +69,13 @@ class SimulatedAgent:
             return [self._render(v, last, last_text) for v in value]
         return value
 
-    def run(self, user_task: str, plan: list[dict], session_id: str | None = None) -> dict:
+    def run(self, user_task: str, plan: list[dict], session_id: str | None = None,
+            prior_context: str | None = None) -> dict:
         ctx = self.gateway.open_session(self.agent_id, user_task, session_id)
+        if prior_context:   # content already in the agent's context window, e.g. a pasted email
+            self.gateway.ingest_untrusted(ctx, "prior_context", prior_context)
         queue: list[tuple[str, dict, str | None]] = [
-            ("malformed" if "raw" in p else "user_plan", p, None) for p in plan]
+            (p.get("source", "malformed") if "raw" in p else "user_plan", p, None) for p in plan]
         steps: list[Step] = []
         last: dict | None = None
         last_text = ""
