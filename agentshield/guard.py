@@ -53,6 +53,10 @@ SHELL_RULES: list[tuple[str, Decision, str]] = [
     (r"\brm\s+(-[a-z]*\s+)*-[a-z]*(r[a-z]*f|f[a-z]*r)[a-z]*\s+(--\s+)?(\"|')?" + _ROOTISH + r"(\"|')?(\s|;|&|\||$)", DENY,
      "recursive force-delete of a root, home or whole-workspace path"),
     (r"--no-preserve-root", DENY, "rm --no-preserve-root"),
+    (r"\bfind\s+(/|~/?|\$home|[a-z]:\\)(\s|$)[^|;&]*(-delete\b|-exec\s+(rm|shred)\b)", DENY,
+     "find -delete / -exec rm over a root or home path"),
+    (r">\s*/dev/(sd|nvme|hd|disk|xvd|mmcblk|vd)", DENY, "overwrites a raw block device via redirection"),
+    (r"\bshred\b[^|;&]*(/dev/|\s(/|~/?|\$home)(\s|$))", DENY, "shreds a disk or a root/home path"),
     (r"\bmkfs(\.\w+)?\b|\bdd\s+[^|;&]*\bof=/dev/(sd|nvme|hd|disk|xvd)", DENY, "formats or overwrites a disk"),
     (r":\(\)\s*\{\s*:\|:&\s*\};:", DENY, "fork bomb"),
     (r"\b(shutdown|reboot|halt|poweroff)\b|\binit\s+[06]\b", DENY, "shuts down or reboots the machine"),
@@ -88,6 +92,7 @@ SHELL_RULES: list[tuple[str, Decision, str]] = [
     (r"\b(crontab|schtasks|systemctl\s+(enable|start)|launchctl\s+load|new-scheduledtask)", APPROVE,
      "installs persistence (scheduled task or service)"),
     (r"\b(kill|pkill|killall|taskkill)\b", APPROVE, "kills processes"),
+    (r"\bshred\b|\bfind\b[^|;&]*(-delete\b|-exec\s+rm\b)", APPROVE, "deletes files irrecoverably or in bulk"),
     (r"\bdocker\s+(run|exec)\b[^|;&]*(--privileged|-v\s+/:)", DENY, "privileged container or host root mount"),
     (r"\b(ssh|scp|sftp|rsync)\b[^|;&]*@", APPROVE, "connects to a remote machine"),
     (r"\b(curl|wget|iwr|invoke-webrequest|irm|invoke-restmethod)\b[^|;&]*\s-(x\s*(post|put|delete|patch)|d\b|-data\b|f\b)",
@@ -118,6 +123,7 @@ URL_RE = re.compile(r"\b(?:https?|ftp|wss?)://[^\s\"'<>`)\]}]+", re.IGNORECASE)
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
 PATH_KEYS = {"file_path", "path", "paths", "notebook_path", "filename", "file", "source", "destination", "dest",
              "target", "directory", "dir", "src", "dst", "old_path", "new_path"}
+COMMAND_KEYS = {"command", "cmd", "script", "shell", "commandline", "command_line"}
 WRITE_CONTENT_KEYS = {"content", "new_string", "new_source", "edits", "text", "body", "data"}
 _PRIVATE_HOST = re.compile(r"^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|\[?::1\]?$|metadata\.google\.internal)")
 
@@ -418,6 +424,18 @@ class GuardPolicy:
                 return cat
         return "unknown"
 
+    def effective_category(self, tool: str, args: Any) -> str:
+        """The name says what a tool claims to be; the arguments say what it can do. A tool called get_shell or
+        list_and_run that takes a command is a shell, and read_or_write with content is a write."""
+        cat = self.category(tool)
+        if isinstance(args, dict):
+            keys = {k.lower() for k in args}
+            if keys & COMMAND_KEYS and any(isinstance(args[k], (str, list)) for k in args if k.lower() in COMMAND_KEYS):
+                return "shell"
+            if cat in ("read", "unknown", "network") and keys & PATH_KEYS and keys & {"content", "new_string", "edits", "data"}:
+                return "write"
+        return cat
+
     def untrusted_output(self, tool: str) -> bool:
         base = tool.split("__")[-1].lower() if tool.startswith("mcp__") else tool.lower()
         return any(fnmatch.fnmatchcase(base, p) for p in self.config.get("untrusted_output_tools", []))
@@ -434,7 +452,7 @@ class GuardPolicy:
             findings += self._structure(call)
             if any(f.decision == DENY for f in findings):
                 return PolicyResult(DENY, findings, fp, self.version)
-            cat = self.category(call.tool)
+            cat = self.effective_category(call.tool, call.args)
             findings.append(Finding("category", ALLOW, f"{call.tool} classified as '{cat}'", {"category": cat}))
             for rule in (self._tool_rule, self._budget, self._shell, self._paths, self._network, self._dlp,
                          self._provenance, self._injection_context):
@@ -495,6 +513,9 @@ class GuardPolicy:
     def _shell(self, call, session, cat) -> list[Finding]:
         out, seen = [], set()
         for v in self._commands(call, cat):
+            if "rootdel" not in seen and _root_delete(v):
+                seen.add("rootdel")
+                out.append(Finding("shell", DENY, "command: recursive delete of a root, home or whole-filesystem path"))
             for rx, dec, reason in SHELL_RULES_C:
                 if reason not in seen and rx.search(v):
                     seen.add(reason)
@@ -568,9 +589,10 @@ class GuardPolicy:
         return out
 
     def _dlp(self, call, session, cat) -> list[Finding]:
-        blob = "\n".join(_strings(call.args))
+        leaves = _strings(call.args)
+        blob = "\n".join(leaves)
         hits = []
-        for v in views(blob):
+        for v in views(blob) + ["".join(leaves)]:      # also a key split across several arguments
             hits += [h for h in scan_secrets(v) if h not in hits]
         if not hits:
             return []
@@ -611,6 +633,34 @@ class GuardPolicy:
                             "this session has read content containing prompt-injection indicators; side effects need a human",
                             {"indicators": session["injection_flags"][:3]})]
         return []
+
+
+_ROOT_TARGET = re.compile(r"^(/|/\*|~|~/|~/\*|\$home/?\*?|\$\{home\}/?\*?|\.|\./|\./\*|\*|\.\*|[a-z]:\\?\*?|[a-z]:/\*?|"
+                          r"%userprofile%\\?\*?|\$env:userprofile\\?\*?|/(home|users|etc|usr|var|boot|root)/?\*?)$", re.IGNORECASE)
+_DELETERS = {"rm", "ri", "remove-item", "del", "erase", "rd", "rmdir"}
+
+
+def _root_delete(cmd: str) -> bool:
+    """rm/Remove-Item and aliases with any spelling of a recursive flag aimed at a root, home or wildcard path."""
+    for seg in re.split(r"[;&|\n]+", cmd):
+        try:
+            toks = shlex.split(seg, posix=True)
+        except ValueError:
+            toks = seg.split()
+        if not toks:
+            continue
+        i = 0
+        while i < len(toks) and toks[i].lower() in ("sudo", "doas", "command", "builtin", "nohup", "time", "xargs", "exec"):
+            i += 1
+        if i >= len(toks) or PurePosixPath(toks[i].lower().replace("\\", "/")).name.removesuffix(".exe") not in _DELETERS:
+            continue
+        flags = [t.lower() for t in toks[i + 1:] if t.startswith("-") or t.startswith("/")]
+        targets = [t for t in toks[i + 1:] if not t.startswith("-") or t in ("-",)]
+        recursive = any(f in ("--recursive", "-recurse", "/s") or f.startswith("--recursive") or f.startswith("-rec")
+                        or (re.fullmatch(r"-[a-z]+", f) and "r" in f) for f in flags)
+        if recursive and any(_ROOT_TARGET.match(t.rstrip("/") or "/") or _ROOT_TARGET.match(t) for t in targets if t != "--"):
+            return True
+    return False
 
 
 def _shell_tokens(cmd: str) -> list[str]:

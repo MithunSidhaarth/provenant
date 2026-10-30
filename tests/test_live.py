@@ -281,7 +281,7 @@ class ToolServer(Base):
     def test_cache_dedup_and_invalidation(self):
         gw = self.gw()
         a = self.text(gw.call("read_file", {"path": "app.py"}))
-        self.assertIn("omitted", a)                                   # compressed
+        self.assertIn("Outline", a)                                   # compressed to an outline
         b = self.text(gw.call("read_file", {"path": "app.py"}))
         self.assertIn("unchanged since your call", b)                 # dedup
         c = self.text(gw.call("read_file", {"path": "app.py", "full": True}))

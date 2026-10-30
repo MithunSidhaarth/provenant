@@ -29,6 +29,8 @@ from pathlib import Path
 
 from .models import canonical_json
 
+_DEF = re.compile(r"^\s*(async\s+def|def|class|function|export\s+(default\s+)?(function|class|const)|interface|type\s+\w+\s*=|"
+                  r"struct|enum|impl|fn|func|pub\s+fn|public|private|protected)\b")
 CACHEABLE = {"read_file", "list_directory", "search_text"}
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", ".mypy_cache", ".pytest_cache",
              ".tox", ".next", "target", ".idea", ".vscode"}
@@ -70,7 +72,7 @@ class Stats:
 class Efficiency:
     enabled: bool = True
     dedup: bool = True
-    max_file_chars: int = 12000
+    max_file_chars: int = 16000
     max_listing_entries: int = 300
     max_matches: int = 60
     _cache: dict = field(default_factory=dict)
@@ -99,6 +101,7 @@ class Efficiency:
         """Same unchanged result already returned in this session: send a reference instead of the bytes."""
         if not (self.enabled and self.dedup) or full or tool not in CACHEABLE or len(text) < 400:
             return text
+        key = key + hashlib.sha256(text.encode()).hexdigest()      # same shaped output, not just the same request
         with self._lock:
             first = self._seen.get(key)
             if first is None:
@@ -111,12 +114,20 @@ class Efficiency:
 
     # --- compression ---------------------------------------------------------------------------
     def file(self, text: str, full: bool) -> str:
+        """Long files: an outline of definitions with line numbers plus the opening lines, so the agent can read
+        exactly the part it needs with offset/limit instead of paying for the whole file."""
         if not self.enabled or full or len(text) <= self.max_file_chars:
             return text
-        head, tail = text[: self.max_file_chars * 2 // 3], text[-self.max_file_chars // 3:]
-        cut_lines = text[len(head): len(text) - len(tail)].count("\n")
-        return (head + f"\n[provenant] … {cut_lines} lines ({len(text) - len(head) - len(tail)} chars) omitted. "
-                "Ask with \"full\": true or read a narrower range (offset/limit). …\n" + tail)
+        lines = text.splitlines()
+        outline = [f"{i + 1:>6}: {ln.strip()[:120]}" for i, ln in enumerate(lines) if _DEF.match(ln)][:300]
+        head = "\n".join(lines[:40])
+        if not outline:
+            tail = text[-self.max_file_chars // 3:]
+            return (text[: self.max_file_chars * 2 // 3] + f"\n[provenant] … middle omitted ({len(text)} chars total). "
+                    "Read a range with offset/limit, or ask with \"full\": true. …\n" + tail)
+        return (f"[provenant] {len(lines)} lines ({len(text)} chars); showing an outline and the first 40 lines. Read a range "
+                "with offset/limit (0-based line offset), or ask with \"full\": true.\n\nOutline (line: definition):\n"
+                + "\n".join(outline) + "\n\nFirst 40 lines:\n" + head)
 
     def tests(self, out: str, code: int, full: bool) -> str:
         if not self.enabled or full:

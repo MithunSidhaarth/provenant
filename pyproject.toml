@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "provenant"
-version = "0.6.0"
-description = "A deterministic firewall between AI agents and their real tools: MCP proxy and Claude Code hook."
+version = "0.8.0"
+description = "A deterministic, model-independent policy gateway between AI agents and their real tools: MCP proxy, gated tool server, Claude Code hook, phone approvals."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
@@ -18,3 +18,6 @@ packages = ["agentshield"]
 
 [tool.setuptools.package-data]
 agentshield = ["guard_policy.json"]
+
+[project.urls]
+Source = "https://github.com/MithunSidhaarth/provenant"

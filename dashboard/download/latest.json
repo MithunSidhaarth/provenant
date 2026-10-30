@@ -1,0 +1,10 @@
+{
+ "version": "0.8.0",
+ "commit": "76b6ca7c9a212240a9c8ed6481e558a90ab347e3",
+ "wheel": "provenant-0.8.0-py3-none-any.whl",
+ "sdist": "provenant-0.8.0.tar.gz",
+ "sha256": {
+  "provenant-0.8.0-py3-none-any.whl": "81f37a502ff31ac86b11f76b17b173bb3986cb4d344e110bc8c12372f4a17762",
+  "provenant-0.8.0.tar.gz": "177e1d4820f7e92a06df2d2aa04fd74603eff69c6ee7df52cb0cd748f09d6a37"
+ }
+}
