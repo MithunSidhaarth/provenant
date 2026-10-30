@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-30 19:05 UTC",
+ "generated": "2026-10-30 19:07 UTC",
  "suite": "evals/run_eval.py (evals/attacks.json)",
  "summary": {
   "policy_version": "guard-2026.10-4",

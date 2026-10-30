@@ -1,10 +1,10 @@
 {
  "bomFormat": "CycloneDX",
  "specVersion": "1.5",
- "serialNumber": "urn:uuid:094d4b31-8e85-491b-9ec9-23bfbc96db90",
+ "serialNumber": "urn:uuid:9f0ec152-60e5-4658-a92e-7292a2843665",
  "version": 1,
  "metadata": {
-  "timestamp": "2026-10-30T19:04:42Z",
+  "timestamp": "2026-10-30T19:07:14Z",
   "component": {
    "type": "application",
    "name": "provenant",
@@ -25,7 +25,7 @@
    "hashes": [
     {
      "alg": "SHA-256",
-     "content": "3c3c0dc49086aad5716c0c7812de03309462d312fd95564b3f82212f5a2996c8"
+     "content": "065661463b1dcc6c37b55d6fcfe887eb48e30b527677e531fd3a51fc5f889a2e"
     }
    ]
   },
@@ -35,7 +35,7 @@
    "hashes": [
     {
      "alg": "SHA-256",
-     "content": "9415b0e3e3367bfd5a5739fcd6a77feeb09db7be9553379770939d10ec807d9a"
+     "content": "f8656cb57b7c67cf27f09b6a4b67807b6574012820ff65ccc46b5772fa78fc9d"
     }
    ]
   }
