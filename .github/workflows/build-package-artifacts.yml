@@ -35,5 +35,9 @@ jobs:
             echo "Package assets are already current."
           else
             git commit -m "build: refresh package artifacts and installer metadata"
+            # The website-bundle workflow may update main at the same time. Rebase this
+            # generated-artifact commit on the latest main before pushing.
+            git fetch origin main
+            git rebase origin/main
             git push
           fi
