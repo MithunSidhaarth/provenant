@@ -2,6 +2,10 @@
 
 Provenant inspects structured email messages returned by tools behind a local stdio MCP proxy. It looks for prompt-injection text, urgent credential/payment requests, sender/Reply-To mismatches, URL shorteners, insecure links, external link domains, and known-brand/domain mismatches.
 
+## Phone-call implementation
+
+The native Bolna call flow is implemented inside Provenant and is inspired by the integration pattern in [claude-call-me](https://github.com/MithunSidhaarth/claude-call-me) by Mithun Sidhaarth (MIT-licensed). You do not need to clone or install that separate skill. Provenant keeps a dedicated mail-alert agent ID so it does not overwrite the agent ID used by your general Claude Code skill.
+
 ## Setup on Windows
 
 Run once in PowerShell after installing Provenant:
