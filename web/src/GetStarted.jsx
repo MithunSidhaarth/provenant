@@ -246,12 +246,12 @@ function App() {
               <p><b>Before you start</b></p>
               <ul>
                 <li>Connect the local stdio mail MCP server through Provenant in Step 3. Cloud-hosted connectors that bypass the local proxy cannot be scanned.</li>
-                <li>Create or access your Bolna account and API key. Phone calls may incur usage charges; trial accounts may require phone verification.</li>
+                <li>Create or access your Bolna account and API key, then verify your own phone number in Bolna before testing outbound calls. Complete any phone verification required in your Bolna account; phone calls may incur usage charges.</li>
                 <li>Use a Provenant release that includes the Mail Security commands. The currently listed <code>v{G.version}</code> package may not include this newly merged feature yet; update the release link when the new wheel is published.</li>
               </ul>
             </div>
             <h3>1. Configure email security and your phone</h3>
-            <p>Run this in the same terminal where Provenant is installed. The CLI asks for your Bolna API key with hidden input, then your phone number in international format (for example, +919876543210).</p>
+            <p>Run this in the same terminal where Provenant is installed. The CLI asks for your Bolna API key with hidden input, then your phone number in international format (for example, +919876543210). Make sure this same number is verified in your Bolna account first.</p>
             <Command text={run("mail setup")} label="mail-setup" />
             <h3>2. Confirm the setup</h3>
             <Command text={run("mail status")} label="mail-status" />
