@@ -2,7 +2,9 @@
 
 All notable changes. Versions follow the `provenant-agent-shield` package version.
 
-## 0.10.1 (unreleased, branch `feat/live-guard-dashboard`)
+## 0.10.2 (unreleased, branch `feat/live-guard-dashboard`)
+
+A same-named 0.10.1 wheel was already published without the dashboard, so these fixes ship as 0.10.2 to make the upgrade visible.
 
 ### Fixed
 - **Installed `provenant dashboard` crashed** with `FileNotFoundError: .../site-packages/dashboard/index.html`. The wheel did not include the dashboard, policy, scenarios, fixtures or eval data. They now ship as data packages (`provenant_dashboard`, `provenant_policy`, ...), found through `agentshield/resources.py`. Demo audit files no longer get written into site-packages.

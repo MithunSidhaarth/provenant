@@ -153,7 +153,7 @@ docs/                ARCHITECTURE.md, THREAT_MODEL.md, DEMO_SCRIPT.md
 
 ## Tests
 
-`python3 -m unittest discover -s tests -t .` runs the full suite (235 tests at 0.10.1, about 20 seconds including a wheel build and install). `python3 evals/run_eval.py` regenerates the security report in `docs/eval/`. Highlights:
+`python3 -m unittest discover -s tests -t .` runs the full suite (235 tests at 0.10.2, about 20 seconds including a wheel build and install). `python3 evals/run_eval.py` regenerates the security report in `docs/eval/`. Highlights:
 
 - **Before/after:** every attack causes harm without Provenant, and none does with it. Decision sequences match each scenario's `expected_protected`, and benign tasks still complete.
 - **Policy rules:** every rule's ALLOW, REQUIRE_APPROVAL and DENY paths.

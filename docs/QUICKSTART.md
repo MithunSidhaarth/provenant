@@ -2,12 +2,12 @@
 
 Five minutes from nothing to an agent whose tool calls go through Provenant. Everything here runs locally. Nothing is sent to a server we run.
 
-## 1. Install (current release: 0.10.1)
+## 1. Install (current release: 0.10.2)
 
 You need Python 3.10 or newer.
 
 ```powershell
-# Windows (PowerShell): downloads the 0.10.1 wheel, checks its SHA-256, installs it for your user
+# Windows (PowerShell): downloads the 0.10.2 wheel, checks its SHA-256, installs it for your user
 irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex
 ```
 
@@ -16,14 +16,14 @@ irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1
 curl -fsSL https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.sh | sh
 ```
 
-The installers only ever fetch the current wheel (`dist/provenant_agent_shield-0.10.1-py3-none-any.whl`). A test (`tests/test_installer.py`) fails the build if any install path names an older version or if an older wheel is still published.
+The installers only ever fetch the current wheel (`dist/provenant_agent_shield-0.10.2-py3-none-any.whl`). A test (`tests/test_installer.py`) fails the build if any install path names an older version or if an older wheel is still published.
 
 From a clone you can skip installing: `python3 provenant.py <command>` (or `provenant.bat <command>` on Windows).
 
 ## 2. Check the engine on its own
 
 ```bash
-provenant --version      # provenant 0.10.1
+provenant --version      # provenant 0.10.2
 provenant verify         # safe self-test: a destructive command is blocked, a held call is held, the audit chain is intact
 provenant doctor         # environment checks (PATH, resources, state folder, policy)
 ```

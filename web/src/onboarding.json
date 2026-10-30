@@ -1,7 +1,7 @@
 {
  "_comment": "Single source of truth for the Get Started guide. tests/test_site_commands.py runs every `provenant` command here against the real CLI, so keep them exact.",
- "version": "0.10.1",
- "wheel_url": "https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl",
+ "version": "0.10.2",
+ "wheel_url": "https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl",
  "os": [
   {
    "id": "windows",
@@ -66,9 +66,9 @@
    "recommended": false,
    "what": "Installs Provenant into its own isolated environment and puts provenant on your PATH. Needs pipx (python -m pip install --user pipx, then pipx ensurepath).",
    "commands": {
-    "powershell": "pipx install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl",
-    "cmd": "pipx install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl",
-    "sh": "pipx install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl"
+    "powershell": "pipx install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl",
+    "cmd": "pipx install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl",
+    "sh": "pipx install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl"
    },
    "prefix": {
     "powershell": "provenant",
@@ -82,9 +82,9 @@
    "recommended": false,
    "what": "Installs the wheel for your user with pip. You then run Provenant as a Python module, which works even when pip's scripts folder is not on PATH.",
    "commands": {
-    "powershell": "py -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl",
-    "cmd": "py -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl",
-    "sh": "python3 -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl"
+    "powershell": "py -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl",
+    "cmd": "py -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl",
+    "sh": "python3 -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl"
    },
    "prefix": {
     "powershell": "py -m provenant",
@@ -280,9 +280,9 @@
    "title": "The package installs but the command does not run",
    "means": "A partial or mixed install: often an old 0.8.0 copy or an interrupted download.",
    "fix": {
-    "windows": "py -m pip install --user --force-reinstall https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl",
-    "macos": "python3 -m pip install --user --force-reinstall https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl",
-    "linux": "python3 -m pip install --user --force-reinstall https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl"
+    "windows": "py -m pip install --user --force-reinstall https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl",
+    "macos": "python3 -m pip install --user --force-reinstall https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl",
+    "linux": "python3 -m pip install --user --force-reinstall https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl"
    },
    "verify": {
     "powershell": "py -m provenant doctor",
@@ -302,9 +302,9 @@
     "all": "Install straight from the GitHub URL in step 2, which serves the real file. Delete the bad .whl."
    },
    "verify": {
-    "powershell": "py -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant_agent_shield-0.10.1-py3-none-any.whl",
-    "cmd": "py -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant_agent_shield-0.10.1-py3-none-any.whl",
-    "sh": "python3 -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant_agent_shield-0.10.1-py3-none-any.whl"
+    "powershell": "py -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant_agent_shield-0.10.2-py3-none-any.whl",
+    "cmd": "py -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant_agent_shield-0.10.2-py3-none-any.whl",
+    "sh": "python3 -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant_agent_shield-0.10.2-py3-none-any.whl"
    },
    "if_fails": {
     "all": "False means the file is not a wheel. Compare its SHA-256 with SHA256SUMS.txt in the repository's dist folder."
@@ -319,9 +319,9 @@
     "all": "Use the GitHub download URL in step 2. It is public and serves the binary."
    },
    "verify": {
-    "powershell": "(Invoke-WebRequest -Method Head -UseBasicParsing https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl).Headers['Content-Type']",
-    "cmd": "curl -sIL https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl",
-    "sh": "curl -sIL https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.1-py3-none-any.whl"
+    "powershell": "(Invoke-WebRequest -Method Head -UseBasicParsing https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl).Headers['Content-Type']",
+    "cmd": "curl -sIL https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl",
+    "sh": "curl -sIL https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl"
    },
    "if_fails": {
     "all": "The final Content-Type should be application/octet-stream. If it says text/html, tell us on GitHub."

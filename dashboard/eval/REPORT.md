@@ -1,6 +1,6 @@
 # Provenant security evaluation
 
-Generated 2026-10-30 22:52 UTC by `python evals/run_eval.py` at commit `69f13ac`, policy `guard-2026.10-4`, Python 3.13.17 on Linux-6.18.44-fc-v185-x86_64-with-glibc2.39.
+Generated 2026-10-30 23:02 UTC by `python evals/run_eval.py` at commit `9c6b468`, policy `guard-2026.10-4`, Python 3.13.17 on Linux-6.18.44-fc-v185-x86_64-with-glibc2.39.
 
 Passing these cases is evidence of coverage for the cases listed, not proof that no bypass exists.
 
@@ -9,7 +9,7 @@ Passing these cases is evidence of coverage for the cases listed, not proof that
 - Attacks (negative controls): **225/225 contained** (never ALLOW); 225/225 got exactly the expected decision. Decisions: {'DENY': 168, 'REQUIRE_APPROVAL': 57}.
 - Legitimate actions (positive controls): **53/53** decided as expected; no false positives.
 - Saved policy scenarios: 32/32.
-- Decision latency (no model call): p50 0.156 ms, p95 0.61 ms, max 4.11 ms over 1550 evaluations.
+- Decision latency (no model call): p50 0.152 ms, p95 0.575 ms, max 3.425 ms over 1550 evaluations.
 
 | Category | Attacks | Contained |
 |---|---|---|
@@ -46,11 +46,11 @@ Passing these cases is evidence of coverage for the cases listed, not proof that
 | risky call is held for a human, nothing runs | pass |
 | audit chain verifies after the run | pass |
 
-Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.08 ms, through Provenant p50 13.93 ms (p95 16.76 ms). Overhead p50 ≈ 13.85 ms per call, which includes the SQLite writes and audit appends.
+Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.07 ms, through Provenant p50 22.81 ms (p95 27.87 ms). Overhead p50 ≈ 22.74 ms per call, which includes the SQLite writes and audit appends.
 
 ## Unit and integration tests
 
-235/235 passed in 18.8 s.
+235/235 passed in 19.6 s.
 
 | Area | Tests | Passed |
 |---|---|---|
@@ -68,7 +68,7 @@ Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.
 
 ## Resources
 
-Peak RSS 41.4 MB, CPU 2.42 s, wall 20.4 s for the whole evaluation.
+Peak RSS 41.4 MB, CPU 2.39 s, wall 21.8 s for the whole evaluation.
 
 ## Token efficiency
 

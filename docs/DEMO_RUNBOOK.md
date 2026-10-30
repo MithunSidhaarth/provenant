@@ -8,7 +8,7 @@ Who does what: P1 opens (problem and use case), P2 explains the architecture, P3
 cd D:\AUTO\provenant
 git pull
 test.bat                                   # expect: OK, 235 tests
-provenant --version                        # expect: provenant 0.10.1
+provenant --version                        # expect: provenant 0.10.2
 provenant verify                           # expect: Enforcement verified
 provenant mail setup                       # API key + your phone (+91...). Trial account: verify the number in Bolna first
 provenant mail test --yes                  # your phone must ring. Note the execution id

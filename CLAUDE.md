@@ -4,7 +4,7 @@ This file is the single source of truth for any agent or person who picks up thi
 
 **Keep it current.** After every milestone, update the "Status", "Version history" and "Next steps" sections. Commit and push the update with the work.
 
-Last updated: 2026-10-30 22:40 UTC, after the video and the website motion pass.
+Last updated: 2026-10-30 23:30 UTC, after the final hardening pass (0.10.2, branch feat/live-guard-dashboard, PR #23).
 
 ## Product
 
@@ -65,6 +65,9 @@ Hard rules from the brief, which must never be broken:
 | `evals/` | v8: `run_eval.py` (128 attacks with `{{fake:NAME}}` placeholders, 35 benign, 32 scenarios, live proxy checks), `token_bench.py`. Outputs in `docs/eval/` and copied to `dashboard/eval/` |
 | `scripts/build_release.py`, `.github/workflows/` | v8: wheel + sdist + SHA256SUMS + CycloneDX SBOM + provenance; `--publish-site` copies to `dashboard/download/` (the site's Download button). CI and release workflows pin actions to SHAs; **neither has run on GitHub yet** |
 | `web/src/Product.jsx` | v8 site sections: how it works, phone approval (visualization), efficiency, features (tested/experimental/planned), download, trust, demo video (reads `dashboard/media/manifest.json`) |
+| `agentshield/resources.py` | finds dashboard/policy/scenarios/fixtures/evals in a checkout OR an installed wheel (data packages `provenant_*`); `state_dir()` = `~/.provenant` |
+| `presentation/`, `team/` | hackathon deck (pptx + pdf, `build_deck.js`, SPEAKER_NOTES.md); teammate scripts + briefing PDFs, presenter runbook, QA_BANK.md |
+| `docs/QUICKSTART.md`, `SECURITY_MODEL.md`, `TROUBLESHOOTING.md`, `DEMO_RUNBOOK.md`, `FINAL_READINESS_AUDIT.md`, `FINAL_TEST_REPORT.md`, `CHANGELOG.md` | new-user and judge docs (0.10.2) |
 | `policy/policy.json` | agent permissions, data classes, limits |
 | `scenarios/*.json` | 7 scenarios with `expected_protected` |
 | `tests/` | 169 unittest tests (`test_live.py` is v8; `test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py`, `test_cli.py` are v6) |
@@ -108,6 +111,7 @@ python3 provenant.py log -f                    # v6: live ok/BLOCK/HOLD/TAINT fe
 | v0.9.0 | feat/onboarding-0.9 | Guided onboarding: `setup --client/--yes` (refuses to write off a TTY without --yes, read-back verification), `status` in layers (installed/engine/configured/connected/verified, connected only from real audit traffic), `verify` safe enforcement self-test, `doctor`, `rollback`, `model status/test`; optional advisory model classifier (`classifier.py`, escalate-only, off by default, NOT trained); `python -m provenant`; installers pinned to the public GitHub wheel; `/getting-started` wizard (`web/src/GetStarted.jsx` + `onboarding.json`); `model/` training workflow (untrained); `scripts/check_download.py`. | 193 |
 | v8 | 110fd78, 740cc90, b6e74da | Live runtime: SQLite approvals + single-use call-bound grants, demo/live separation, phone-approval adapter (claude-call-me), netguard pinning, gateway MCP tool server with structured tools, audit anchoring + retention, privacy detail levels, policy simulator. Closed a notification-shaped `tools/call` proxy bypass and 18 guard gaps that the old red-team file hid. Eval suite + token benchmark. Release pipeline (SBOM, SHA256SUMS, provenance). Website: product sections, real Download, mobile layout fixes | 166 |
 | v8.1 | feat/guard-redteam2 | Guard red-team round 2: 100 new practical attacks in evals/attacks.json (cloud/infra & DB destructive, credential theft beyond dotfiles, regulated IDs, non-HTTP exfil, split-secret reassembly, code-arg classification). Found 41 gaps v8 allowed; all fixed. Attacks 225/225 contained, benign 53/53, unit 166/166. Policy guard-2026.10-4. docs/REDTEAM_ROUND2.md | 166 |
+| 0.10.2 | feat/live-guard-dashboard (PR #23) | Final hardening: wheel ships the dashboard + demo data (installed `provenant dashboard` crashed); mail settings in `~/.provenant/mail.json` + DPAPI (WinError 5 fix); `provenant mail demo [--call]`, `mail test`, `call-status`, stale Bolna agent recovery; demo records labelled and kept out of live console numbers (Demo scenarios panel); `--help` never runs a command; `check` takes a plain string; hosted `/` = site, `/console` = ops console; docs, deck, team pack | 235 |
 | v5 | 628e507 | Renamed to Provenant (user-facing). Brutalist dashboard. Procedural gaussian-splat particle field that reacts to DENY/ALLOW/approval. anime.js + Motion. Everything vendored offline. Motion/lite toggle and fps watchdog. Self-only CSP. Comparison runs on load. | 99 |
 
 Headline numbers (v4/v5):
@@ -123,6 +127,8 @@ Headline numbers (v8, measured at b6e74da, `docs/eval/`):
 Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes, so **GitHub has only `main`**. Packaged zips are in the project files under `agentshield/` (`provenant-demo-safe-v5.zip`).
 
 ## Status
+
+- **0.10.2 final hardening (branch `feat/live-guard-dashboard`, PR #23, NOT merged):** see docs/FINAL_READINESS_AUDIT.md and docs/FINAL_TEST_REPORT.md. Local `/` is the ops console (`dashboard/index.html` + `ops.js`/`ops.css`); the product site is `/site.html`. Demo: docs/DEMO_RUNBOOK.md. **A real Bolna call has still never been placed by us** (api.bolna.ai is blocked from the cloud): mithun runs `provenant mail setup`, `provenant mail test`, `provenant mail demo --call` on the laptop.
 
 - **0.9.1 (branch fix/windows-installer):** install.ps1 rewritten after the 0.9.0 Windows PowerShell 5.1 quoting failure (double quotes stripped from `python -c` arguments). Tests: tests/test_installer.py; real-Windows check is the `installer-windows` CI job, **not yet run**. Wheel pinned by SHA-256 inside install.ps1 (build_release.py rewrites it: rebuild the release last, after all code edits).
 
@@ -156,6 +162,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 - The Windows launchers can't be tested in the cloud container.
 
 ## Next steps
+
+0000. On the laptop before the 11:00 IST freeze: `git pull` on feat/live-guard-dashboard, `test.bat` (235), `provenant mail setup` then `provenant mail test` (phone must ring), rehearse with team/TEAM_PRESENTER_RUNBOOK.md. mithun decides when to merge PR #23 (merge deploys the new Vercel routing).
 
 000. PR #4 (CLI polish + one-line installers) is rebased on v8 and kept as a draft until mithun says merge. After merge, try `irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex` on the laptop: install.ps1 has never run on Windows.
 
