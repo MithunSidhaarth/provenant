@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from .fuzzer import run_campaign
 from .runner import Shield
 
 RED, GREEN, YELLOW, DIM, BOLD, RESET = "\033[31m", "\033[32m", "\033[33m", "\033[2m", "\033[1m", "\033[0m"
@@ -51,8 +52,14 @@ def main(argv=None) -> int:
                 print(f"    [{s['source']}] {r['call']['tool']} -> {colour(r['decision'], r['decision'], c)}")
                 for reason in r["reasons"]:
                     print(f"        - {reason}")
-    v = shield.audit.verify()
+    fz = run_campaign(shield.engine)["summary"]
     print("-" * 96)
+    print(f"fuzzer: {fz['live_attacks']}/{fz['variants']} obfuscated variants live without AgentShield; "
+          f"{fz['containment_pct']}% contained with it ({fz['hard_denied_pct']}% by DENY alone), "
+          f"detection {fz['detection_pct']}%")
+    if fz["containment_pct"] < 100:
+        failures += 1
+    v = shield.audit.verify()
     print(f"audit chain: {'verified' if v['ok'] else 'BROKEN'} ({v['checked']} entries)")
     print("result:", "all attacks contained, all benign tasks allowed" if not failures else f"{failures} FAILURES")
     return 1 if failures or not v["ok"] else 0

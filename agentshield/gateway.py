@@ -18,6 +18,7 @@ from typing import Any
 
 from .audit import AuditLog
 from .detectors import scan_injection
+from .normalize import obfuscation_signals, views
 from .models import Decision, Finding, PolicyResult, ToolCall, new_id
 from .policy import PolicyEngine, SessionContext
 from .tools import ToolRegistry
@@ -69,7 +70,15 @@ def _clip(obj: Any) -> Any:
 
 
 def _output_text(output: Any) -> str:
-    return output if isinstance(output, str) else json.dumps(output, ensure_ascii=False, default=str)
+    """Flatten tool output to its text leaves. Scanning a json.dumps() form would hide line
+    structure behind escaped \\n sequences (the fuzzer's split-field variants exposed this)."""
+    if isinstance(output, str):
+        return output
+    if isinstance(output, dict):
+        return "\n".join(_output_text(v) for v in output.values())
+    if isinstance(output, (list, tuple)):
+        return "\n".join(_output_text(v) for v in output)
+    return "" if output is None else str(output)
 
 
 class Gateway:
@@ -99,8 +108,14 @@ class Gateway:
     def ingest_untrusted(self, ctx: SessionContext, source: str, output: Any) -> list[dict]:
         """Record content the agent has seen that did not come from the user."""
         text = _output_text(output)
-        ctx.untrusted_texts.append(text)
-        flags = scan_injection(text)
+        # Taint and scan every view (raw, canonical, decoded) so obfuscation cannot launder values.
+        vs = views(text)
+        ctx.untrusted_texts.extend(vs)
+        flags, seen = [], set()
+        for f in obfuscation_signals(text) + [f for v in vs for f in scan_injection(v)]:
+            if f["label"] not in seen:
+                seen.add(f["label"])
+                flags.append(f)
         for f in flags:
             f["source"] = source
         ctx.injection_flags.extend(flags)

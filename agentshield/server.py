@@ -17,6 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
+from . import fuzzer
 from .policy import PolicyEngine
 from .runner import Shield, Run
 from .sandbox import ROOT
@@ -60,6 +61,24 @@ class App:
         self.shield.runs[r.run_id] = r
         rep = r.execute()
         rep["verdict"] = rep["decisions"][0] if rep["decisions"] else "DENY"
+        return rep
+
+    def lab(self, body: dict) -> dict:
+        content = body.get("content")
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("content must be a non-empty string")
+        task = body.get("user_task") if isinstance(body.get("user_task"), str) and body["user_task"].strip() else fuzzer.LAB_TASK
+        sc = fuzzer.lab_scenario(content[:20000], task[:500])
+        out = {}
+        for name, protected in (("before", False), ("after", True)):
+            r = Run(sc, protected, self.shield.audit, self.shield.engine)
+            self.shield.runs[r.run_id] = r
+            out[name] = r.execute()
+        return out
+
+    def fuzz(self) -> dict:
+        rep = fuzzer.run_campaign(self.shield.engine)
+        self.shield.audit.append("fuzz_campaign", "fuzzer", {"summary": rep["summary"], "classes": rep["classes"]})
         return rep
 
     def tamper_demo(self) -> dict:
@@ -149,6 +168,8 @@ def make_handler(app: App):
                     return self._send(200, {"entries": entries[-500:], "total": len(app.shield.audit.entries)})
                 if u.path == "/api/audit/verify":
                     return self._send(200, app.shield.audit.verify())
+                if u.path == "/api/fuzz":
+                    return self._send(200, app.fuzz())
                 if u.path == "/api/ablation":
                     return self._send(200, app.ablation())
             return self._err(404, "not found")
@@ -179,6 +200,11 @@ def make_handler(app: App):
                         aid = u.path.rsplit("/", 1)[-1]
                         return self._send(200, app.shield.decide(aid, body.get("approver"), body["approve"],
                                                                  str(body.get("note", ""))[:300]))
+                    if u.path == "/api/lab":
+                        try:
+                            return self._send(200, app.lab(body))
+                        except ValueError as exc:
+                            return self._err(400, str(exc))
                     if u.path == "/api/playground":
                         return self._send(200, app.playground(body))
                     if u.path == "/api/audit/tamper-demo":

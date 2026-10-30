@@ -28,6 +28,7 @@
 
 <nav class="tabs" role="tablist">
   <button class="tab active" data-tab="replay">Attack replay</button>
+  <button class="tab" data-tab="lab">Attack Lab</button>
   <button class="tab" data-tab="approvals">Approvals <span class="count" id="approvalCount">0</span></button>
   <button class="tab" data-tab="audit">Audit trail</button>
   <button class="tab" data-tab="playground">Policy playground</button>
@@ -41,6 +42,23 @@
     <div class="scenario-main">
       <div id="scenarioHeader"></div>
       <div id="compare" class="compare"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-lab">
+    <div class="panel">
+      <div class="panel-head"><h2>Attack Lab: paste anything untrusted</h2><span class="chip attack">LIVE</span></div>
+      <p class="hint">Paste a document, email or web page. The obedient agent reads it as an attachment and does whatever it finds inside it, including base64, hidden Unicode and Hindi, Kannada or Hinglish instructions. You see the same content replayed without and with AgentShield.</p>
+      <div class="presets" id="labSamples"></div>
+      <label class="field">Untrusted content<textarea id="labContent" rows="8" spellcheck="false"></textarea></label>
+      <label class="field">User request (trusted)<input id="labTask" value="Summarise the attached document (doc lab_upload) for me."></label>
+      <div class="row"><button class="btn primary" id="labRun">Ingest and replay</button><span class="hint" id="labHint"></span></div>
+    </div>
+    <div id="labCompare" class="compare"></div>
+    <div class="panel spaced">
+      <div class="panel-head"><h2>Injection mutation fuzzer</h2><button class="btn" id="fuzzRun">Run 84-variant campaign</button></div>
+      <p class="hint">Six attack seeds (exfiltration, fraud, PII harvest, destruction, beaconing, internal phishing) across fourteen obfuscation classes. Each variant runs twice, without and with AgentShield, and is judged from world state. Two classes, ROT13 and reversed text, are intentionally outside what AgentShield decodes. They show what still holds when detection is blind.</p>
+      <div id="fuzzResult"></div>
     </div>
   </section>
 

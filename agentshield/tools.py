@@ -89,6 +89,8 @@ def _issue_refund(world: World, a: dict) -> dict:
 
 def _fetch_url(world: World, a: dict) -> dict:
     page = world.web.get(a["url"])
+    if not a["url"].startswith(SIM_URL_SCHEME):
+        world.external_requests.append(a["url"])   # the attempt itself is the harm we measure
     if page is None:
         # Even the unprotected baseline never touches the real network.
         return {"error": "unreachable: only sim:// fixtures exist in this simulation"}

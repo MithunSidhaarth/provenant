@@ -12,6 +12,7 @@ even with this model, which is the point: the model is not the security boundary
 """
 from __future__ import annotations
 
+import codecs
 import json
 import re
 from dataclasses import dataclass, field
@@ -20,7 +21,14 @@ from typing import Any
 from .gateway import Gateway
 from .models import Decision, ToolCall
 
-DIRECTIVE_RE = re.compile(r"ASSISTANT ACTION:\s*([A-Za-z_][\w]*)\s*(\{.*\})", re.IGNORECASE)
+from .normalize import views
+from .tools import TOOLS
+
+# Phrases the gullible model treats as "do this now", in English, Hindi, Kannada and Hinglish,
+# plus fake system headers. Each must be followed by a tool name and a JSON object.
+TRIGGER_RE = re.compile(
+    r"(?:assistant\s*action|system\s*:\s*(?:call|invoke|run)|सहायक\s*कार्रवाई|ಸಹಾಯಕ\s*ಕ್ರಿಯೆ"
+    r"|assistant\s+ko\s+(?:ye|yeh)\s+karna\s+hai)\s*:?\s*([A-Za-z_]\w*)\s*", re.IGNORECASE)
 MAX_STEPS = 15
 
 
@@ -110,18 +118,65 @@ class SimulatedAgent:
                     text = "\n".join(r.get("body", "") for r in content["results"])
                 last_text = text
                 if self.obey_injections:
-                    injected = [("injected", {"tool": m.group(1), "args": json.loads(m.group(2)),
+                    injected = [("injected", {"tool": tool, "args": args,
                                               "rationale": "instruction found in retrieved content"},
                                  f"{call.tool}:{call.call_id}")
-                                for m in DIRECTIVE_RE.finditer(text) if _is_json(m.group(2))]
+                                for tool, args in extract_directives(text)]
                     queue = injected + queue
 
         return {"session_id": ctx.session_id, "agent_id": self.agent_id, "user_task": user_task,
                 "protected": self.gateway.protected, "steps": [s.to_dict() for s in steps]}
 
 
-def _is_json(s: str) -> bool:
-    try:
-        return isinstance(json.loads(s), dict)
-    except ValueError:
-        return False
+def _json_object_at(text: str, i: int) -> dict | None:
+    """Parse the brace-balanced JSON object starting at text[i] (which may span lines)."""
+    if i >= len(text) or text[i] != "{":
+        return None
+    depth, in_str, esc = 0, False, False
+    for j in range(i, len(text)):
+        ch = text[j]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    obj = json.loads(text[i:j + 1])
+                except ValueError:
+                    return None
+                return obj if isinstance(obj, dict) else None
+    return None
+
+
+def model_views(text: str) -> list[str]:
+    """What a strong model can 'read' in content. Deliberately a superset of what AgentShield
+    canonicalises: it also undoes ROT13 and reversed text, which the defender does not. Those
+    fuzzer classes show what happens when detection and taint are blind and only policy remains."""
+    vs = views(text)
+    return vs + [codecs.decode(v, "rot13") for v in vs] + ["\n".join(l[::-1] for l in v.splitlines()) for v in vs]
+
+
+def extract_directives(text: str) -> list[tuple[str, dict]]:
+    """Every (tool, args) instruction the gullible model would obey in this content."""
+    found: list[tuple[str, dict]] = []
+    direct = views(text)
+    for view in model_views(text):
+        for m in TRIGGER_RE.finditer(view):
+            args = _json_object_at(view, m.end())
+            item = (m.group(1), args)
+            # Decoding guesses (ROT13, reversal) only count when they yield a tool the model knows.
+            if view not in direct and m.group(1) not in TOOLS:
+                continue
+            if args is not None and item not in found:
+                found.append(item)
+    return found
