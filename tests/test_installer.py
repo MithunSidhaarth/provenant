@@ -78,7 +78,7 @@ class Source(unittest.TestCase):
 
     def test_pinned_checksum_matches_the_published_wheel(self):
         version = re.search(r"\$PvVersion = '([^']+)'", PS1).group(1)
-        wheel = ROOT / "dist" / f"provenant-{version}-py3-none-any.whl"
+        wheel = ROOT / "dist" / f"provenant_agent_shield-{version}-py3-none-any.whl"
         self.assertTrue(wheel.exists(), "run scripts/build_release.py --publish-site")
         pinned = re.search(r"\$PvWheelSha256 = '([0-9a-f]{64})'", PS1).group(1)
         self.assertEqual(pinned, hashlib.sha256(wheel.read_bytes()).hexdigest())
@@ -119,7 +119,7 @@ class WheelCheck(unittest.TestCase):
         self.script = self.dir / "check.py"
         self.script.write_text(wheel_check_script())
         self.version = re.search(r"\$PvVersion = '([^']+)'", PS1).group(1)
-        self.good = ROOT / "dist" / f"provenant-{self.version}-py3-none-any.whl"
+        self.good = ROOT / "dist" / f"provenant_agent_shield-{self.version}-py3-none-any.whl"
 
     def tearDown(self):
         self.tmp.cleanup()
