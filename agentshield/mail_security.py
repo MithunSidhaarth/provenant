@@ -5,7 +5,7 @@ advisory: it never clicks links, downloads attachments, deletes mail, or approve
 Phone alerts contain only a minimal summary, never the message body or links.
 """
 from __future__ import annotations
-import getpass, hashlib, html, json, os, re, sys, threading, urllib.error, urllib.parse, urllib.request
+import base64, getpass, hashlib, html, json, os, re, sys, threading, urllib.error, urllib.parse, urllib.request
 from email.utils import parseaddr
 from typing import Any, Callable
 from .detectors import scan_injection
@@ -50,17 +50,39 @@ def _field(obj: dict, *keys: str) -> str:
     return ""
 
 
+def _decode_payload_part(part: Any) -> str:
+    if isinstance(part, str):
+        return part
+    if not isinstance(part, dict):
+        return ""
+    body = part.get("body")
+    if isinstance(body, dict) and isinstance(body.get("data"), str):
+        encoded = body["data"]
+        try:
+            encoded += "=" * (-len(encoded) % 4)
+            return base64.urlsafe_b64decode(encoded.encode("ascii")).decode("utf-8", "replace")
+        except (ValueError, UnicodeError):
+            return ""
+    pieces = []
+    children = part.get("parts")
+    if isinstance(children, list):
+        for child in children[:50]:
+            decoded = _decode_payload_part(child)
+            if decoded:
+                pieces.append(decoded)
+    return " ".join(pieces)
+
+
 def _normalise_email(obj: dict) -> dict[str, str] | None:
     headers = _headers(obj)
     sender = _field(obj, "from", "sender", "from_email", "sender_email", "author") or headers.get("from", "")
     subject = _field(obj, "subject", "title") or headers.get("subject", "")
     reply_to = _field(obj, "reply_to", "replyTo", "reply-to") or headers.get("reply-to", "")
     body = _field(obj, "body", "textBody", "text_body", "plain_text", "text", "snippet", "html", "content")
-    if not body and isinstance(obj.get("payload"), dict):
-        body = _text(obj["payload"].get("body", ""))
-        parts = obj["payload"].get("parts")
-        if isinstance(parts, list): body += " " + _text(parts)
-    if not sender or not subject or not (body or obj.get("payload") or obj.get("body")): return None
+    payload = obj.get("payload")
+    if not body and isinstance(payload, dict):
+        body = _decode_payload_part(payload)
+    if not sender or not subject or not (body or payload or obj.get("body")): return None
     return {"id": _field(obj, "id", "message_id", "messageId", "threadId", "thread_id") or headers.get("message-id", ""),
             "sender": sender[:500], "reply_to": reply_to[:500], "subject": subject[:500], "body": body[:50000], "headers": _text(headers)[:4000]}
 
