@@ -184,6 +184,28 @@ class GuardViews(_ServerCase):
             self.assertNotIn("fingerprint", p)
             self.assertNotIn(self.TOKEN, json.dumps(p))
 
+    def test_guard_log_reports_live_audit_backed_statistics(self):
+        audit = self.httpd.app.guard().audit
+        before = self.req("/api/guard/log?after=0")[1]["stats"]
+        audit.append("tool_request", "stats-test", {"tool": "Read", "args": {}})
+        audit.append("policy_decision", "stats-test", {"tool": "Read", "decision": "ALLOW", "reasons": []})
+        audit.append("tool_result", "stats-test", {"tool": "Read", "trust": "untrusted", "chars": 5})
+        audit.append("tool_request", "stats-test", {"tool": "Bash", "args": {}})
+        audit.append("policy_decision", "stats-test", {"tool": "Bash", "decision": "DENY", "reasons": ["test block"]})
+        audit.append("policy_decision", "stats-test", {"tool": "WebFetch", "decision": "REQUIRE_APPROVAL", "reasons": ["test hold"]})
+        audit.append("approval_requested", "stats-test", {"tool": "WebFetch", "approval_id": "test-approval"})
+        code, log, _ = self.req("/api/guard/log?after=0")
+        self.assertEqual(code, 200)
+        stats = log["stats"]
+        self.assertEqual(stats["tool_requests_observed"], before["tool_requests_observed"] + 2)
+        self.assertEqual(stats["policy_decisions"], before["policy_decisions"] + 3)
+        self.assertEqual(stats["allowed"], before["allowed"] + 1)
+        self.assertEqual(stats["blocked"], before["blocked"] + 1)
+        self.assertEqual(stats["held"], before["held"] + 1)
+        self.assertEqual(stats["tool_results_observed"], before["tool_results_observed"] + 1)
+        self.assertEqual(stats["approval_requests"], before["approval_requests"] + 1)
+        self.assertTrue(stats["last_event_at"])
+
     def test_hosted_mode_hides_the_machine(self):
         server_mod.HOSTED = True
         try:
