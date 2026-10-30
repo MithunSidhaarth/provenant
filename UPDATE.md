@@ -35,3 +35,6 @@ If `provenant` is not found: `py -m provenant ...` / `python3 -m provenant ...`.
 ## 0.9.2
 - install.ps1: the PATH step is best-effort (a refused registry write no longer aborts the install) and function cleanup works on Windows PowerShell 5.1. Both found by the first real Windows run.
 - Antigravity added as an **experimental** client (`provenant setup --client antigravity`, `/getting-started`). Path `~/.gemini/config/mcp_config.json` and the `mcpServers` format are from Google's Antigravity MCP docs; tested only on sample configs, not in the real app. Remote `serverUrl` servers are not proxied.
+
+## 0.9.2 installer follow-up (hidden prompt)
+- Real Windows run: step 5 looked hung. Cause: `& $cmd setup` ran inside `Pv-Main`, whose output is captured (`@(Pv-Main)[-1]`), so setup's text and its "Apply these changes? [Y/n]" prompt were swallowed while it waited for input. The installer now runs only `setup --dry-run` (no stdin, 30 s limit) and tells the user to run `provenant setup` themselves. Guarded by a static test (no bare native command in `Pv-Main`).

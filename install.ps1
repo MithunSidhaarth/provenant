@@ -89,6 +89,41 @@ function Pv-Native {
     return $result
 }
 
+function Pv-RunTimed {
+    # Runs a program with no console input, a time limit, and its output captured as one string. Never throws.
+    param([string]$Exe, [string]$ArgString, [int]$Seconds)
+    $r = [pscustomobject]@{ Code = -1; Out = ''; TimedOut = $false }
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $Exe
+        $psi.Arguments = $ArgString
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardInput = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.StandardOutputEncoding = [Text.Encoding]::UTF8
+        $psi.StandardErrorEncoding = [Text.Encoding]::UTF8
+        $psi.EnvironmentVariables['PYTHONUTF8'] = '1'
+        $psi.EnvironmentVariables['NO_COLOR'] = '1'
+        $p = [System.Diagnostics.Process]::Start($psi)
+        $p.StandardInput.Close()
+        $o = $p.StandardOutput.ReadToEndAsync()
+        $e = $p.StandardError.ReadToEndAsync()
+        if (-not $p.WaitForExit($Seconds * 1000)) {
+            $r.TimedOut = $true
+            try { $p.Kill() } catch { }
+            return $r
+        }
+        $p.WaitForExit()
+        $r.Code = $p.ExitCode
+        $r.Out = [string]$o.Result + [string]$e.Result
+    } catch {
+        $r.Out = $_.Exception.Message
+    }
+    return $r
+}
+
 # ---- Python discovery --------------------------------------------------------------------------------------------
 function Pv-ProbePython {
     # Returns $null unless Exe runs, exits 0 and prints exactly: an existing interpreter path, a number, 0 or 1.
@@ -321,18 +356,20 @@ function Pv-Main {
             Write-Host "      In new windows run it as: `"$cmd`"   (or add $binDir to PATH in Settings > Environment Variables)" -ForegroundColor Yellow
         }
 
-        Pv-Step 5 'Protecting your agents'
+        Pv-Step 5 'Looking for AI clients'
         Write-Host ""
         if ($env:PROVENANT_NO_SETUP) {
-            Write-Host "  Skipped provenant setup (PROVENANT_NO_SETUP is set)." -ForegroundColor DarkGray
+            Write-Host "  Skipped the client check (PROVENANT_NO_SETUP is set)." -ForegroundColor DarkGray
         } else {
-            & $cmd setup
-            $setupCode = $LASTEXITCODE
-            if ($setupCode -ne 0) {
-                Write-Host ""
-                Write-Host "  Provenant is installed, but no AI client is protected yet." -ForegroundColor Yellow
-                Write-Host "  Run  provenant setup  when you are ready (it shows a plan and asks first)." -ForegroundColor Yellow
+            # Never run an interactive command here: this function's output is captured, which hides prompts.
+            $plan = Pv-RunTimed $py.Path '-m agentshield.cli setup --dry-run' 30
+            if ($plan.TimedOut) {
+                Write-Host "  The client check took longer than 30 seconds and was stopped." -ForegroundColor Yellow
+            } elseif ($plan.Out.Trim()) {
+                foreach ($line in ($plan.Out -split "`r?`n")) { Write-Host $line }
             }
+            Write-Host "  Nothing has been changed yet: Provenant is installed but NOT protecting any client." -ForegroundColor Yellow
+            Write-Host "  To apply the plan, run:  provenant setup   (it shows the plan again and asks first)" -ForegroundColor Yellow
         }
         Write-Host ""
         Write-Host "  Next:  provenant verify   (safe enforcement test)     then   provenant status" -ForegroundColor White
