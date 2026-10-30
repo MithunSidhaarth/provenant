@@ -94,6 +94,16 @@ class Source(unittest.TestCase):
             self.assertNotIn("return 1", PS1[call.start(): call.start() + 400].split("Pv-Step 5")[0])
         self.assertIn("return \"failed:", body)
 
+    def test_main_never_runs_a_bare_native_command(self):
+        # 0.9.2 ran `& $cmd setup` inside Pv-Main, whose output is captured by `@(Pv-Main)[-1]`: setup's prompt was
+        # swallowed and the install appeared to hang. Native programs may only run through Pv-Native / Pv-RunTimed.
+        main = PS1[PS1.index("function Pv-Main"):PS1.index("# PROVENANT_INSTALL_LIB")]
+        for i, line in enumerate(main.splitlines(), 1):
+            self.assertNotRegex(line, r"^\s*&\s", f"Pv-Main line {i}: {line.strip()}")
+        self.assertNotIn(" setup`" , main)
+        self.assertIn("setup --dry-run", main)
+        self.assertIn("RedirectStandardInput = $true", PS1)          # no console input for child processes
+
     def test_installer_never_weakens_security(self):
         for bad in ("SkipCertificateCheck", "ServerCertificateValidationCallback", "-ExecutionPolicy", "Set-ExecutionPolicy",
                     "Invoke-Expression", "RunAs", "'Machine'"):
