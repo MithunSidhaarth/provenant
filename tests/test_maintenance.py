@@ -12,6 +12,16 @@ class MaintenanceTests(unittest.TestCase):
             self.assertEqual(dashboard([]), 0)
             main.assert_called_once_with(["--open"])
 
+    def test_server_main_accepts_dashboard_arguments(self):
+        from agentshield import server
+        httpd = MagicMock()
+        with patch.object(server, "serve", return_value=httpd) as serve, \\
+             patch("webbrowser.open") as open_browser:
+            server.main(["--host", "127.0.0.1", "--port", "8766", "--open"])
+        serve.assert_called_once_with("127.0.0.1", 8766)
+        open_browser.assert_called_once_with("http://127.0.0.1:8766/")
+        httpd.serve_forever.assert_called_once()
+
     def test_update_uses_active_python_and_correct_distribution(self):
         result = MagicMock(returncode=0)
         with patch("agentshield.maintenance.subprocess.run", return_value=result) as run:
