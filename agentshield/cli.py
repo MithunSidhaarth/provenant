@@ -8,6 +8,7 @@ Standard library only; Windows, macOS and Linux.
 from __future__ import annotations
 
 import json
+import re
 import os
 import shutil
 import sys
@@ -392,6 +393,8 @@ def _mask(text: str) -> str:
 
 
 def _summary(tool: str, args) -> str:
+    if args is None:                  # the request record is outside the window shown, or args were not recorded
+        return ""
     if isinstance(args, dict):
         for k in ("command", "cmd", "file_path", "path", "url", "to", "pattern", "query", "notebook_path"):
             if isinstance(args.get(k), str) and args[k]:
@@ -556,8 +559,11 @@ def cmd_check(tool: str, args_json: str, workspace: str) -> int:
     try:
         args = json.loads(args_json)
     except ValueError:
-        print(red(f"  {SYM['no']} arguments must be JSON, e.g. '{{\"command\": \"ls\"}}'"))
-        return 2
+        if not args_json.lstrip().startswith(("{", "[")):
+            args = {"command": args_json}         # `provenant check Bash "rm -rf ~"`: PowerShell 5.1 mangles quoted JSON
+        else:
+            print(red(f"  {SYM['no']} arguments must be JSON, e.g. '{{\"command\": \"ls\"}}'"))
+            return 2
     g = guard_mod.Guard()
     res = g.policy.evaluate(guard_mod.GuardCall(tool, args, "cli-check", workspace, "cli"), g.store.load_session("cli-check"))
     print(f"\n  {ui.badge(res.decision.value)} {bold(tool)}  {ui.clip(_summary(tool, args), ui.width() - 30)}")
@@ -751,6 +757,8 @@ def _help() -> str:
         f"    {c('provenant pins reset [server]')}re-approve tool definitions after an upgrade",
         f"    {c('provenant model status|test')}optional model-assisted risk labels (off by default)",
         f"    {c('provenant mail setup|status|test')}scan MCP email results; configure Bolna phone alerts",
+        f"    {c('provenant mail demo [--call]')}fake phishing email: scanner verdict, blocked send, optional alert call",
+        f"    {c('provenant mail call-status ID')}follow a placed alert call (queued, ringing, completed, failed)",
         f"    {c('provenant mail enable|disable')}turn high-risk email phone alerts on or off",
         "",
         "  " + dim("Docs: https://github.com/MithunSidhaarth/provenant/blob/main/docs/REAL_GUARD.md"),
@@ -769,6 +777,11 @@ def main(argv: list[str] | None = None) -> int:
     cmd, rest = argv[0], argv[1:]
     if cmd in ("-V", "--version", "version"):
         print(f"provenant {VERSION}")
+        return 0
+    if rest and rest[0] in ("-h", "--help", "help") and cmd not in ("proxy", "hook"):
+        # Per-command help never runs the command (`rollback --help` used to perform the rollback).
+        lines = [ln for ln in _help().splitlines() if re.search(rf"provenant (\S+\|)?{re.escape(cmd)}\b", ln)]
+        print("\n".join(lines) if lines else _help())
         return 0
     if cmd == "dashboard":
         from .maintenance import dashboard

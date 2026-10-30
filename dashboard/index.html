@@ -18,6 +18,7 @@
 <a class="nav-item" href="#activity"><span class="nav-icon">⌁</span>Live activity</a>
 <a class="nav-item" href="#clients"><span class="nav-icon">⌘</span>Connected clients</a>
 <a class="nav-item" href="#approvals"><span class="nav-icon">◷</span>Approval queue</a>
+<a class="nav-item" href="#demo"><span class="nav-icon">◇</span>Demo scenarios</a>
 </nav>
 <div class="side-bottom"><div class="local-note"><strong><i class="dot live"></i> Local-first by design</strong>Guard activity is read from this machine. No cloud telemetry is required for these stats.</div></div>
 </aside>
@@ -52,8 +53,8 @@
 </div>
 <div class="lower-grid">
 <section id="clients"><div class="section-head"><div><h2>Connected clients</h2><p>Local configuration and protection markers detected on this machine.</p></div><span class="tag">CONFIG STATUS</span></div><div class="panel"><div class="client-list" id="clients-list"><div class="empty">Checking client configurations…</div></div></div></section>
-<section id="approvals"><div class="section-head"><div><h2>Approval queue</h2><p>Held calls stay under human control.</p></div><span class="tag" id="pending-count">— waiting</span></div><div class="panel"><div id="pending"><div class="empty">Checking pending approvals…</div></div><div class="panel-note">For safety, approvals are completed in the terminal with <code>provenant approve</code>. This dashboard never approves a call.</div></div></section>
+<div class="stack"><section id="approvals"><div class="section-head"><div><h2>Approval queue</h2><p>Held calls stay under human control.</p></div><span class="tag" id="pending-count">— waiting</span></div><div class="panel"><div id="pending"><div class="empty">Checking pending approvals…</div></div><div class="panel-note">For safety, approvals are completed in the terminal with <code>provenant approve</code>. This dashboard never approves a call.</div></div></section><section id="demo"><div class="section-head"><div><h2>Demo scenarios</h2><p>Scripted runs on fake data, kept apart from live activity.</p></div><span class="tag demo-tag" id="demo-count">— runs</span></div><div class="panel"><div id="demo-feed"><div class="empty">Checking demo records…</div></div><div class="panel-note">Run <code>provenant mail demo</code> to replay a fake phishing email: the scanner flags it and Guard blocks the injected send. These records never count toward the live numbers above.</div></div></section></div>
 </div>
-<footer class="footnote"><span id="last-refresh">Waiting for first poll</span><span>Real audit-backed activity only · Demo and ambiguous legacy events are excluded.</span><span><a href="/site.html">Open the Provenant demo site ↗</a></span></footer>
+<footer class="footnote"><span id="last-refresh">Waiting for first poll</span><span>Live numbers count real audit-backed activity only · Demo runs are listed separately.</span><span><a href="/site.html">Open the Provenant demo site ↗</a></span></footer>
 </main></div>
 </body></html>

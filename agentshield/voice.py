@@ -152,7 +152,11 @@ def run_callme(task: str, timeout_sec: int = 300, script: Path | None = None) ->
                             "-TimeoutSec", str(timeout_sec)], capture_output=True, text=True, timeout=timeout_sec + 60)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {"status": "error", "error": type(exc).__name__}
-    return parse_callme_output(p.stdout) if p.returncode == 0 else {"status": "error", "error": f"exit {p.returncode}"}
+    if p.returncode != 0:
+        tail = ((p.stderr or p.stdout or "").strip().splitlines() or [""])[-1][:200]
+        tail = re.sub(r"\+?\d[\d\s-]{6,}\d", "[number]", tail)          # never echo a phone number
+        return {"status": "error", "error": f"call.ps1 exited {p.returncode}" + (f": {tail}" if tail else "")}
+    return parse_callme_output(p.stdout)
 
 
 def parse_callme_output(stdout: str) -> dict:

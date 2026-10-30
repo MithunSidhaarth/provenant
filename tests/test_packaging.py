@@ -21,7 +21,7 @@ class Packaging(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         t = Path(cls.tmp.name)
         src = t / "src"                                    # build from a copy so the checkout stays clean
-        shutil.copytree(ROOT, src, ignore=shutil.ignore_patterns(".git", "node_modules", "dist", "build", "*.egg-info", "web", "dashboard"))
+        shutil.copytree(ROOT, src, ignore=shutil.ignore_patterns(".git", "node_modules", "dist", "build", "*.egg-info", "web", "media", "download"))
         r = subprocess.run([sys.executable, "-m", "pip", "wheel", "--no-deps", "-q", "-w", str(t / "whl"), str(src)],
                            capture_output=True, text=True)
         if r.returncode:
@@ -62,6 +62,28 @@ class Packaging(unittest.TestCase):
             code, out = self.run_in_venv(*argv)
             self.assertEqual(code, 0, (argv, out))
             self.assertIn(version, out)
+
+    def test_wheel_ships_the_dashboard_and_demo_data(self):
+        names = zipfile.ZipFile(self.wheel).namelist()
+        for need in ("provenant_dashboard/index.html", "provenant_dashboard/ops.js", "provenant_dashboard/ops.css",
+                     "provenant_dashboard/site.html", "provenant_dashboard/app.js", "provenant_policy/policy.json",
+                     "provenant_evals/policy_scenarios.json"):
+            self.assertIn(need, names)
+        self.assertTrue(any(n.startswith("provenant_scenarios/") and n.endswith(".json") for n in names))
+        self.assertFalse(any("/media/" in n or "/download/" in n for n in names), "release files and video stay out of the wheel")
+
+    def test_installed_dashboard_serves_from_the_wheel(self):
+        # Regression: `provenant dashboard` from a pip install crashed with FileNotFoundError on index.html.
+        code = ("import threading, urllib.request; from agentshield import server; "
+                "s = server.serve('127.0.0.1', 0); threading.Thread(target=s.serve_forever, daemon=True).start(); "
+                "base = 'http://127.0.0.1:%d' % s.server_address[1]; "
+                "print(*[urllib.request.urlopen(base + p, timeout=10).status for p in ('/', '/ops.js', '/site.html', '/api/scenarios', '/api/guard/status')]); "
+                "print(server.DASHBOARD)")
+        rc, out = self.run_in_venv(self.py, "-c", code)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("200 200 200 200 200", out)
+        self.assertIn("provenant_dashboard", out)
+        self.assertFalse(any((Path(self.tmp.name) / "venv").rglob("audit-*.jsonl")), "demo audits must not be written into the venv")
 
     def test_installed_wheel_verifies_enforcement(self):
         code, out = self.run_in_venv(self.py, "-m", "provenant", "verify", "--json")

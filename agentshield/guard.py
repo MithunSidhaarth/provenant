@@ -893,7 +893,7 @@ class Guard:
         return [p for p in self.store.db.list_approvals("pending") if p["expires_at"] > now and p["mode"] == self.mode]
 
     @_locked
-    def ingest_output(self, sid: str, tool: str, output: Any) -> list[dict]:
+    def ingest_output(self, sid: str, tool: str, output: Any, source: str | None = None) -> list[dict]:
         """Record tool output the agent has seen. Untrusted output taints later destinations; injection
         indicators in it make later side effects need a human."""
         if not self.policy.untrusted_output(tool) and not tool.startswith("mcp__"):
@@ -910,7 +910,8 @@ class Guard:
         s["injection_flags"] += flags
         self.store.save_session(s)
         self.audit.append("tool_result", sid, {"tool": tool, "trust": "untrusted", "chars": len(text),
-                                               "mode": self.mode, "source": ("claude-code" if sid.startswith("cc:") else "mcp"), "injection_indicators": flags})
+                                               "mode": self.mode, "source": source or ("claude-code" if sid.startswith("cc:") else "mcp"),
+                                               "injection_indicators": flags})
         return flags
 
 

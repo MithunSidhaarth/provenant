@@ -14,10 +14,25 @@ dependencies = []
 provenant = "agentshield.cli:main"
 
 [tool.setuptools]
-packages = ["agentshield", "provenant"]
+# The provenant_* entries are data-only packages: they carry the dashboard and demo data into the wheel so an
+# installed `provenant dashboard` works without a source checkout. agentshield/resources.py finds them.
+packages = ["agentshield", "provenant", "provenant_dashboard", "provenant_scenarios", "provenant_policy",
+            "provenant_fixtures", "provenant_evals"]
+
+[tool.setuptools.package-dir]
+provenant_dashboard = "dashboard"
+provenant_scenarios = "scenarios"
+provenant_policy = "policy"
+provenant_fixtures = "fixtures"
+provenant_evals = "evals"
 
 [tool.setuptools.package-data]
 agentshield = ["guard_policy.json"]
+provenant_dashboard = ["*.html", "*.js", "*.css", "*.txt", "eval/*.json", "eval/*.md", "vendor/**/*"]
+provenant_scenarios = ["*.json"]
+provenant_policy = ["*.json"]
+provenant_fixtures = ["**/*.txt", "**/*.json"]
+provenant_evals = ["*.json"]
 
 [project.urls]
 Source = "https://github.com/MithunSidhaarth/provenant"

@@ -1,7 +1,7 @@
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const state = { after: 0, entries: [], stats: null, status: null, pending: [], filter: "ALL", search: "", busy: false, lastUpdated: null };
+  const state = { after: 0, entries: [], stats: null, status: null, pending: [], demo: [], filter: "ALL", search: "", busy: false, lastUpdated: null };
   const escapeHtml = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const fmt = (v) => Number.isFinite(Number(v)) ? Number(v).toLocaleString() : "—";
   const time = (v) => { if (!v) return "—"; const d = new Date(v); return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}); };
@@ -73,11 +73,22 @@
       return '<div class="approval"><div class="approval-top"><span class="decision hold">HELD</span><span class="approval-tool">'+escapeHtml(p.tool || "Unknown tool")+'</span></div>'+(reasons.length ? '<div class="approval-reason">'+escapeHtml(reasons.slice(0,3).join(" · "))+'</div>' : '')+'<div class="cmd"><code>'+escapeHtml("provenant approve "+(p.approval_id || ""))+'</code><button class="copy" data-copy="'+escapeHtml("provenant approve "+(p.approval_id || ""))+'">Copy</button></div><div class="event-meta">Created '+escapeHtml(time(p.created_at))+' · Approval is terminal-only.</div></div>';
     }).join("") : '<div class="empty"><strong>No calls waiting for approval</strong>Held calls appear here when Guard requests a human decision.</div>';
   }
+  function renderDemo() {
+    const items = state.demo || [];
+    const runs = items.filter(e => e.event === "mail_scan").length;
+    $("demo-count").textContent = fmt(runs) + (runs === 1 ? " run" : " runs");
+    $("demo-feed").innerHTML = items.length ? items.slice().reverse().slice(0,12).map(e => {
+      const d = e.event === "policy_decision" ? decision(e.data?.decision) : e.event === "mail_scan" ? ["hold", String(e.data?.verdict || "SCAN").toUpperCase()] : ["neutral", String(e.event || "event").replaceAll("_"," ").toUpperCase()];
+      const title = e.event === "mail_scan" ? "Fake phishing email scanned" : e.event === "tool_result" ? "Agent read the fake email" : (e.data?.tool || e.event || "demo event");
+      const meta = e.event === "mail_scan" ? "risk score " + fmt(e.data?.risk_score) : Array.isArray(e.data?.reasons) ? e.data.reasons.slice(0,2).join(" · ") : (e.data?.injection_indicators?.length ? fmt(e.data.injection_indicators.length) + " injection indicators" : "");
+      return '<article class="event demo"><time class="event-time">'+escapeHtml(time(e.ts))+'</time><div><div class="event-title"><span class="demo-badge">DEMO</span>'+escapeHtml(title)+'</div><div class="event-meta">'+escapeHtml(meta)+'</div></div><span class="decision '+d[0]+'">'+escapeHtml(d[1])+'</span></article>';
+    }).join("") : '<div class="empty"><strong>No demo runs yet</strong>Run <code>provenant mail demo</code> in a terminal and it appears here within a few seconds.</div>';
+  }
   async function poll() {
     if (state.busy) return; state.busy = true;
     try {
       const [status, log, pending] = await Promise.all([get("/api/guard/status"), get("/api/guard/log?after="+state.after), get("/api/guard/pending")]);
-      state.status = status; state.stats = log.stats || null; state.pending = Array.isArray(pending) ? pending : [];
+      state.status = status; state.stats = log.stats || null; state.pending = Array.isArray(pending) ? pending : []; state.demo = Array.isArray(log.demo) ? log.demo : [];
       const entries = Array.isArray(log.entries) ? log.entries : [];
       if (entries.length) {
         const seen = new Set(state.entries.map(e => e.seq));
@@ -88,7 +99,7 @@
       else if (entries.length) state.after = entries[entries.length-1].seq || state.after;
       state.lastUpdated = new Date();
       setConnection(true, status.hosted ? "HOSTED · LOCAL DATA UNAVAILABLE" : "LOCAL GUARD CONNECTED");
-      renderMetrics(); renderFeed(); renderClients(); renderPending();
+      renderMetrics(); renderFeed(); renderClients(); renderPending(); renderDemo();
     } catch (err) {
       setConnection(false, "GUARD DISCONNECTED");
       $("connection-label").textContent = "GUARD DISCONNECTED";

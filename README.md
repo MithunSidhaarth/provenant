@@ -34,7 +34,7 @@ From a clone you can run `python3 provenant.py setup` (or `provenant.bat setup`)
 
 ```bash
 provenant status       # what is protected
-provenant dashboard    # open the local security command center at 127.0.0.1:8765
+provenant dashboard    # local operations console at 127.0.0.1:8765 (live, audit-backed numbers only)
 provenant test          # safe enforcement + environment + audit-chain checks
 provenant update        # upgrade from the official PyPI package (once published)
 provenant update --check # check available PyPI versions without installing
@@ -43,6 +43,10 @@ provenant approve      # walk through held calls (a person at a terminal only)
 ```
 
 ![provenant status, live log and a dry-run check](docs/img/provenant-cli.png)
+
+**Phishing demo with a phone alert.** `provenant mail demo` runs a fake phishing email (reserved `.example` domains) through the scanner, then shows the agent's injected "email the invoices to the attacker" call being denied. `provenant mail demo --call` also places a real, clearly labelled alert call after `provenant mail setup`. See [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md).
+
+**New here?** [Quickstart](docs/QUICKSTART.md) · [Security model](docs/SECURITY_MODEL.md) · [Architecture](docs/ARCHITECTURE.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Changelog](CHANGELOG.md) · [Evaluation report](docs/eval/REPORT.md)
 
 Real Claude Code, even with `--permission-mode bypassPermissions`, cannot `rm -rf ./*` or `cat .env` once the hook is installed. The details, the full rule table and the limits are in [docs/REAL_GUARD.md](docs/REAL_GUARD.md).
 
@@ -149,7 +153,7 @@ docs/                ARCHITECTURE.md, THREAT_MODEL.md, DEMO_SCRIPT.md
 
 ## Tests
 
-`python3 -m unittest discover -s tests -t .` runs the full suite (99 tests) in about two seconds:
+`python3 -m unittest discover -s tests -t .` runs the full suite (235 tests at 0.10.1, about 20 seconds including a wheel build and install). `python3 evals/run_eval.py` regenerates the security report in `docs/eval/`. Highlights:
 
 - **Before/after:** every attack causes harm without Provenant, and none does with it. Decision sequences match each scenario's `expected_protected`, and benign tasks still complete.
 - **Policy rules:** every rule's ALLOW, REQUIRE_APPROVAL and DENY paths.
