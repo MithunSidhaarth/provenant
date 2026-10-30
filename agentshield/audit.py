@@ -69,8 +69,10 @@ class AuditLog:
 
     def append(self, event: str, session_id: str, data: dict) -> dict:
         with self._lock:
-            prev = self.entries[-1]["hash"] if self.entries else GENESIS
-            entry = {"seq": len(self.entries), "ts": utc_now(), "event": event,
+            base_seq, base_prev = self.base()
+            prev = self.entries[-1]["hash"] if self.entries else base_prev
+            seq = self.entries[-1]["seq"] + 1 if self.entries else base_seq
+            entry = {"seq": seq, "ts": utc_now(), "event": event,
                      "session_id": session_id, "data": self._scrub(data), "prev_hash": prev}
             entry["hash"] = self._entry_hash(entry)
             entry["mac"] = self._mac(entry["hash"])
@@ -81,13 +83,17 @@ class AuditLog:
                     fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
             return entry
 
+    def base(self) -> tuple[int, str]:
+        """Where the chain starts: genesis, or the signed retention point after older entries were pruned."""
+        return 0, GENESIS
+
     def verify(self, entries: list[dict] | None = None) -> dict:
         """Recompute the chain. Returns {ok, checked, first_bad_seq, problem}."""
         entries = self.entries if entries is None else entries
-        prev = GENESIS
+        base_seq, prev = self.base()
         for i, e in enumerate(entries):
             problem = None
-            if e.get("seq") != i:
+            if e.get("seq") != base_seq + i:
                 problem = f"sequence gap or reorder at position {i}"
             elif e.get("prev_hash") != prev:
                 problem = "prev_hash does not link to the previous entry (deleted, inserted or reordered)"
@@ -96,7 +102,7 @@ class AuditLog:
             elif not hmac.compare_digest(self._mac(e["hash"]), str(e.get("mac", ""))):
                 problem = "MAC invalid (chain recomputed without the audit key)"
             if problem:
-                return {"ok": False, "checked": i, "first_bad_seq": i, "problem": problem}
+                return {"ok": False, "checked": i, "first_bad_seq": base_seq + i, "problem": problem}
             prev = e["hash"]
         return {"ok": True, "checked": len(entries), "first_bad_seq": None, "problem": None,
                 "head": prev}

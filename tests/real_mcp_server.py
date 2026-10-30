@@ -54,6 +54,11 @@ def main():
         m = json.loads(line)
         mid, method = m.get("id"), m.get("method")
         if mid is None:
+            if method == "tools/call":          # a lax server that also runs notification-shaped calls
+                try:
+                    call(m["params"]["name"], m["params"].get("arguments", {}))
+                except Exception:
+                    pass
             continue
         if method == "initialize":
             res = {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "serverInfo": {"name": "real-test", "version": "1"}}

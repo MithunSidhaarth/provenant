@@ -29,7 +29,7 @@ def handle(event: dict, guard: Guard | None = None) -> dict | None:
         try:
             g = guard or Guard()
             v = g.check(GuardCall(event.get("tool_name"), event.get("tool_input"), f"cc:{sid}",
-                                  str(event.get("cwd") or ""), "claude-code"), hold=False)
+                                  str(event.get("cwd") or ""), "claude-code"), hold=False, grant=False)
         except Exception as exc:
             return _pre("deny", f"Provenant could not evaluate this call ({type(exc).__name__}); failing closed.")
         if v.decision == DENY:

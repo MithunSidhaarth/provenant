@@ -8,6 +8,11 @@
     provenant status                   what is protected, policy version, audit chain, pending approvals
     provenant pending | approve ID | reject ID | log [-f] | verify | check TOOL ARGS
     provenant policy init              copy the built-in policy to ~/.provenant/policy.json to customise it
+    provenant policy test|lint|explain simulate the policy on saved scenarios, find shadowed/overbroad rules
+    provenant serve [--workspace DIR]  run provenant-tools: an MCP server whose tools the gateway executes
+    provenant call APPROVAL_ID         phone the human (claude-call-me) about one held call
+    provenant audit checkpoint|verify|prune|export   external anchoring, retention and export
+    provenant config claude-desktop    print an mcpServers snippet for provenant-tools
     provenant proxy -- <cmd...>        run the MCP proxy (what wrapped configs launch)
     provenant hook                     run the Claude Code hook (what Claude Code launches)
 
@@ -219,6 +224,42 @@ def follow_log() -> int:
             return 0
 
 
+def cmd_audit(rest: list[str]) -> int:
+    from . import anchor
+    g = guard_mod.Guard()
+    sub = rest[0] if rest else "verify"
+    anchor_dir = os.environ.get("PROVENANT_ANCHOR_DIR")
+    if "--anchor" in rest:
+        anchor_dir = rest[rest.index("--anchor") + 1]
+    if sub == "checkpoint":
+        if not anchor_dir:
+            print("set --anchor DIR (or PROVENANT_ANCHOR_DIR) to a location outside ~/.provenant you control separately")
+            return 2
+        r = anchor.checkpoint(g, anchor_dir)
+    elif sub == "verify":
+        r = anchor.verify_against(g, anchor_dir) if anchor_dir else g.audit.verify()
+    elif sub == "prune":
+        if "--before" not in rest or "--archive" not in rest:
+            print("usage: provenant audit prune --before SEQ --archive FILE")
+            return 2
+        r = anchor.prune(g, int(rest[rest.index("--before") + 1]), rest[rest.index("--archive") + 1])
+    elif sub == "export":
+        r = anchor.export(g, rest[rest.index("--out") + 1] if "--out" in rest else "provenant-audit-export.json")
+    else:
+        print("usage: provenant audit checkpoint|verify|prune|export")
+        return 2
+    print(json.dumps(r, indent=1))
+    return 0 if r.get("ok") else 1
+
+
+def cmd_config(rest: list[str]) -> int:
+    """A copyable MCP client entry for provenant-tools, built from this install's real paths."""
+    ws = rest[rest.index("--workspace") + 1] if "--workspace" in rest else os.getcwd()
+    cmd = launcher() + ["serve", "--workspace", ws]
+    print(json.dumps({"mcpServers": {"provenant": {"command": cmd[0], "args": cmd[1:]}}}, indent=2))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help", "help"):
@@ -256,6 +297,24 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_status()
     if cmd == "log" and rest[:1] in (["-f"], ["--follow"]):
         return follow_log()
+    if cmd == "serve":
+        from .tool_server import main as serve_main
+        return serve_main(rest)
+    if cmd == "call":
+        if not rest:
+            print("usage: provenant call APPROVAL_ID")
+            return 2
+        from .voice import phone_approve
+        r = phone_approve(guard_mod.Guard(), rest[0])
+        print(json.dumps(r))
+        return 0 if r.get("approved") else 1
+    if cmd == "audit":
+        return cmd_audit(rest)
+    if cmd == "config":
+        return cmd_config(rest)
+    if cmd == "policy" and rest[:1] in (["test"], ["lint"], ["explain"]):
+        from .policysim import main as sim_main
+        return sim_main(rest)
     if cmd == "policy" and rest[:1] == ["init"]:
         dst = guard_mod.Store().home / "policy.json"
         if dst.exists():

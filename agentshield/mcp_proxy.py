@@ -9,8 +9,18 @@
         ▼
     real MCP server (launched by the proxy as a child process)
 
-Everything else (initialize, resources, prompts, notifications, server-to-client requests) passes
-through unchanged. On top of the per-call policy the proxy:
+Protocol coverage (MCP 2024-11-05 to 2025-06-18) is an explicit allow-list, not a blanket pass-through:
+
+    client -> server  tools/call and resources/read are gated by the policy; lifecycle, discovery, prompts,
+                      completion, logging and subscriptions pass; any other request method is refused
+                      with -32601 (fail closed), and a tools/call or resources/read sent without an id
+                      (notification-shaped, so it could execute without a reply) is dropped.
+    server -> client  sampling/createMessage (a server asking the client's model to generate) is refused
+                      unless PROVENANT_ALLOW_SAMPLING=1; roots/list, elicitation/create and ping pass;
+                      other requests are refused. Results of tools/call, resources/read and prompts/get are
+                      scanned as untrusted content.
+
+On top of the per-call policy the proxy:
 
 * pins every tool definition the server advertises (HMAC over name, description and schema) the first
   time it sees it, refusing definitions whose description carries an injection. Later lists and calls are
@@ -36,7 +46,7 @@ import sys
 import threading
 
 from .detectors import scan_injection
-from .guard import APPROVE, DENY, Guard, GuardCall
+from .guard import ALLOW, APPROVE, DENY, Guard, GuardCall
 from .models import canonical_json, new_id
 
 
@@ -82,6 +92,13 @@ class Pins:
         return ok, withheld
 
 
+CLIENT_PASS = {"initialize", "ping", "tools/list", "resources/list", "resources/templates/list", "prompts/list",
+               "prompts/get", "completion/complete", "logging/setLevel", "resources/subscribe", "resources/unsubscribe"}
+GATED = {"tools/call", "resources/read"}
+SERVER_PASS = {"ping", "roots/list", "elicitation/create"}
+UNTRUSTED_RESULTS = {"call", "resource", "prompt"}
+
+
 class MCPProxy:
     def __init__(self, upstream_cmd: list[str], name: str, workspace: str, task: str = "",
                  guard: Guard | None = None, out=None, inp=None) -> None:
@@ -119,12 +136,65 @@ class MCPProxy:
     # --- client -> server ----------------------------------------------------------------------
     def on_client(self, msg: dict) -> None:
         method, mid = msg.get("method"), msg.get("id")
-        if method == "tools/list" and mid is not None:
+        if method is None:                       # a response to a server->client request
+            self._send_upstream(msg)
+            return
+        if not isinstance(method, str):
+            self._error(mid, -32600, "invalid request: method must be a string")
+            return
+        if mid is None:                          # notification
+            if method in GATED:
+                self.guard.audit.append("protocol_refused", self.session_id,
+                                        {"method": method, "reason": "gated method sent as a notification"})
+                return                           # dropped: it would run with no reply and no gate
+            if method.startswith("notifications/"):
+                self._send_upstream(msg)
+            return
+        if method == "initialize":
+            p = msg.get("params") or {}
+            self.guard.audit.append("mcp_initialize", self.session_id,
+                                    {"protocolVersion": str(p.get("protocolVersion"))[:40],
+                                     "client": str((p.get("clientInfo") or {}).get("name"))[:80]})
+        if method == "tools/list":
             self._pending[_key(mid)] = ("list", None)
-        elif method == "tools/call" and mid is not None:
+        elif method == "tools/call":
             if not self._gate_call(msg):
                 return
+        elif method == "resources/read":
+            if not self._gate_resource(msg):
+                return
+        elif method == "prompts/get":
+            self._pending[_key(mid)] = ("prompt", str((msg.get("params") or {}).get("name")))
+        elif method not in CLIENT_PASS:
+            self.guard.audit.append("protocol_refused", self.session_id, {"method": method[:80]})
+            self._error(mid, -32601, f"Provenant: method '{method[:80]}' is not on the proxy's allow-list")
+            return
         self._send_upstream(msg)
+
+    def _error(self, mid, code: int, message: str) -> None:
+        self._send_client({"jsonrpc": "2.0", "id": mid, "error": {"code": code, "message": message}})
+
+    def _gate_resource(self, msg: dict) -> bool:
+        mid, uri = msg.get("id"), (msg.get("params") or {}).get("uri")
+        try:
+            if not isinstance(uri, str):
+                raise ValueError("uri missing")
+            args = {"uri": uri}
+            if uri.lower().startswith("file://"):
+                from urllib.parse import unquote, urlsplit
+                args["path"] = unquote(urlsplit(uri).path)
+            call = GuardCall(self._qualified("resources_read"), args, self.session_id, self.workspace, "mcp")
+            v = self.guard.check(call, hold=True)
+            if v.decision == ALLOW and not self.guard.redeem(v, call):
+                raise RuntimeError("grant could not be redeemed")
+        except Exception as exc:
+            self._refuse(mid, f"DENY: Provenant could not evaluate this read ({type(exc).__name__}); failing closed", "DENY")
+            return False
+        if v.decision != ALLOW:
+            self._refuse(mid, v.message(), v.decision.value, v.approval_id)
+            return False
+        self._pending[_key(mid)] = ("resource", "resources_read")
+        return True
 
     def _gate_call(self, msg: dict) -> bool:
         mid, params = msg.get("id"), msg.get("params") or {}
@@ -137,14 +207,18 @@ class MCPProxy:
                 self.guard.audit.append("manifest_refused", self.session_id, {"tool": name, "reason": reason})
                 self._refuse(mid, "DENY: Provenant blocked this call. " + reason, "DENY")
                 return False
-            v = self.guard.check(GuardCall(self._qualified(name), args if args is not None else {},
-                                           self.session_id, self.workspace, "mcp"), hold=True)
+            call = GuardCall(self._qualified(name), args if args is not None else {}, self.session_id,
+                             self.workspace, "mcp")
+            v = self.guard.check(call, hold=True)
         except Exception as exc:            # fail closed
             self._refuse(mid, f"DENY: Provenant could not evaluate this call ({type(exc).__name__}); failing closed", "DENY")
             return False
         if v.decision in (DENY, APPROVE):
             self._refuse(mid, v.message(), v.decision.value, v.approval_id)
             _notify(f"[provenant] {v.decision.value} {self.name}.{name}: {'; '.join(v.reasons)[:200]}")
+            return False
+        if not self.guard.redeem(v, call):  # the grant is the only thing that lets a call through
+            self._refuse(mid, "DENY: Provenant could not redeem the execution grant; failing closed", "DENY")
             return False
         self._pending[_key(mid)] = ("call", name)
         return True
@@ -156,6 +230,15 @@ class MCPProxy:
 
     # --- server -> client ----------------------------------------------------------------------
     def on_upstream(self, msg: dict) -> None:
+        method = msg.get("method")
+        if isinstance(method, str) and msg.get("id") is not None:      # server -> client request
+            allowed = method in SERVER_PASS or (method == "sampling/createMessage"
+                                                and os.environ.get("PROVENANT_ALLOW_SAMPLING") == "1")
+            if not allowed:
+                self.guard.audit.append("protocol_refused", self.session_id, {"method": method[:80], "direction": "server"})
+                self._send_upstream({"jsonrpc": "2.0", "id": msg["id"],
+                                     "error": {"code": -32601, "message": f"Provenant: '{method[:80]}' refused by policy"}})
+                return
         if "method" not in msg and "id" in msg:
             kind = self._pending.pop(_key(msg["id"]), None)
             if kind and kind[0] == "list" and isinstance(msg.get("result"), dict):
@@ -164,7 +247,7 @@ class MCPProxy:
                 if withheld:
                     self.guard.audit.append("manifest_withheld", self.session_id, {"withheld": withheld})
                     _notify(f"[provenant] withheld tools from {self.name}: {sorted(withheld)}")
-            elif kind and kind[0] == "call":
+            elif kind and kind[0] in UNTRUSTED_RESULTS:
                 try:
                     flags = self.guard.ingest_output(self.session_id, self._qualified(kind[1]), msg.get("result"))
                     if flags:
