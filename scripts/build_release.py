@@ -112,6 +112,7 @@ def main(argv: list[str]) -> int:
             if isinstance(value, list):
                 return [refresh_wheel_urls(val) for val in value]
             if isinstance(value, str):
+                value = re.sub(r"provenant(?:_agent_shield)?-[0-9]+\.[0-9]+\.[0-9]+-py3-none-any\.whl", wheel, value)
                 return old_wheel_url.sub(wheel_url, value)
             return value
         onboarding = refresh_wheel_urls(onboarding)
