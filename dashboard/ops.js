@@ -27,7 +27,6 @@
     $("live-count").textContent = fmt(s.audit_entries) + " observed events";
     const hosted = !!state.status?.hosted;
     $("hosted-note").hidden = !hosted;
-    $("empty-live").hidden = state.entries.length > 0;
     $("integrity-title").textContent = state.status?.audit?.ok === true ? "Audit chain verified" : state.status?.audit?.ok === false ? "Audit chain check failed" : hosted ? "Local audit unavailable" : "Audit status unavailable";
     $("integrity-dot").className = "dot " + (state.status?.audit?.ok === true ? "live" : "error");
     $("integrity-detail").textContent = state.status?.audit?.checked != null ? fmt(state.status.audit.checked) + " records checked" : "Integrity is reported by the local Guard engine";
@@ -45,7 +44,7 @@
       const filterMatch = state.filter === "ALL" || (state.filter === "DENY" && d === "DENY") || (state.filter === "HOLD" && d === "REQUIRE_APPROVAL") || (state.filter === "ALLOW" && d === "ALLOW");
       return filterMatch && (!q || JSON.stringify(e).toLowerCase().includes(q));
     });
-    $("feed").innerHTML = items.length ? items.slice(0,120).map(e => {
+    $("feed").innerHTML = items.length ? items.slice().reverse().slice(0,120).map(e => {
       const d = e.event === "policy_decision" ? decision(e.data?.decision) : ["neutral", String(e.event || "event").replaceAll("_"," ").toUpperCase()];
       const source = e.data?.source || "source not recorded";
       const tool = e.data?.tool || e.event?.replaceAll("_"," ") || "audit event";
@@ -54,13 +53,12 @@
       return '<article class="event"><time class="event-time">'+escapeHtml(time(e.ts))+'</time><div><div class="event-title">'+escapeHtml(tool)+'</div><div class="event-meta">'+escapeHtml(source)+(sid ? " · "+escapeHtml(sid) : "")+(reasons ? "<br>"+escapeHtml(reasons) : "")+'</div></div><span class="decision '+d[0]+'">'+escapeHtml(d[1])+'</span></article>';
     }).join("") : '<div class="empty"><strong>'+(state.entries.length ? "No matching events" : "No live activity observed yet")+'</strong>'+(state.entries.length ? "Try another filter or search term." : "Start a protected MCP or Claude Code session. Demo runs and untagged legacy records are intentionally excluded.")+'</div>';
     $("feed-count").textContent = fmt(items.length) + " shown";
-    $("empty-live").hidden = state.entries.length > 0;
   }
   function renderClients() {
     const s = state.status;
-    if (!s || s.hosted) { $("clients").innerHTML = '<div class="empty"><strong>Local client status unavailable</strong>The hosted page cannot inspect your computer. Run the local dashboard to see your own config.</div>'; return; }
+    if (!s || s.hosted) { $("clients-list").innerHTML = '<div class="empty"><strong>Local client status unavailable</strong>The hosted page cannot inspect your computer. Run the local dashboard to see your own config.</div>'; return; }
     const clients = Array.isArray(s.clients) ? s.clients : [];
-    $("clients").innerHTML = clients.length ? clients.map(c => {
+    $("clients-list").innerHTML = clients.length ? clients.map(c => {
       const servers = Array.isArray(c.servers) ? c.servers : [];
       const protectedCount = servers.filter(x => x.protected).length;
       const status = c.error ? '<span class="tone-red">Config error</span>' : !c.present ? '<span>Not configured</span>' : servers.length && protectedCount === servers.length ? '<span class="tone-mint">Protected</span>' : '<span class="tone-amber">Needs review</span>';
@@ -97,7 +95,7 @@
       $("last-refresh").textContent = "Could not reach the local Guard API";
       if (!state.lastUpdated) {
         $("feed").innerHTML = '<div class="empty"><strong>Can’t connect to Provenant</strong>Make sure the local server is running, then refresh this page.</div>';
-        $("clients").innerHTML = '<div class="empty">Client status is unavailable until the server responds.</div>';
+        $("clients-list").innerHTML = '<div class="empty">Client status is unavailable until the server responds.</div>';
       }
     } finally { state.busy = false; }
   }
