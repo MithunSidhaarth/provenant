@@ -4,12 +4,6 @@
   "buildCommand": "",
   "installCommand": "",
   "outputDirectory": "dashboard",
-  "functions": {
-    "api/index.py": {
-      "includeFiles": "{agentshield,policy,scenarios,fixtures,docs}/**",
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
