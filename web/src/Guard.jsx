@@ -7,13 +7,14 @@ const REPO = "https://github.com/MithunSidhaarth/provenant";
 
 const INSTALL = {
   wheel: {
-    label: "Download",
+    label: "Latest installer",
     steps: [
-      ["Install the release", "python -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.2-py3-none-any.whl"],
-      ["Protect every client", "python -m provenant setup"],
-      ["Prove enforcement", "python -m provenant verify"],
-      ["Check what is protected", "python -m provenant status"],
-      ["Watch decisions live", "provenant log -f"],
+      ["Install the current release (Windows PowerShell)", "irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex"],
+      ["Confirm the installed version", "provenant --version"],
+      ["Protect a supported client", "provenant setup"],
+      ["Run the safe enforcement check", "provenant verify"],
+      ["See current protection status", "provenant status"],
+      ["Watch real decisions live", "provenant log -f"],
     ],
   },
   windows: {
@@ -229,7 +230,7 @@ function Feed({ items, hosted, onSimulate, simulating }) {
   );
 }
 
-function Status({ status }) {
+function Status({ status, stats }) {
   if (!status) return null;
   if (status.hosted) {
     return (
@@ -247,7 +248,18 @@ function Status({ status }) {
       <div className="card-head"><h3>Protection status</h3><span className={`dot-label ${status.audit?.ok ? "allow" : "deny"}`}>
         audit chain {status.audit?.ok ? "intact" : `broken at #${status.audit?.first_bad_seq}`}</span></div>
       <div className="kv"><span>Guard policy</span><b>{status.policy_version}</b></div>
-      <div className="kv"><span>Audit entries</span><b>{status.audit?.checked ?? 0}</b></div>
+      <div className="kv"><span>Audit entries</span><b>{stats?.audit_entries ?? status.audit?.checked ?? 0}</b></div>
+      {stats && <div className="activity-stats" aria-label="Live Guard activity statistics">
+        <div className="kv"><span>Tool requests observed</span><b>{stats.tool_requests_observed}</b></div>
+        <div className="kv"><span>Policy decisions recorded</span><b>{stats.policy_decisions}</b></div>
+        <div className="kv"><span>Allowed by policy</span><b className="allow-t">{stats.allowed}</b></div>
+        <div className="kv"><span>Blocked by policy</span><b className="deny-t">{stats.blocked}</b></div>
+        <div className="kv"><span>Held for approval</span><b className="hold-t">{stats.held}</b></div>
+        <div className="kv"><span>Tool results observed</span><b>{stats.tool_results_observed}</b></div>
+        <div className="kv"><span>Approval requests recorded</span><b>{stats.approval_requests}</b></div>
+        <div className="kv"><span>Last audit event</span><b>{stats.last_event_at ? new Date(stats.last_event_at).toLocaleString() : "No recorded events yet"}</b></div>
+        <p className="muted">Counts come from the local audit log. “Allowed” means policy permitted the call; it does not by itself prove the tool completed successfully.</p>
+      </div>}
       <div className="kv"><span>Claude Code hook</span><b className={status.claude_code_hook ? "allow-t" : "hold-t"}>{status.claude_code_hook ? "installed" : "not installed"}</b></div>
       {present.length === 0 && <p className="muted">No MCP client configs found on this machine yet.</p>}
       {present.map((c) => {
@@ -321,6 +333,7 @@ const fmtTime = (d = new Date()) => d.toTimeString().slice(0, 8);
 
 export function Guard() {
   const [status, setStatus] = useState(null);
+  const [stats, setStats] = useState(null);
   const [pending, setPending] = useState([]);
   const [feed, setFeed] = useState([]);
   const [rt, setRt] = useState(null);
@@ -339,6 +352,7 @@ export function Guard() {
         const [log, pend] = await Promise.all([api(`/api/guard/log?after=${after.current}`), api("/api/guard/pending")]);
         if (stop) return;
         setPending(pend);
+        if (log.stats) setStats(log.stats);
         const rows = log.entries.filter((e) => e.event === "policy_decision").map((e) => ({
           key: "s" + e.seq, time: (e.ts || "").slice(11, 19), decision: e.data?.decision, tool: e.data?.tool,
           why: (e.data?.reasons || [])[0] || "",
@@ -377,7 +391,7 @@ export function Guard() {
       <div className="guard-grid">
         <Reveal className="guard-install"><div className="card"><div className="card-head"><h3>Install in a minute</h3><span className="muted">free · open source</span></div><Install /></div></Reveal>
         <Reveal className="guard-status" delay={0.1}>
-          <Status status={status} />
+          <Status status={status} stats={stats} />
           <Pending items={pending} />
         </Reveal>
       </div>
