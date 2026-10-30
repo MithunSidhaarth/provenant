@@ -24,9 +24,11 @@ from .sandbox import ROOT
 from .tools import TOOLS
 
 DASHBOARD = ROOT / "dashboard"
-STATIC = {"/": "index.html", "/app.js": "app.js", "/style.css": "style.css"}
 CTYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
-          ".css": "text/css; charset=utf-8"}
+          ".css": "text/css; charset=utf-8", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8"}
+# A fixed allow-list built at startup: request paths are looked up, never joined onto the filesystem.
+STATIC = {"/": "index.html", **{"/" + f.relative_to(DASHBOARD).as_posix(): f.relative_to(DASHBOARD).as_posix()
+                                for f in sorted(DASHBOARD.rglob("*")) if f.is_file() and f.suffix in CTYPES}}
 MAX_BODY = 64 * 1024
 
 
@@ -116,7 +118,7 @@ class App:
 
 def make_handler(app: App):
     class Handler(BaseHTTPRequestHandler):
-        server_version = "AgentShield/1.0"
+        server_version = "Provenant/1.0"
 
         def log_message(self, fmt, *args):  # keep the console quiet; the audit log is the record
             pass
@@ -129,8 +131,9 @@ def make_handler(app: App):
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Content-Security-Policy",
-                             "default-src 'self'; style-src 'self' https://fonts.googleapis.com; "
-                             "font-src https://fonts.gstatic.com; frame-ancestors 'none'")
+                             "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; "
+                             "img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; "
+                             "frame-ancestors 'none'")
             self.end_headers()
             self.wfile.write(data)
 
@@ -233,14 +236,14 @@ def serve(host: str = "127.0.0.1", port: int = 8765, audit_dir: Path | None = RO
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="AgentShield dashboard")
+    ap = argparse.ArgumentParser(description="Provenant dashboard")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--open", action="store_true", help="open the dashboard in the default browser")
     args = ap.parse_args()
     httpd = serve(args.host, args.port)
     url = f"http://{args.host}:{args.port}/"
-    print(f"AgentShield dashboard: {url}  (Ctrl+C to stop)")
+    print(f"Provenant dashboard: {url}  (Ctrl+C to stop)")
     if args.open:
         import webbrowser
         webbrowser.open(url)

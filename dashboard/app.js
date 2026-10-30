@@ -1,4 +1,4 @@
-// AgentShield dashboard. Plain JS, no dependencies.
+// Provenant dashboard. Plain JS; vendored anime.js and Motion for animation, fx.js for the 3D field.
 // All content from scenarios, documents and tool output is attacker-controlled, so the DOM is
 // built with textContent only (never innerHTML).
 "use strict";
@@ -39,6 +39,45 @@ function toast(msg) {
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600);
 }
 
+// ---------- motion ------------------------------------------------------------------------
+// anime.js drives timelines and counters, Motion drives view transitions, fx.js the 3D field.
+// In lite mode (button, reduced-motion preference, or a slow GPU) all of it is skipped.
+const isLite = () => document.documentElement.classList.contains("lite");
+const fx = () => window.ProvenantFX;
+
+function countTo(el, value, suffix = "") {
+  const target = Number(value);
+  if (!Number.isFinite(target) || isLite() || !window.anime) { el.textContent = value + suffix; return; }
+  const from = Number(el.dataset.v || 0);
+  if (from === target) { el.textContent = target + suffix; return; }
+  const o = { v: from };
+  el.dataset.v = target;
+  anime({ targets: o, v: target, round: target % 1 ? 10 : 1, duration: 900, easing: "easeOutExpo",
+    update: () => { el.textContent = o.v + suffix; } });
+}
+
+function enter(container) {
+  if (isLite() || !window.anime) return;
+  const items = container.querySelectorAll(".col, .step, .verdict, .kpi, .appr, .world-item");
+  if (!items.length) return;
+  anime({ targets: items, translateY: [26, 0], opacity: [0, 1], delay: anime.stagger(35, { start: 40 }),
+    duration: 620, easing: "easeOutExpo" });
+}
+
+// Feed the decisions of a protected run into the 3D field and slam the verdict.
+function react(rep) {
+  const steps = (rep.trace?.steps || []).filter((s) => s.result);
+  const n = (d) => steps.filter((s) => s.result.decision === d).length;
+  const deny = n("DENY"), held = n("REQUIRE_APPROVAL"), allow = n("ALLOW");
+  const f = fx();
+  if (f) { if (deny) f.pulse("deny", deny); else if (held) f.pulse("approve", held); else if (allow) f.pulse("allow", 1); }
+  if (deny && !isLite() && window.anime) {
+    document.querySelectorAll(".col.after .verdict").forEach((v) =>
+      anime({ targets: v, scale: [1.06, 1], translateX: [{ value: -6, duration: 60 }, { value: 6, duration: 60 }, { value: 0, duration: 80 }],
+        easing: "easeOutQuad" }));
+  }
+}
+
 function decPill(d) {
   const label = d === "REQUIRE_APPROVAL" ? "REQUIRE APPROVAL" : d;
   return h("span", { class: `dec ${d}` }, label);
@@ -57,7 +96,15 @@ async function refreshStatus() {
     const p = $("chainPill");
     p.textContent = v.ok ? `Audit chain verified · ${v.checked} entries` : `Audit chain BROKEN at #${v.first_bad_seq}`;
     p.className = "pill " + (v.ok ? "ok" : "bad");
+    countTo($("cChain"), v.checked ?? 0);
   } catch { /* server down */ }
+  try {
+    const a = await api("/api/audit");
+    const dec = a.entries.filter((e) => e.event === "policy_decision").map((e) => e.data.decision);
+    countTo($("cDeny"), dec.filter((d) => d === "DENY").length);
+    countTo($("cHeld"), dec.filter((d) => d === "REQUIRE_APPROVAL").length);
+    countTo($("cAllow"), dec.filter((d) => d === "ALLOW").length);
+  } catch { /* ignore */ }
   try {
     const a = await api("/api/approvals");
     $("approvalPill").textContent = `${a.length} pending approval${a.length === 1 ? "" : "s"}`;
@@ -71,6 +118,11 @@ async function refreshStatus() {
 function showTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
+  const view = $(`view-${name}`);
+  if (view && window.Motion && !isLite()) {
+    Motion.animate(view, { opacity: [0, 1], transform: ["translateY(18px)", "translateY(0px)"] },
+      { duration: 0.38, ease: [0.16, 1, 0.3, 1] });
+  }
   if (name === "approvals") renderApprovals();
   if (name === "audit") renderAudit();
 }
@@ -118,7 +170,7 @@ function selectScenario(id) {
     s.attack_goal ? h("div", { class: "quote goal" }, h("span", { class: "label" }, "Attacker's goal"), s.attack_goal) : null));
   const cmp = clear($("compare"));
   cmp.append(h("div", { class: "empty", style: "grid-column: 1 / -1" },
-    "Press “Run before / after” to replay this scenario with the same agent twice: once with no enforcement, once behind AgentShield."));
+    "Press “Run before / after” to replay this scenario with the same agent twice: once with no enforcement, once behind Provenant."));
 }
 
 async function runCompare(id) {
@@ -128,6 +180,7 @@ async function runCompare(id) {
     const r = await api("/api/compare", { scenario_id: id });
     state.last[id] = r.after.verdict;
     clear(cmp).append(renderColumn(r.before, "before"), renderColumn(r.after, "after"));
+    enter(cmp); react(r.after);
     renderScenarioList();
     refreshStatus();
   } catch (e) { clear(cmp).append(h("div", { class: "empty" }, "Error: " + e.message)); }
@@ -136,7 +189,7 @@ async function runCompare(id) {
 function renderColumn(rep, which) {
   const col = h("div", { class: `col ${which}`, id: `col-${which}` });
   col.append(h("div", { class: "col-head" },
-    h("span", { class: "t" }, which === "before" ? "Without AgentShield" : "With AgentShield"),
+    h("span", { class: "t" }, which === "before" ? "Without Provenant" : "With Provenant"),
     h("span", { class: "hash" }, rep.trace.session_id)));
   const body = h("div", { class: "col-body" });
   const tone = verdictTone(rep.verdict);
@@ -169,7 +222,7 @@ function plainSummary(rep, which) {
   const injected = steps.filter((s) => s.source === "injected").length;
   const parts = [];
   if (injected) parts.push(`The content tried to make the agent do ${injected} thing${injected > 1 ? "s" : ""} you never asked for.`);
-  if (denied) parts.push(`AgentShield blocked ${denied} action${denied > 1 ? "s" : ""} before ${denied > 1 ? "they" : "it"} could run.`);
+  if (denied) parts.push(`Provenant blocked ${denied} action${denied > 1 ? "s" : ""} before ${denied > 1 ? "they" : "it"} could run.`);
   if (pending) parts.push(`${pending} action${pending > 1 ? "s are" : " is"} waiting for your OK.`);
   parts.push(rep.outcome.harms.length ? "Something harmful still happened." : "Nothing harmful happened.");
   return parts.join(" ");
@@ -389,6 +442,7 @@ async function runPlayground() {
     const step = rep.trace.steps[0];
     out.className = "";
     out.append(renderStep(step, rep, "after"), renderWorld(rep));
+    enter(out); react(rep);
     refreshStatus();
   } catch (e) { out.append("Error: " + e.message); }
 }
@@ -412,6 +466,7 @@ async function runLab() {
   try {
     const r = await api("/api/lab", { content: $("labContent").value, user_task: $("labTask").value });
     clear(cmp).append(renderColumn(r.before, "before"), renderColumn(r.after, "after"));
+    enter(cmp); react(r.after);
     const n = r.before.trace.steps.filter((s) => s.source === "injected").length;
     $("labHint").textContent = n ? `The agent found ${n} instruction${n > 1 ? "s" : ""} in the content and tried to follow ${n > 1 ? "them" : "it"}.` : "The agent found no instructions to follow.";
     refreshStatus();
@@ -427,12 +482,17 @@ async function runFuzz() {
   const s = r.summary;
   const kpi = (v, l, tone) => h("div", { class: `kpi ${tone}` }, h("div", { class: "v" }, v), h("div", { class: "l" }, l));
   clear(box).append(h("div", { class: "kpis" },
-    kpi(`${s.live_attacks}/${s.variants}`, "variants that caused harm without AgentShield", "bad"),
-    kpi(`${s.containment_pct}%`, "contained with AgentShield (no harm in world state)", s.containment_pct === 100 ? "good" : "bad"),
+    kpi(`${s.live_attacks}/${s.variants}`, "variants that caused harm without Provenant", "bad"),
+    kpi(`${s.containment_pct}%`, "contained with Provenant (no harm in world state)", s.containment_pct === 100 ? "good" : "bad"),
     kpi(`${s.hard_denied_pct}%`, "stopped by DENY alone; the rest are held for a human", "warn"),
     kpi(`${s.detection_pct}%`, "flagged by injection detection (evidence, not the boundary)", "warn"),
     kpi(`${s.task_false_positive_pct}%`, `of ${s.benign_documents} benign documents had a user step wrongly blocked`, s.task_false_positive_pct ? "bad" : "good"),
     kpi(`${s.detection_false_positive_pct}%`, "of benign documents wrongly flagged by detection (no effect on the task)", "warn")));
+  box.querySelectorAll(".kpi .v").forEach((el) => {
+    const m = /^(\d+(?:\.\d+)?)(.*)$/.exec(el.textContent);
+    if (m && !isLite()) { el.textContent = "0" + m[2]; countTo(el, Number(m[1]), m[2]); }
+  });
+  enter(box);
   const tbl = h("table", { class: "matrix" });
   tbl.append(h("tr", {}, ["Mutation class", "Fired (baseline)", "Contained", "Held for approval", "Detected"].map((x) => h("th", {}, x))));
   for (const c of r.classes) {
@@ -553,6 +613,15 @@ async function boot() {
   $("redteamRun").addEventListener("click", runRedteam);
   LAB_SAMPLES.forEach((smp) => $("labSamples").append(h("button", { class: "btn ghost small", onclick: () => { $("labContent").value = smp[1]; } }, smp[0])));
   $("labContent").value = LAB_SAMPLES[0][1];
+  const mb = $("motionBtn");
+  const syncMotion = () => {
+    const f = fx();
+    mb.textContent = isLite() ? `Motion: lite${f && f.reason && f.reason !== "chosen" ? " (" + f.reason + ")" : ""}` : "Motion: full";
+    mb.classList.toggle("ok", !isLite());
+  };
+  mb.addEventListener("click", () => { const f = fx(); if (f) f.setLite(!f.lite); else document.documentElement.classList.toggle("lite"); syncMotion(); });
+  document.addEventListener("provenant:motion", syncMotion);
+  syncMotion();
   $("resetBtn").addEventListener("click", async () => {
     await api("/api/reset", {}); state.last = {}; renderScenarioList(); selectScenario(state.current); refreshStatus(); toast("Demo state reset.");
   });
@@ -563,7 +632,9 @@ async function boot() {
   state.scenarios = await api("/api/scenarios");
   state.policy = await api("/api/policy");
   renderPolicy();
-  selectScenario(state.scenarios.find((s) => s.id === "doc_injection") ? "doc_injection" : state.scenarios[0].id);
+  const first = state.scenarios.find((s) => s.id === "doc_injection") ? "doc_injection" : state.scenarios[0].id;
+  selectScenario(first);
+  runCompare(first);   // the without / with comparison is the first thing on screen
   refreshStatus();
   setInterval(refreshStatus, 5000);
 }

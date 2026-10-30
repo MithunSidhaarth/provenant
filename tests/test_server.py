@@ -31,9 +31,28 @@ class ServerAPI(unittest.TestCase):
 
     def test_dashboard_served_with_security_headers(self):
         with urllib.request.urlopen(self.base + "/") as resp:
-            self.assertIn(b"AgentShield", resp.read())
+            self.assertIn(b"Provenant", resp.read())
             self.assertIn("default-src 'self'", resp.headers["Content-Security-Policy"])
             self.assertEqual(resp.headers["X-Content-Type-Options"], "nosniff")
+
+    def test_csp_allows_only_self(self):
+        with urllib.request.urlopen(self.base + "/") as resp:
+            csp = resp.headers["Content-Security-Policy"]
+        self.assertNotIn("http", csp)
+        self.assertIn("script-src 'self'", csp)
+        self.assertIn("object-src 'none'", csp)
+
+    def test_vendored_assets_served_and_nothing_else(self):
+        for path, ctype in [("/fx.js", "text/javascript"), ("/vendor/three.module.min.js", "text/javascript"),
+                            ("/vendor/anime.min.js", "text/javascript"), ("/vendor/motion.min.js", "text/javascript"),
+                            ("/vendor/fonts/archivo-black-latin-400-normal.woff2", "font/woff2"),
+                            ("/vendor/licenses/three.js-LICENSE.txt", "text/plain")]:
+            with urllib.request.urlopen(self.base + path) as resp:
+                self.assertTrue(resp.headers["Content-Type"].startswith(ctype), path)
+        for path in ["/vendor/../../agentshield/server.py", "/vendor/%2e%2e/%2e%2e/policy/policy.json", "/README.md"]:
+            with self.assertRaises(urllib.error.HTTPError, msg=path) as cm:
+                urllib.request.urlopen(self.base + path)
+            self.assertEqual(cm.exception.code, 404)
 
     def test_compare_before_after(self):
         s, r, _ = self.req("/api/compare", {"scenario_id": "doc_injection"})

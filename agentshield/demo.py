@@ -33,7 +33,7 @@ def main(argv=None) -> int:
     c = sys.stdout.isatty() and not args.no_color
     shield = Shield()
     failures = 0
-    print(f"{'scenario':26} {'without AgentShield':34} {'with AgentShield'}")
+    print(f"{'scenario':26} {'without Provenant':34} {'with Provenant'}")
     print("-" * 96)
     for sid, sc in shield.scenarios.items():
         before = shield.run(sid, protected=False)
@@ -57,7 +57,7 @@ def main(argv=None) -> int:
                     print(f"        - {reason}")
     fz = run_campaign(shield.engine)["summary"]
     print("-" * 96)
-    print(f"fuzzer: {fz['live_attacks']}/{fz['variants']} obfuscated variants live without AgentShield; "
+    print(f"fuzzer: {fz['live_attacks']}/{fz['variants']} obfuscated variants live without Provenant; "
           f"{fz['containment_pct']}% contained with it ({fz['hard_denied_pct']}% by DENY alone), "
           f"detection {fz['detection_pct']}%")
     if fz["containment_pct"] < 100:

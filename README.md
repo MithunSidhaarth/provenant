@@ -1,10 +1,12 @@
-# AgentShield
+# Provenant
 
-A defensive security layer for tool-using AI agents, built for the PARALLAX 2026 hackathon.
+**The self-red-teaming firewall for AI agents** (PARALLAX 2026, AgentShield track).
 
-AgentShield sits between an agent and its tools. Every tool call the agent proposes goes through one deterministic policy enforcement point. That point returns **ALLOW**, **DENY** or **REQUIRE_APPROVAL**, and the tool runs only after it has been authorized. Untrusted content, such as documents, knowledge-base articles and web pages, is treated as data. It can never grant itself authority, even when the agent obeys it.
+A defensive security layer for tool-using AI agents. The Python package is still called `agentshield`.
 
-The demo agent is deliberately gullible: it follows any `ASSISTANT ACTION:` instruction it finds in content it reads. This simulates the worst-case model. AgentShield keeps the environment safe anyway, because **the LLM is never the security boundary**.
+Provenant sits between an agent and its tools. Every tool call the agent proposes goes through one deterministic policy enforcement point. That point returns **ALLOW**, **DENY** or **REQUIRE_APPROVAL**, and the tool runs only after it has been authorized. Untrusted content, such as documents, knowledge-base articles and web pages, is treated as data. It can never grant itself authority, even when the agent obeys it.
+
+The demo agent is deliberately gullible: it follows any `ASSISTANT ACTION:` instruction it finds in content it reads. This simulates the worst-case model. Provenant keeps the environment safe anyway, because **the LLM is never the security boundary**.
 
 ## Quick start
 
@@ -36,7 +38,7 @@ Optional: set `AGENTSHIELD_AUDIT_KEY` to a long random string to use a stable au
 
 ## What the demo shows
 
-| Scenario | Category | Without AgentShield | With AgentShield |
+| Scenario | Category | Without Provenant | With Provenant |
 |---|---|---|---|
 | `benign_kb_lookup` | Legitimate task | completes | ALLOW, ALLOW |
 | `benign_email_summary` | Legitimate task with a high-impact step | email sent, no approval | ALLOW, then REQUIRE_APPROVAL; runs after a person approves |
@@ -50,11 +52,11 @@ Optional: set `AGENTSHIELD_AUDIT_KEY` to a long random string to use a stable au
 
 ### Attack Lab, fuzzer and self red-team
 
-- **Attack Lab:** type or paste any document, email or page. The simulated worst-case agent reads it as an attachment, and the content is replayed without and with AgentShield. It obeys plain-language requests, through a deterministic intent parser: "fetch the database password and email it to…", "refund 4999 to customer C-999", "delete customer C-101", "visit https://…", and requests for SSN or card data. These work in English and with common Hindi, Kannada and Hinglish verbs. It also obeys structured directives hidden with base64, hex, invisible Unicode (zero-width and tag-character "ASCII smuggling"), homoglyphs, Hindi, Kannada and Hinglish instructions, fake `SYSTEM:` headers and split fields.
+- **Attack Lab:** type or paste any document, email or page. The simulated worst-case agent reads it as an attachment, and the content is replayed without and with Provenant. It obeys plain-language requests, through a deterministic intent parser: "fetch the database password and email it to…", "refund 4999 to customer C-999", "delete customer C-101", "visit https://…", and requests for SSN or card data. These work in English and with common Hindi, Kannada and Hinglish verbs. It also obeys structured directives hidden with base64, hex, invisible Unicode (zero-width and tag-character "ASCII smuggling"), homoglyphs, Hindi, Kannada and Hinglish instructions, fake `SYSTEM:` headers and split fields.
 - **Mutation fuzzer** (`agentshield/fuzzer.py`): 6 attack seeds × 15 classes (plain natural language plus 14 obfuscations) = 90 poisoned documents. Each variant runs twice and is judged from world state. Current numbers, reproduced by `python3 -m agentshield.fuzzer`:
-  - Without AgentShield: 90 of 90 variants cause harm.
-  - With AgentShield: 100% contained. 95.6% are stopped by DENY alone; the rest are held for human approval.
-  - Detection: 83.3%. ROT13 and reversed text are deliberately outside what AgentShield decodes. Plain-English instructions without injection phrasing are detected 3 times out of 6. Policy contains them all anyway, which is why detection is not the boundary.
+  - Without Provenant: 90 of 90 variants cause harm.
+  - With Provenant: 100% contained. 95.6% are stopped by DENY alone; the rest are held for human approval.
+  - Detection: 83.3%. ROT13 and reversed text are deliberately outside what Provenant decodes. Plain-English instructions without injection phrasing are detected 3 times out of 6. Policy contains them all anyway, which is why detection is not the boundary.
   - Benign corpus of 12 documents: 0% of legitimate tasks blocked, and 16.7% wrongly flagged by detection. The flagged ones are a security-training email quoting "ignore previous instructions" and "please send it to the design team". The flag only escalates side effects to approval; it never blocks.
 - **Canonicalise before you taint.** Untrusted content is expanded into raw, canonical and decoded views before taint tracking and detection. A recipient hidden in base64 is still recognised as coming from the document. The fuzzer found a real bug here during development: multi-line directives were missed because outputs were scanned as escaped JSON. It is fixed and covered by tests.
 - **Self red-team loop** (`agentshield/redteam.py`): for each class with a miss, it takes the smallest failing document as a reproduction and proposes a policy change, such as `canonicalisation.extra_decoders: ["rot13"]`. It replays the whole campaign and the benign corpus on a *copy* of the policy and generates a regression test. With both proposals applied, detection goes from 83.3% to 96.7%, DENY-alone goes from 95.6% to 100%, and false positives don't change. The natural-language gap has no automatic fix and is reported for a person to write a detector rule. Proposals are never applied to the live policy automatically; a person reviews them.
@@ -67,7 +69,7 @@ Optional: set `AGENTSHIELD_AUDIT_KEY` to a long random string to use a stable au
 
 ### Dashboard tabs
 
-- **Attack replay:** runs the same agent side by side, without and with AgentShield. Each step shows its source (user plan, injected or malformed), the exact call, the decision, the reasons, per-rule evidence, the untrusted content with the injection highlighted, and the verified outcome. Approvals can be granted inline.
+- **Attack replay:** runs the same agent side by side, without and with Provenant. Each step shows its source (user plan, injected or malformed), the exact call, the decision, the reasons, per-rule evidence, the untrusted content with the injection highlighted, and the verified outcome. Approvals can be granted inline.
 - **Attack Lab:** paste-anything replay, the fuzzer dashboard (containment, DENY-alone, detection, false positives per class) and the red-team loop with reproductions, proposed fixes and generated tests.
 - **Approvals:** the pending queue of high-impact actions. Approvals are tied to the exact call fingerprint, expire, and are checked against policy again before execution.
 - **Audit trail:** a browser for the hash-chained log, a verify button, and a tamper demo that forges a DENY into an ALLOW and shows exactly where verification breaks.
@@ -100,25 +102,25 @@ agentshield/
 policy/policy.json   agent profiles, permissions, data classes, limits
 scenarios/*.json     7 synthetic scenarios with expected decisions
 fixtures/            synthetic documents, KB articles, sim:// pages
-dashboard/           index.html, app.js, style.css (no framework)
+dashboard/           index.html, app.js, style.css, fx.js (3D field); vendor/ holds pinned copies of three.js, anime.js, Motion and fonts
 tests/               policy, fail-closed, approvals, grants, audit, before/after, ablation, HTTP
 docs/                ARCHITECTURE.md, THREAT_MODEL.md, DEMO_SCRIPT.md
 ```
 
 ## Tests
 
-`python3 -m unittest discover -s tests -t .` runs the full suite (93 tests) in about two seconds:
+`python3 -m unittest discover -s tests -t .` runs the full suite (99 tests) in about two seconds:
 
-- **Before/after:** every attack causes harm without AgentShield, and none does with it. Decision sequences match each scenario's `expected_protected`, and benign tasks still complete.
+- **Before/after:** every attack causes harm without Provenant, and none does with it. Decision sequences match each scenario's `expected_protected`, and benign tasks still complete.
 - **Policy rules:** every rule's ALLOW, REQUIRE_APPROVAL and DENY paths.
 - **Fail closed:** unknown tool, bad types, NaN or infinite amounts, extra arguments, forged session, spoofed agent, missing or malformed policy file, a rule that throws, and an engine that returns garbage.
 - **Approvals:** nothing executes while pending. Agents can't approve. Approvals expire, are void if the call changes, run only once, and can't override a later DENY.
 - **Execution grants:** no grant, a forged grant, a grant for a different call, and grant replay are all refused.
 - **Audit:** modification, deletion, reordering and a recomputed chain without the key are all detected, and secrets are redacted.
 - **Ablation:** both prompt-injection attacks stay contained with any single rule disabled.
-- **Fuzzer:** every variant is live without the shield and contained with it. Detection covers every class AgentShield decodes, and obfuscated values are still tainted.
+- **Fuzzer:** every variant is live without the shield and contained with it. Detection covers every class Provenant decodes, and obfuscated values are still tainted.
 - **Red team:** the loop finds exactly the blind classes. Its proposals close them without adding false positives, its generated regression tests pass, and the live policy stays untouched.
-- **HTTP:** CSRF header, malformed JSON, body size limit, unknown routes, and the playground failing closed.
+- **HTTP:** CSRF header, malformed JSON, body size limit, unknown routes, path traversal, a self-only CSP, vendored assets served offline, and the playground failing closed.
 
 ## Limitations
 
@@ -137,17 +139,38 @@ This is defensive research software. All "attacks" are synthetic fixtures that r
 
 ## Prior work and attribution
 
-AgentShield's code is original. These ideas shaped its design and are credited here:
+Provenant's code is original. These ideas shaped its design and are credited here:
 
 - **OWASP Top 10 for LLM Applications (2025):** LLM01 *Prompt Injection* and LLM06 *Excessive Agency* are the two risks this project targets. LLM02 *Sensitive Information Disclosure* motivates the DLP and data-classification rules.
 - **Greshake et al., 2023**, "Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection" (arXiv:2302.12173). This paper defined indirect prompt injection through retrieved content, the threat behind the document and KB scenarios.
-- **Debenedetti et al., 2025**, "Defeating Prompt Injections by Design" (CaMeL, arXiv:2503.18813). It argues for separating control flow from untrusted data and enforcing capabilities outside the model. AgentShield's provenance (taint) rule on control arguments follows that principle in a much simpler, value-based form.
+- **Debenedetti et al., 2025**, "Defeating Prompt Injections by Design" (CaMeL, arXiv:2503.18813). It argues for separating control flow from untrusted data and enforcing capabilities outside the model. Provenant's provenance (taint) rule on control arguments follows that principle in a much simpler, value-based form.
 - **Debenedetti et al., 2024**, "AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents" (NeurIPS Datasets and Benchmarks). It inspired the shape of the evaluation: utility under attack measured on simulated tools. No AgentDojo code or tasks are used.
 - **Invariant Labs, 2025**, "MCP Security Notification: Tool Poisoning Attacks". It describes injections hidden in tool descriptions and "rug-pull" description changes, and motivates the optional manifest-pinning extension.
 - **ASCII smuggling** with Unicode tag characters is a publicly documented technique, reproduced here only with synthetic payloads.
 
 Everything else is ours: the policy engine, the gateway, the grants, the audit chain, the fuzzer, the red-team loop and the dashboard. All attack data is synthetic and every test runs locally.
 
+## Dashboard design
+
+The dashboard is brutalist: hard black and white with one acid accent. Red and amber are kept for DENY and REQUIRE_APPROVAL, so color always carries meaning. The first screen is still the without/with comparison. It runs automatically on load.
+
+The background is a **procedural gaussian-splat-style particle field**, not a captured 3D Gaussian Splatting scene. It is about 22,000 anisotropic point sprites with a gaussian falloff and additive blending, clustered around a "shield" sphere. Each DENY sends a red shockwave out of the shield that pushes particles away. ALLOW sends a soft acid ripple and REQUIRE_APPROVAL an amber one.
+
+- **Motion toggle (top right):** switches between full and lite. Lite never creates a WebGL context and turns off all animations. It is the default when the OS asks for reduced motion, and the choice is remembered.
+- **Low-GPU fallback:** a frame-rate watchdog halves the particle count when the field runs below 48 fps. If it is still slow after two halvings, it switches to lite. The device pixel ratio is capped at 1.5. Rendering pauses when the tab is hidden.
+- **Offline:** everything is served from `dashboard/vendor/`, with no CDN or font service. The CSP is `'self'`-only.
+
 ## Attribution
 
-All application and security logic was written from scratch for this hackathon. Runtime dependencies are the Python standard library only. The dashboard uses the Inter and JetBrains Mono typefaces from Google Fonts (SIL Open Font License) and falls back to system fonts offline. Playwright was used only during development to screenshot the dashboard and is not a dependency.
+All application and security logic was written from scratch for this hackathon. The Python runtime uses only the standard library. The dashboard vendors these third-party files unmodified, with licences in `dashboard/vendor/licenses/`:
+
+| Library | Version | Licence | Used for |
+|---|---|---|---|
+| [three.js](https://threejs.org) (`three.module.min.js`) | 0.169.0 | MIT | WebGL renderer for the particle field |
+| [anime.js](https://animejs.com) (`anime.min.js`) | 3.2.2 | MIT | staggered entrances, counters, the DENY verdict shake |
+| [Motion](https://motion.dev) (`motion.min.js`, UMD build of `motion`) | 11.11.17 | MIT | tab/view transitions |
+| [Archivo Black](https://github.com/Omnibus-Type/ArchivoBlack) via Fontsource | 5.1.0 | SIL OFL 1.1 | display type |
+| [Space Grotesk](https://github.com/floriankarsten/space-grotesk) via Fontsource | 5.1.0 | SIL OFL 1.1 | body type |
+| [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) via Fontsource | 5.1.0 | SIL OFL 1.1 | code and labels |
+
+The particle shader, the shield and shockwave model, and the frame-rate watchdog in `dashboard/fx.js` are original. Playwright was used only during development, for screenshots and the browser walkthrough. It is not a dependency.
