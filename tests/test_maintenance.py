@@ -32,9 +32,11 @@ class MaintenanceTests(unittest.TestCase):
 
     def test_test_reports_all_three_layers(self):
         from agentshield import guard, onboarding
+        fake_store = MagicMock()
+        fake_store.audit.verify.return_value = {"ok": True, "checked": 4}
         with patch.object(onboarding, "self_test", return_value={"passed": True}), \
              patch.object(onboarding, "doctor", return_value={"ok": True}), \
-             patch.object(guard.Store().audit, "verify", return_value={"ok": True, "checked": 4}):
+             patch.object(guard, "Store", return_value=fake_store):
             from agentshield.maintenance import test
             out = io.StringIO()
             with redirect_stdout(out):
