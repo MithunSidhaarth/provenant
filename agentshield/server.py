@@ -174,8 +174,21 @@ class App:
             return {"entries": [], "total": 0, "hosted": True}
         entries = self.guard().audit.snapshot()
         keep = ("seq", "ts", "event", "session_id", "data", "hash")
+        decisions = [e for e in entries if e.get("event") == "policy_decision"]
+        decision_names = [e.get("data", {}).get("decision") for e in decisions]
+        stats = {
+            "audit_entries": len(entries),
+            "tool_requests_observed": sum(e.get("event") == "tool_request" for e in entries),
+            "policy_decisions": len(decisions),
+            "allowed": decision_names.count("ALLOW"),
+            "blocked": decision_names.count("DENY"),
+            "held": decision_names.count("REQUIRE_APPROVAL"),
+            "tool_results_observed": sum(e.get("event") == "tool_result" for e in entries),
+            "approval_requests": sum(e.get("event") == "approval_requested" for e in entries),
+            "last_event_at": entries[-1].get("ts") if entries else None,
+        }
         return {"entries": [_mask({k: e.get(k) for k in keep}, 600) for e in entries if e["seq"] > after][-300:],
-                "total": len(entries)}
+                "total": len(entries), "stats": stats}
 
     def guard_pending(self) -> list[dict]:
         if HOSTED:
