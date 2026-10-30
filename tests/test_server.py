@@ -175,6 +175,9 @@ class GuardViews(_ServerCase):
         code, log, _ = self.req("/api/guard/log?after=0")
         self.assertEqual(code, 200)
         self.assertTrue(log["entries"])
+        live_decisions = [e for e in log["entries"] if e.get("event") == "policy_decision"]
+        self.assertTrue(live_decisions)
+        self.assertTrue(all(e.get("data", {}).get("mode") == "live" for e in live_decisions))
         self.assertNotIn(self.TOKEN, json.dumps(log))
         self.assertTrue(all("mac" not in e for e in log["entries"]))
         code, pend, _ = self.req("/api/guard/pending")
