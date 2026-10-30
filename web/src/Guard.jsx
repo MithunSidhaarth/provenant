@@ -112,9 +112,10 @@ function Flow() {
         ))}
       </svg>
       <div className="flow-legend">
-        <span><i className="pk-dot allow" />allowed call reaches the tool</span>
-        <span><i className="pk-dot deny" />blocked at the gate, logged, never runs</span>
+        <span><i className="pk-dot allow" />illustrative allowed path</span>
+        <span><i className="pk-dot deny" />illustrative blocked path</span>
       </div>
+      <p className="muted small">Architecture illustration only — animated packets are not live agent telemetry or observed tool calls.</p>
     </div>
   );
 }
