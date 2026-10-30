@@ -1,4 +1,4 @@
-# Five-minute live demo
+# Six-minute live demo
 
 Start with `python3 -m agentshield.server` and open http://127.0.0.1:8765/. Click **Reset demo** first.
 
@@ -15,10 +15,10 @@ Start with `python3 -m agentshield.server` and open http://127.0.0.1:8765/. Clic
 
 **3:00 · Attack Lab (bring a judge in, 60s).** *Attack Lab:* "Type your own injection, in any language or encoding." Use the Hindi or invisible-text sample if nobody volunteers. Then click **Run 84-variant campaign**: 84 of 84 live without the shield, 100% contained with it, detection 86% with the blind spots shown. Click **Find gaps and propose fixes**: the loop reproduces the ROT13 gap, proposes a decoder, replays it at 100% with no new false positives, and writes the regression test. "It finds its own gaps, and a human approves the fix."
 
-**3:20 · Tamper evidence (40s).** *Audit trail → Verify chain → Forge a log entry.* "An attacker flips a DENY to ALLOW. The verifier pinpoints the entry, and the real log still verifies."
+**4:00 · Tamper evidence (40s).** *Audit trail → Verify chain → Forge a log entry.* "An attacker flips a DENY to ALLOW. The verifier pinpoints the entry, and the real log still verifies."
 
-**4:00 · Defense in depth (30s).** *Defense in depth → Run ablation.* Remove any one rule and both injection attacks stay contained. "We're also honest about where a single rule is load-bearing: that red cell."
+**4:40 · Defense in depth (30s).** *Defense in depth → Run ablation.* Remove any one rule and both injection attacks stay contained. "We're also honest about where a single rule is load-bearing: that red cell."
 
-**4:30 · Close (30s).** *Policy playground → DLP: canary secret in body → Evaluate.* Then: "Deterministic, auditable, and no model API needed. 73 tests, all synthetic, all inside the sandbox."
+**5:10 · Close (30s).** *Policy playground → DLP: canary secret in body → Evaluate.* Then: "Deterministic, auditable, and no model API needed. 84 tests, all synthetic, all inside the sandbox."
 
 Backup if the browser fails: `python3 -m agentshield.demo -v`.

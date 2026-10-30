@@ -55,7 +55,7 @@ Optional: set `AGENTSHIELD_AUDIT_KEY` to a long random string to use a stable au
 - **Defense in depth:** a rule-ablation matrix. It switches off each rule in turn and replays every attack, so you can see which rules are load-bearing.
 - **Agent & policy:** the agent's permission set, the tool contracts and the evaluation order.
 
-A five-minute live demo script is in [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md).
+A six-minute live demo script is in [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md).
 
 ## Repository layout
 
