@@ -1,11 +1,7 @@
 @echo off
-REM AgentShield - Windows launcher. Uses the py launcher, falls back to python.
+REM Provenant - Windows launcher.
 cd /d "%~dp0"
 set PYTHONUTF8=1
-where py >nul 2>nul
-if %ERRORLEVEL%==0 (
-  py -3 -m unittest discover -s tests -t . %*
-) else (
-  python -m unittest discover -s tests -t . %*
-)
+call "%~dp0find_python.bat" || (pause & exit /b 1)
+%PY% -m unittest discover -s tests -t . %*
 pause
