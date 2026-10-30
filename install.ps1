@@ -11,8 +11,8 @@
 #  * Every native command's exit code is read right after it runs and a failed command's output is never used.
 #  * The file is plain ASCII and never calls `exit` when piped into iex (that would close the user's window).
 
-$PvVersion = '0.9.1'                # kept equal to pyproject.toml by tests/test_installer.py
-$PvWheelSha256 = 'c0763f088db467856a415f4d8c27ac93d2ce4f0277b57b0af6299dc015171aae'   # rewritten by scripts/build_release.py
+$PvVersion = '0.9.2'                # kept equal to pyproject.toml by tests/test_installer.py
+$PvWheelSha256 = '1aa6a56b876bd0b2b8a32f81fc2471c90fd053c1ac5e004c971f555a1986e6af'   # rewritten by scripts/build_release.py
 $PvMinCode = 31000                  # Python 3.10.0 as major*10000 + minor*100 + micro
 $PvProbeCode = 'import sys; print(sys.executable); print(sys.version_info[0] * 10000 + sys.version_info[1] * 100 + sys.version_info[2]); print(int(sys.prefix != sys.base_prefix))'
 $PvImportCode = 'import agentshield.cli as c; print(c.VERSION)'
@@ -207,21 +207,30 @@ function Pv-AddToPath {
 }
 
 function Pv-SetUserPath {
-    # Adds BinDir to the user PATH only. %VAR% entries already in it are kept unexpanded.
+    # Adds BinDir to the user PATH only. Returns 'added', 'present', or 'failed: <reason>'; never throws.
+    # %VAR% entries already in PATH are kept unexpanded (written back as an expandable registry value).
     param([string]$BinDir)
-    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)
+    $current = ''
     try {
-        $current = [string]$key.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
-        $new = Pv-AddToPath $current $BinDir
-        if ($new -eq $current) { return $false }
+        $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $false)
+        if ($null -ne $key) {
+            try { $current = [string]$key.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames) } finally { $key.Close() }
+        }
+    } catch {
+        return "failed: could not read your user PATH ($($_.Exception.Message))"
+    }
+    $new = Pv-AddToPath $current $BinDir
+    if ($new -eq $current) { return 'present' }
+    try {
         if ($current -match '%') {
-            $key.SetValue('Path', $new, [Microsoft.Win32.RegistryValueKind]::ExpandString)
+            $wk = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
+            try { $wk.SetValue('Path', $new, [Microsoft.Win32.RegistryValueKind]::ExpandString) } finally { $wk.Close() }
         } else {
             [Environment]::SetEnvironmentVariable('Path', $new, 'User')   # also tells running programs about the change
         }
-        return $true
-    } finally {
-        $key.Close()
+        return 'added'
+    } catch {
+        return "failed: $($_.Exception.Message)"
     }
 }
 
@@ -301,11 +310,16 @@ function Pv-Main {
             Pv-Fail 'The provenant command was created but did not run.' "Output: $($t.Out -join ' ')   Run Provenant with: `"$($py.Path)`" -m provenant status"
             return 1
         }
-        $added = Pv-SetUserPath $binDir
+        $pathResult = Pv-SetUserPath $binDir
         $sessionNew = Pv-AddToPath $env:Path $binDir
         if ($sessionNew -ne $env:Path) { $env:Path = $sessionNew }
-        if ($added) { Pv-Done "added $binDir to your user PATH; new terminals need no extra steps" }
-        else { Pv-Done "$binDir was already on your user PATH" }
+        if ($pathResult -eq 'added') { Pv-Done "added $binDir to your user PATH; new terminals need no extra steps" }
+        elseif ($pathResult -eq 'present') { Pv-Done "$binDir was already on your user PATH" }
+        else {
+            Pv-Done 'works in this window; your PATH was not changed'
+            Write-Host "      $pathResult" -ForegroundColor Yellow
+            Write-Host "      In new windows run it as: `"$cmd`"   (or add $binDir to PATH in Settings > Environment Variables)" -ForegroundColor Yellow
+        }
 
         Pv-Step 5 'Protecting your agents'
         Write-Host ""
@@ -327,7 +341,7 @@ function Pv-Main {
         Write-Host ""
         return 0
     } catch {
-        Pv-Fail "Unexpected error: $($_.Exception.Message)" 'Nothing further was changed. Please report this at https://github.com/MithunSidhaarth/provenant/issues'
+        Pv-Fail "Unexpected error: $($_.Exception.Message)" 'Provenant may be partly installed: run  py -m provenant doctor  to see what is in place. Please report this at https://github.com/MithunSidhaarth/provenant/issues'
         return 1
     } finally {
         if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue }
@@ -339,7 +353,7 @@ if (-not $env:PROVENANT_INSTALL_LIB) {
     $PvExit = @(Pv-Main)[-1]
     if ($PvExit -isnot [int]) { $PvExit = 1 }
     $global:LASTEXITCODE = $PvExit
-    Get-ChildItem -Path function: -Name 'Pv-*' | ForEach-Object { Remove-Item -Path "function:$_" -ErrorAction SilentlyContinue }
+    Remove-Item -Path 'function:Pv-*' -ErrorAction SilentlyContinue
     Remove-Variable -Name 'Pv*' -ErrorAction SilentlyContinue
     if ($PSCommandPath) { exit $global:LASTEXITCODE }
 }

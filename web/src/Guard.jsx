@@ -9,7 +9,7 @@ const INSTALL = {
   wheel: {
     label: "Download",
     steps: [
-      ["Install the release", "python -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.1-py3-none-any.whl"],
+      ["Install the release", "python -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.2-py3-none-any.whl"],
       ["Protect every client", "python -m provenant setup"],
       ["Prove enforcement", "python -m provenant verify"],
       ["Check what is protected", "python -m provenant status"],

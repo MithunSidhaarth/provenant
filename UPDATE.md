@@ -31,3 +31,7 @@ If `provenant` is not found: `py -m provenant ...` / `python3 -m provenant ...`.
   probed and validated, wheel validated (zip, metadata version, entry point, SHA-256 pinned by build_release.py), import and
   wrapper verified, PATH deduplicated, no `exit` under iex. See tests/test_installer.py and the `installer-windows` CI job.
 - Not run on real Windows from here. The `installer-windows` job has not executed yet.
+
+## 0.9.2
+- install.ps1: the PATH step is best-effort (a refused registry write no longer aborts the install) and function cleanup works on Windows PowerShell 5.1. Both found by the first real Windows run.
+- Antigravity added as an **experimental** client (`provenant setup --client antigravity`, `/getting-started`). Path `~/.gemini/config/mcp_config.json` and the `mcpServers` format are from Google's Antigravity MCP docs; tested only on sample configs, not in the real app. Remote `serverUrl` servers are not proxied.

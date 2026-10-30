@@ -25,6 +25,7 @@ except Exception:
     VERSION = "0.9.0"
 
 CLIENT_LABELS = {"claude-desktop": "Claude Desktop", "cursor": "Cursor", "windsurf": "Windsurf",
+                 "antigravity": "Antigravity",
                  "vscode": "VS Code (this folder)", "claude-code-project": "Claude Code (.mcp.json)"}
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -51,6 +52,8 @@ def client_configs() -> dict[str, Path]:
         desktop = home / ".config" / "Claude" / "claude_desktop_config.json"
     return {"claude-desktop": desktop, "cursor": home / ".cursor" / "mcp.json",
             "windsurf": home / ".codeium" / "windsurf" / "mcp_config.json",
+            # Google Antigravity (IDE and CLI) global MCP config, per antigravity.google/docs/mcp
+            "antigravity": home / ".gemini" / "config" / "mcp_config.json",
             "vscode": Path.cwd() / ".vscode" / "mcp.json", "claude-code-project": Path.cwd() / ".mcp.json"}
 
 
