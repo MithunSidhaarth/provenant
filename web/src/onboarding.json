@@ -302,9 +302,9 @@
     "all": "Install straight from the GitHub URL in step 2, which serves the real file. Delete the bad .whl."
    },
    "verify": {
-    "powershell": "py -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant-0.9.2-py3-none-any.whl",
-    "cmd": "py -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant-0.9.2-py3-none-any.whl",
-    "sh": "python3 -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant-0.9.2-py3-none-any.whl"
+    "powershell": "py -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant_agent_shield-0.10.1-py3-none-any.whl",
+    "cmd": "py -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant_agent_shield-0.10.1-py3-none-any.whl",
+    "sh": "python3 -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant_agent_shield-0.10.1-py3-none-any.whl"
    },
    "if_fails": {
     "all": "False means the file is not a wheel. Compare its SHA-256 with SHA256SUMS.txt in the repository's dist folder."
