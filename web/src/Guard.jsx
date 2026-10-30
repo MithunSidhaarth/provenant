@@ -244,14 +244,20 @@ function Status({ status, stats }) {
         audit chain {status.audit?.ok ? "intact" : `broken at #${status.audit?.first_bad_seq}`}</span></div>
       <div className="kv"><span>Guard policy</span><b>{status.policy_version}</b></div>
       <div className="kv"><span>Live audit events</span><b>{stats?.audit_entries ?? 0}</b></div>
+      {stats && <div className="kv"><span>Observed agent sessions</span><b>{stats.live_sessions}</b></div>}
       {stats && <div className="activity-stats" aria-label="Live Guard activity statistics">
         <div className="kv"><span>Tool requests observed</span><b>{stats.tool_requests_observed}</b></div>
+        <div className="kv"><span>From MCP proxy</span><b>{stats.mcp_tool_requests}</b></div>
+        <div className="kv"><span>From Claude Code</span><b>{stats.claude_code_tool_requests}</b></div>
+        <div className="kv"><span>User prompts observed</span><b>{stats.user_prompts_observed}</b></div>
         <div className="kv"><span>Policy decisions recorded</span><b>{stats.policy_decisions}</b></div>
         <div className="kv"><span>Allowed by policy</span><b className="allow-t">{stats.allowed}</b></div>
         <div className="kv"><span>Blocked by policy</span><b className="deny-t">{stats.blocked}</b></div>
         <div className="kv"><span>Held for approval</span><b className="hold-t">{stats.held}</b></div>
         <div className="kv"><span>Tool outputs ingested</span><b>{stats.tool_results_observed}</b></div>
         <div className="kv"><span>Approval requests recorded</span><b>{stats.approval_requests}</b></div>
+        <div className="kv"><span>Human approval outcomes</span><b>{stats.approval_outcomes}</b></div>
+        <div className="kv"><span>Execution grants redeemed</span><b>{stats.execution_grants_redeemed}</b></div>
         <div className="kv"><span>Last audit event</span><b>{stats.last_event_at ? new Date(stats.last_event_at).toLocaleString() : "No recorded events yet"}</b></div>
         <p className="muted">Counts include only audit events explicitly tagged as live. “Allowed” means policy permitted a call; it does not by itself prove the tool completed successfully. Older untagged events and demo checks are excluded.</p>
       </div>}
@@ -347,7 +353,8 @@ export function Guard() {
         setPending(pend);
         setStats(log.stats || null);
         const rows = log.entries.filter((e) => e.event === "policy_decision").map((e) => ({
-          key: "s" + e.seq, time: (e.ts || "").slice(11, 19), decision: e.data?.decision, tool: e.data?.tool,
+          key: "s" + e.seq, time: (e.ts || "").slice(11, 19), decision: e.data?.decision,
+          tool: `${e.data?.source === "claude-code" ? "Claude Code" : "MCP"} · ${e.data?.tool || "unknown tool"}`,
           why: (e.data?.reasons || [])[0] || "",
         }));
         if (Number.isInteger(log.cursor)) after.current = log.cursor;
