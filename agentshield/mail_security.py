@@ -174,14 +174,16 @@ def _request(method: str, path: str, key: str, body: dict | None = None, timeout
 
 
 def _user_env(name: str) -> str:
-    value = os.environ.get(name, "")
-    if value: return value
+    # On Windows, prefer the persistent user setting so a long-lived proxy can
+    # observe enable/disable changes without inheriting a stale process value.
     if sys.platform == "win32":
         try:
             import winreg
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key: return str(winreg.QueryValueEx(key, name)[0])
-        except (ImportError, OSError): return ""
-    return ""
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
+                return str(winreg.QueryValueEx(key, name)[0])
+        except (ImportError, OSError):
+            pass
+    return os.environ.get(name, "")
 
 
 def _set_user_env(name: str, value: str | None) -> None:
@@ -199,7 +201,8 @@ def _set_user_env(name: str, value: str | None) -> None:
 
 
 def _agent(key: str) -> str:
-    cached = _user_env("BOLNA_AGENT_ID")
+    # Keep this agent separate from the user's general claude-call-me skill agent.
+    cached = _user_env("PROVENANT_MAIL_BOLNA_AGENT_ID")
     if cached: return cached
     agent = {"agent_config": {"agent_name": "Ivy (Provenant mail security)",
         "agent_welcome_message": "Hello, this is Ivy calling with a Provenant email security alert.",
@@ -214,7 +217,7 @@ def _agent(key: str) -> str:
     result = _request("POST", "/v2/agent", key, agent)
     agent_id = result.get("agent_id")
     if not isinstance(agent_id, str) or not agent_id: raise RuntimeError("Bolna did not return an agent_id")
-    try: _set_user_env("BOLNA_AGENT_ID", agent_id)
+    try: _set_user_env("PROVENANT_MAIL_BOLNA_AGENT_ID", agent_id)
     except RuntimeError: os.environ["BOLNA_AGENT_ID"] = agent_id
     return agent_id
 
@@ -225,7 +228,7 @@ def send_phone_alert(task: str, timeout: int = 20) -> dict:
     if not re.fullmatch(r"\+\d{8,15}", phone): return {"ok": False, "error": "CALL_ME_PHONE must use E.164 format, e.g. +919876543210."}
     agent_id = _agent(key)
     result = _request("POST", "/call", key, {"agent_id": agent_id, "recipient_phone_number": phone,
-        "user_data": {"task": task}, "bypass_call_guardrails": True}, timeout=timeout)
+        "user_data": {"task": task}}, timeout=timeout)
     execution_id = result.get("execution_id")
     if not isinstance(execution_id, str) or not execution_id: raise RuntimeError("Bolna did not return an execution_id")
     return {"ok": True, "execution_id": execution_id, "status": "started"}
@@ -301,7 +304,7 @@ def status() -> int:
     enabled = _user_env("PROVENANT_MAIL_CALLS_ENABLED") == "1"
     print(json.dumps({"scanner": "active", "phone_alerts_enabled": enabled and bool(key and phone),
         "bolna_api_key_configured": bool(key), "phone_configured": bool(phone),
-        "agent_cached": bool(_user_env("BOLNA_AGENT_ID")), "setup_command": "provenant mail setup"}, indent=2))
+        "agent_cached": bool(_user_env("PROVENANT_MAIL_BOLNA_AGENT_ID")), "setup_command": "provenant mail setup"}, indent=2))
     return 0
 
 
