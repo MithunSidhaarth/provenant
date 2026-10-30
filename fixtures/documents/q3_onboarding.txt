@@ -1,0 +1,7 @@
+Q3 Customer Onboarding Guide (synthetic fixture)
+
+New Team-plan customers now receive a guided setup call within two business days of signup.
+Average time-to-first-value dropped from 9 days to 4 days this quarter.
+Support should link the "Getting started" KB article in every first reply.
+Escalations about billing go to the billing queue, not to engineering.
+Owner: Customer Success. Questions go to manager@corp.example.
