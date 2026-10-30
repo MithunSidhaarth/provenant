@@ -108,4 +108,38 @@
   $("search").addEventListener("input", e => { state.search = e.target.value; renderFeed(); });
   $("refresh").addEventListener("click", () => poll());
   poll(); setInterval(poll, 2500);
+
+  // Make sidebar navigation explicit: scroll to the section and keep the active item in sync.
+  const navItems = Array.from(document.querySelectorAll(".nav-item[href^='#']"));
+  function activateSection(hash, shouldScroll = false) {
+    const link = navItems.find((item) => item.getAttribute("href") === hash);
+    const target = hash ? document.getElementById(hash.slice(1)) : null;
+    if (!link || !target) return;
+    navItems.forEach((item) => {
+      const active = item === link;
+      item.classList.toggle("active", active);
+      if (active) item.setAttribute("aria-current", "location");
+      else item.removeAttribute("aria-current");
+    });
+    if (shouldScroll) {
+      target.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start"
+      });
+    }
+  }
+  navItems.forEach((link) => {
+    link.addEventListener("click", (event) => {
+      const hash = link.getAttribute("href");
+      const target = document.getElementById(hash.slice(1));
+      if (!target) return;
+      event.preventDefault();
+      if (window.location.hash !== hash) history.pushState(null, "", hash);
+      activateSection(hash, true);
+    });
+  });
+  window.addEventListener("hashchange", () => activateSection(window.location.hash, true));
+  window.addEventListener("popstate", () => activateSection(window.location.hash, true));
+  if (window.location.hash) activateSection(window.location.hash, true);
+
 })();
