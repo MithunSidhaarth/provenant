@@ -13,4 +13,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agentshield.server import App, make_handler  # noqa: E402
 
-handler = make_handler(App(None))
+
+class handler(make_handler(App(None))):  # Vercel looks for a top-level class named `handler`
+    pass
