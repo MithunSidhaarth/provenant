@@ -307,7 +307,8 @@ def cmd_setup(yes: bool = False, dry: bool = False) -> int:
     if plan:
         print(f"  1. Restart {', '.join(l for l, *_ in plan)} so it launches its tools through Provenant.")
     print(f"  {2 if plan else 1}. Watch every tool call live:     {cyan('provenant log -f')}")
-    print(f"  {3 if plan else 2}. Try the policy without risk:   {cyan('provenant check Bash ' + chr(39) + '{\"command\":\"rm -rf ~\"}' + chr(39))}")
+    try_cmd = cyan("provenant check Bash '{\"command\":\"rm -rf ~\"}'")
+    print(f"  {3 if plan else 2}. Try the policy without risk:   {try_cmd}")
     print()
     return 0
 
