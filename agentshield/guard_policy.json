@@ -1,5 +1,5 @@
 {
-  "version": "guard-2026.10-3",
+  "version": "guard-2026.10-4",
   "description": "Policy for REAL tools: the MCP proxy and the Claude Code hook. Most restrictive finding wins; anything the policy cannot classify falls to unknown_tool.",
   "unknown_tool": "REQUIRE_APPROVAL",
   "max_calls_per_session": 400,
@@ -126,7 +126,17 @@
       "**/windows/system32/config/sam",
       "/proc/*/environ",
       "/proc/*/mem",
-      "/proc/*/cmdline"
+      "/proc/*/cmdline",
+      "**/Login Data",
+      "**/Cookies",
+      "**/key4.db",
+      "**/key3.db",
+      "**/logins.json",
+      "**/signons.sqlite",
+      "**/cookies.sqlite",
+      "**/Library/Keychains/**",
+      "**/*.keychain",
+      "**/*.keychain-db"
     ],
     "protected_patterns": [
       "**/.provenant/**",

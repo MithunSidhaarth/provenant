@@ -97,6 +97,32 @@ SHELL_RULES: list[tuple[str, Decision, str]] = [
     (r"\b(ssh|scp|sftp|rsync)\b[^|;&]*@", APPROVE, "connects to a remote machine"),
     (r"\b(curl|wget|iwr|invoke-webrequest|irm|invoke-restmethod)\b[^|;&]*\s-(x\s*(post|put|delete|patch)|d\b|-data\b|f\b)",
      APPROVE, "sends data to a remote host"),
+    # --- credential theft beyond dotfiles: reading secret stores or printing tokens (DENY) --------
+    (r"\bsecurity\s+(dump-keychain|find-(generic|internet)-password)\b", DENY, "dumps macOS keychain secrets"),
+    (r"\bgpg\b[^|;&]*--export-secret-keys\b", DENY, "exports GPG private keys"),
+    (r"\bgh\s+auth\s+token\b", DENY, "prints the GitHub auth token"),
+    (r"\baws\s+configure\s+get\s+aws_secret_access_key\b", DENY, "prints the AWS secret access key"),
+    (r"\b(op|lpass|bw|1password|security)\b[^|;&]*\b(get|read|show|reveal)\b[^|;&]*(password|secret|token|item|note)",
+     DENY, "reads a secret out of a password manager"),
+    # --- destructive cloud / infrastructure (hold for a human) ------------------------------------
+    (r"\b(kubectl|oc)\s+delete\b", APPROVE, "deletes Kubernetes resources"),
+    (r"\bhelm\s+(delete|uninstall)\b", APPROVE, "removes a Helm release"),
+    (r"\bterraform\s+(destroy|apply\b[^|;&]*-destroy)", APPROVE, "tears down infrastructure"),
+    (r"\baws\s+[a-z0-9-]+\s+(delete[a-z-]*|rm|rb|terminate[a-z-]*|purge)\b", APPROVE, "deletes or terminates AWS resources"),
+    (r"\b(gcloud|az)\b[^|;&]*\b(delete|destroy)\b", APPROVE, "deletes GCP or Azure resources"),
+    (r"\bdocker\b[^|;&]*\b(system\s+prune|volume\s+(rm|prune)|image\s+prune|rmi)\b", APPROVE,
+     "removes Docker images, volumes or build data"),
+    (r"\bgit\s+filter-branch\b|\bgit\s+reflog\s+expire\b|\bgit-filter-repo\b|\bbfg\b", APPROVE, "rewrites git history"),
+    # --- destructive database operations (hold for a human) ---------------------------------------
+    (r"(?:^|[;\n]|['\x27\x22\x60]\s*)\s*drop\s+(database|schema|table|collection)\b", APPROVE, "drops a database, schema or table"),
+    (r"(?:^|[;\n]|[\x27\x22\x60]\s*)\s*truncate\s+(table\s+)?[\"`\[]?\w", APPROVE, "truncates a table"),
+    (r"(?:^|[;\n]|[\x27\x22\x60]\s*)\s*delete\s+from\s+[\"`\[]?\w[\w.\"`\]]*\s*(;|$)", APPROVE, "SQL DELETE with no WHERE clause"),
+    (r"(?:^|[;\n]|[\x27\x22\x60]\s*)\s*update\s+[\"`\[]?\w[\w.\"`\]]*\s+set\b(?![^;]*\bwhere\b)", APPROVE, "SQL UPDATE with no WHERE clause"),
+    (r"\b(flushall|flushdb)\b", APPROVE, "wipes a datastore (redis FLUSHALL / FLUSHDB)"),
+    (r"\.dropdatabase\s*\(|\bdb\.\w+\.drop\s*\(", APPROVE, "drops a MongoDB database or collection"),
+    # --- exfiltration over non-HTTP channels (hold for a human) -----------------------------------
+    (r"\b(dig|nslookup|host|drill)\b[^|;&]*\$\(", APPROVE, "possible DNS exfiltration via command substitution"),
+    (r"\|\s*(nc|ncat|netcat)\s+\S+\s+\d+", APPROVE, "streams data to a raw network socket"),
 ]
 SHELL_RULES_C = [(re.compile(p, re.IGNORECASE | re.MULTILINE), d, r) for p, d, r in SHELL_RULES]
 
@@ -116,6 +142,10 @@ SECRET_PATTERNS = [
     (r"npm_[A-Za-z0-9]{36}", "npm_token"),
     (r"SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43}", "sendgrid_key"),
     (r"(?i)\b(password|passwd|pwd|secret|api[_-]?key|access[_-]?token)\s*[=:]\s*['\"]?[^\s'\"]{8,}", "credential_assignment"),
+    # Regulated personal identifiers (treated like secrets when leaving in an outbound call).
+    (r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b", "iban"),
+    (r"\b\d{4}\s\d{4}\s\d{4}\b", "aadhaar"),
+    (r"\b[A-Z]{5}\d{4}[A-Z]\b", "india_pan"),
 ]
 SECRET_PATTERNS_C = [(re.compile(p), name) for p, name in SECRET_PATTERNS]
 
@@ -123,7 +153,7 @@ URL_RE = re.compile(r"\b(?:https?|ftp|wss?)://[^\s\"'<>`)\]}]+", re.IGNORECASE)
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
 PATH_KEYS = {"file_path", "path", "paths", "notebook_path", "filename", "file", "source", "destination", "dest",
              "target", "directory", "dir", "src", "dst", "old_path", "new_path"}
-COMMAND_KEYS = {"command", "cmd", "script", "shell", "commandline", "command_line"}
+COMMAND_KEYS = {"command", "cmd", "script", "shell", "commandline", "command_line", "code"}
 WRITE_CONTENT_KEYS = {"content", "new_string", "new_source", "edits", "text", "body", "data"}
 _PRIVATE_HOST = re.compile(r"^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|\[?::1\]?$|metadata\.google\.internal)")
 
@@ -591,8 +621,14 @@ class GuardPolicy:
     def _dlp(self, call, session, cat) -> list[Finding]:
         leaves = _strings(call.args)
         blob = "\n".join(leaves)
+        # Reassemble secrets split across arguments: the full concatenation, plus each suffix so a
+        # secret whose first fragment follows an unrelated field (e.g. channel="x", a="123-45",
+        # b="-6789") still lines up on a word boundary.
+        concats = ["".join(leaves)]
+        if 1 < len(leaves) <= 24:
+            concats += ["".join(leaves[i:]) for i in range(1, len(leaves))]
         hits = []
-        for v in views(blob) + ["".join(leaves)]:      # also a key split across several arguments
+        for v in views(blob) + concats:
             hits += [h for h in scan_secrets(v) if h not in hits]
         if not hits:
             return []
