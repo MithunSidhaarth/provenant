@@ -8,8 +8,6 @@ on:
       - "agentshield/**"
       - "provenant/**"
       - "scripts/build_release.py"
-      - "install.ps1"
-      - "install.sh"
       - ".github/workflows/build-package-artifacts.yml"
   workflow_dispatch:
 
