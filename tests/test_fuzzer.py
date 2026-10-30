@@ -26,7 +26,7 @@ class Fuzzer(unittest.TestCase):
 
     def test_detection_covers_everything_we_decode(self):
         for c in self.rep["classes"]:
-            if c["mutation"] not in ("rot13", "reversed"):
+            if c["mutation"] not in ("rot13", "reversed", "natural_language"):
                 self.assertEqual(c["detected"], c["variants"], c["mutation"])
 
     def test_obfuscated_values_are_still_tainted(self):

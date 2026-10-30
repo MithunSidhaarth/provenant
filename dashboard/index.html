@@ -47,8 +47,8 @@
 
   <section class="view" id="view-lab">
     <div class="panel">
-      <div class="panel-head"><h2>Attack Lab: paste anything untrusted</h2><span class="chip attack">LIVE</span></div>
-      <p class="hint">Paste a document, email or web page. The obedient agent reads it as an attachment and does whatever it finds inside it, including base64, hidden Unicode and Hindi, Kannada or Hinglish instructions. You see the same content replayed without and with AgentShield.</p>
+      <div class="panel-head"><h2>Attack Lab: paste anything untrusted</h2><span><span class="chip">SIMULATED WORST-CASE AGENT</span><span class="chip attack">LIVE</span></span></div>
+      <p class="hint">Type or paste a document, email or web page, in plain English or Hindi, Kannada or Hinglish, or hidden in base64 or invisible Unicode. The agent here is a simulated worst-case model: it obeys any instruction it finds in content. You see the same content replayed without and with AgentShield.</p>
       <div class="presets" id="labSamples"></div>
       <label class="field">Untrusted content<textarea id="labContent" rows="8" spellcheck="false"></textarea></label>
       <label class="field">User request (trusted)<input id="labTask" value="Summarise the attached document (doc lab_upload) for me."></label>
@@ -56,8 +56,8 @@
     </div>
     <div id="labCompare" class="compare"></div>
     <div class="panel spaced">
-      <div class="panel-head"><h2>Injection mutation fuzzer</h2><button class="btn" id="fuzzRun">Run 84-variant campaign</button></div>
-      <p class="hint">Six attack seeds (exfiltration, fraud, PII harvest, destruction, beaconing, internal phishing) across fourteen obfuscation classes. Each variant runs twice, without and with AgentShield, and is judged from world state. Two classes, ROT13 and reversed text, are intentionally outside what AgentShield decodes. They show what still holds when detection is blind.</p>
+      <div class="panel-head"><h2>Injection mutation fuzzer</h2><button class="btn" id="fuzzRun">Run 90-variant campaign</button></div>
+      <p class="hint">Six attack seeds (exfiltration, fraud, PII harvest, destruction, beaconing, internal phishing) across fifteen classes, from plain English to obfuscated encodings. Each variant runs twice, without and with AgentShield, and is judged from world state. Two classes, ROT13 and reversed text, are intentionally outside what AgentShield decodes. They show what still holds when detection is blind.</p>
       <div id="fuzzResult"></div>
     </div>
     <div class="panel">

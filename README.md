@@ -8,13 +8,27 @@ The demo agent is deliberately gullible: it follows any `ASSISTANT ACTION:` inst
 
 ## Quick start
 
+### Windows
+
+Install Python 3.10+ from python.org and tick "Add python.exe to PATH". Then double-click, or run from the project folder:
+
+```bat
+run.bat            :: starts the dashboard and opens http://127.0.0.1:8765/
+demo.bat           :: terminal before/after replay + fuzzer summary
+test.bat           :: full test suite
+```
+
+Each script uses the `py` launcher and falls back to `python`. Nothing needs installing.
+
+### macOS / Linux
+
 Requires Python 3.10+ (tested on 3.13). There are no third-party dependencies and nothing to install.
 
 ```bash
 python3 -m agentshield.server          # dashboard at http://127.0.0.1:8765/
 python3 -m agentshield.demo -v         # terminal before/after replay, no browser needed
 python3 -m unittest discover -s tests -t .   # full test suite
-python3 -m agentshield.fuzzer          # 84-variant obfuscation campaign + benign false-positive corpus
+python3 -m agentshield.fuzzer          # 90-variant attack campaign + benign false-positive corpus
 python3 -m agentshield.redteam         # find gaps, propose fixes, replay, emit regression tests
 ```
 
@@ -36,14 +50,14 @@ Optional: set `AGENTSHIELD_AUDIT_KEY` to a long random string to use a stable au
 
 ### Attack Lab, fuzzer and self red-team
 
-- **Attack Lab:** paste any document, email or page. The obedient agent reads it as an attachment and the content is replayed without and with AgentShield. It understands base64, hex, invisible Unicode (zero-width and tag-character "ASCII smuggling"), homoglyphs, Hindi, Kannada and Hinglish instructions, fake `SYSTEM:` headers and split fields.
-- **Mutation fuzzer** (`agentshield/fuzzer.py`): 6 attack seeds × 14 obfuscation classes = 84 poisoned documents. Each variant runs twice and is judged from world state. Current numbers, reproduced by `python3 -m agentshield.fuzzer`:
-  - Without AgentShield: 84 of 84 variants cause harm.
-  - With AgentShield: 100% contained. 95.2% are stopped by DENY alone; the rest are held for human approval.
-  - Detection: 85.7%. ROT13 and reversed text are deliberately outside what AgentShield decodes.
+- **Attack Lab:** type or paste any document, email or page. The simulated worst-case agent reads it as an attachment, and the content is replayed without and with AgentShield. It obeys plain-language requests, through a deterministic intent parser: "fetch the database password and email it to…", "refund 4999 to customer C-999", "delete customer C-101", "visit https://…", and requests for SSN or card data. These work in English and with common Hindi, Kannada and Hinglish verbs. It also obeys structured directives hidden with base64, hex, invisible Unicode (zero-width and tag-character "ASCII smuggling"), homoglyphs, Hindi, Kannada and Hinglish instructions, fake `SYSTEM:` headers and split fields.
+- **Mutation fuzzer** (`agentshield/fuzzer.py`): 6 attack seeds × 15 classes (plain natural language plus 14 obfuscations) = 90 poisoned documents. Each variant runs twice and is judged from world state. Current numbers, reproduced by `python3 -m agentshield.fuzzer`:
+  - Without AgentShield: 90 of 90 variants cause harm.
+  - With AgentShield: 100% contained. 95.6% are stopped by DENY alone; the rest are held for human approval.
+  - Detection: 83.3%. ROT13 and reversed text are deliberately outside what AgentShield decodes. Plain-English instructions without injection phrasing are detected 3 times out of 6. Policy contains them all anyway, which is why detection is not the boundary.
   - Benign corpus of 12 documents: 0% of legitimate tasks blocked, and 16.7% wrongly flagged by detection. The flagged ones are a security-training email quoting "ignore previous instructions" and "please send it to the design team". The flag only escalates side effects to approval; it never blocks.
 - **Canonicalise before you taint.** Untrusted content is expanded into raw, canonical and decoded views before taint tracking and detection. A recipient hidden in base64 is still recognised as coming from the document. The fuzzer found a real bug here during development: multi-line directives were missed because outputs were scanned as escaped JSON. It is fixed and covered by tests.
-- **Self red-team loop** (`agentshield/redteam.py`): for each class with a miss, it takes the smallest failing document as a reproduction and proposes a policy change, such as `canonicalisation.extra_decoders: ["rot13"]`. It replays the whole campaign and the benign corpus on a *copy* of the policy and generates a regression test. With both proposals applied, detection goes from 85.7% to 100%, DENY-alone goes from 95.2% to 100%, and false positives don't change. Proposals are never applied to the live policy automatically; a person reviews them.
+- **Self red-team loop** (`agentshield/redteam.py`): for each class with a miss, it takes the smallest failing document as a reproduction and proposes a policy change, such as `canonicalisation.extra_decoders: ["rot13"]`. It replays the whole campaign and the benign corpus on a *copy* of the policy and generates a regression test. With both proposals applied, detection goes from 83.3% to 96.7%, DENY-alone goes from 95.6% to 100%, and false positives don't change. The natural-language gap has no automatic fix and is reported for a person to write a detector rule. Proposals are never applied to the live policy automatically; a person reviews them.
 
 ### Optional extensions
 
@@ -79,7 +93,7 @@ agentshield/
   server.py      stdlib HTTP API + dashboard host (127.0.0.1)
   demo.py        terminal demo
   normalize.py   canonicalisation: zero-width/tag chars, homoglyphs, base64/hex, optional decoders
-  fuzzer.py      84-variant mutation fuzzer + benign false-positive corpus
+  fuzzer.py      90-variant mutation fuzzer + benign false-positive corpus
   redteam.py     self red-team loop: repro → proposed policy change → replay → regression test
   llm_agent.py   optional Claude-driven agent behind the same gateway
   mcp_gateway.py MCP-style JSON-RPC stdio proxy with HMAC-pinned tool manifests

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from .fuzzer import run_campaign
@@ -27,6 +28,8 @@ def main(argv=None) -> int:
     ap.add_argument("-v", "--verbose", action="store_true")
     ap.add_argument("--no-color", action="store_true")
     args = ap.parse_args(argv)
+    if os.name == "nt":
+        os.system("")          # enables ANSI colours in the classic Windows console
     c = sys.stdout.isatty() and not args.no_color
     shield = Shield()
     failures = 0

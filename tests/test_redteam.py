@@ -10,19 +10,25 @@ class RedTeam(unittest.TestCase):
         cls.rep = run()
 
     def test_finds_the_blind_classes(self):
-        self.assertEqual({f["mutation"] for f in self.rep["findings"]}, {"rot13", "reversed"})
+        self.assertEqual({f["mutation"] for f in self.rep["findings"]}, {"rot13", "reversed", "natural_language"})
+        # Plain language has no decoder to propose; it is reported, not papered over.
+        nl = next(f for f in self.rep["findings"] if f["mutation"] == "natural_language")
+        self.assertIsNone(nl["proposal"])
 
     def test_proposals_close_the_gap_without_new_false_positives(self):
         for f in self.rep["findings"]:
             p = f["proposal"]
+            if p is None:
+                continue
             self.assertEqual(p["class_detection_after"], "6/6")
             self.assertEqual(p["containment_after"], 100.0)
             self.assertLessEqual(p["benign_detection_fp_after"], p["benign_detection_fp_before"])
             self.assertEqual(p["benign_task_fp_after"], 0.0)
-        self.assertEqual(self.rep["combined_patch"]["summary"]["detection_pct"], 100.0)
+        self.assertGreater(self.rep["combined_patch"]["summary"]["detection_pct"], self.rep["baseline"]["detection_pct"])
+        self.assertEqual(self.rep["combined_patch"]["summary"]["hard_denied_pct"], 100.0)
 
     def test_generated_regression_tests_pass(self):
-        for f in self.rep["findings"]:
+        for f in [f for f in self.rep["findings"] if f["proposal"]]:
             ns = {}
             src = "class T:\n" + f["proposal"]["regression_test"]
             exec(compile(src, "<generated>", "exec"), {"replay": replay}, ns)

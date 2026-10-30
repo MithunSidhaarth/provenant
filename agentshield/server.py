@@ -236,9 +236,14 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="AgentShield dashboard")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--open", action="store_true", help="open the dashboard in the default browser")
     args = ap.parse_args()
     httpd = serve(args.host, args.port)
-    print(f"AgentShield dashboard: http://{args.host}:{args.port}/  (Ctrl+C to stop)")
+    url = f"http://{args.host}:{args.port}/"
+    print(f"AgentShield dashboard: {url}  (Ctrl+C to stop)")
+    if args.open:
+        import webbrowser
+        webbrowser.open(url)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
