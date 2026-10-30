@@ -1,7 +1,7 @@
 {
  "_comment": "Single source of truth for the Get Started guide. tests/test_site_commands.py runs every `provenant` command here against the real CLI, so keep them exact.",
- "version": "0.9.2",
- "wheel_url": "https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.2-py3-none-any.whl",
+ "version": "0.10.0",
+ "wheel_url": "https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.0-py3-none-any.whl",
  "os": [
   {
    "id": "windows",

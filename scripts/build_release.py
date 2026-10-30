@@ -55,11 +55,11 @@ def main(argv: list[str]) -> int:
     sbom = {
         "bomFormat": "CycloneDX", "specVersion": "1.5", "serialNumber": f"urn:uuid:{uuid.uuid4()}", "version": 1,
         "metadata": {"timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                     "component": {"type": "application", "name": "provenant", "version": v,
-                                   "purl": f"pkg:pypi/provenant@{v}",
+                     "component": {"type": "application", "name": "provenant-agent-shield", "version": v,
+                                   "purl": f"pkg:pypi/provenant-agent-shield@{v}",
                                    "externalReferences": [{"type": "vcs", "url": "https://github.com/MithunSidhaarth/provenant"}]}},
         "components": [{"type": "file", "name": a.name, "hashes": [{"alg": "SHA-256", "content": sha256(a)}]} for a in arts],
-        "dependencies": [{"ref": f"pkg:pypi/provenant@{v}", "dependsOn": []}],
+        "dependencies": [{"ref": f"pkg:pypi/provenant-agent-shield@{v}", "dependsOn": []}],
         "properties": [{"name": "runtime-dependencies", "value": "none (Python standard library only)"},
                        {"name": "requires-python", "value": ">=3.10"}],
     }

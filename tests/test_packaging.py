@@ -26,7 +26,7 @@ class Packaging(unittest.TestCase):
                            capture_output=True, text=True)
         if r.returncode:
             raise unittest.SkipTest(f"cannot build a wheel here: {r.stderr[-300:]}")
-        cls.wheel = next((t / "whl").glob("provenant-*.whl"))
+        cls.wheel = next((t / "whl").glob("provenant_agent_shield-*.whl"))
         venv.EnvBuilder(with_pip=True).create(t / "venv")
         bindir = t / "venv" / ("Scripts" if sys.platform == "win32" else "bin")
         cls.py = bindir / ("python.exe" if sys.platform == "win32" else "python")

@@ -2,7 +2,7 @@ name: release
 
 # Runs on a version tag (v*) or by hand. Tests and the security evaluation must pass before anything is built.
 # Artifacts get SHA256SUMS, a CycloneDX SBOM, and Sigstore attestations (build provenance + SBOM) tied to this
-# workflow run and commit. Publishing uses the workflow's own GITHUB_TOKEN; no long-lived secrets are stored.
+# workflow run and commit. PyPI publishing uses Trusted Publishing (OIDC), not a long-lived API token.
 
 on:
   push:
@@ -20,6 +20,10 @@ jobs:
       - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.13"
+      - name: Build release artifacts and refresh generated installer metadata
+        run: |
+          python -m pip install build
+          python scripts/build_release.py --publish-site
       - run: python -m unittest discover -s tests -t .
       - run: python evals/run_eval.py
       - name: dependency audit (Provenant has no runtime Python dependencies; this audits build tooling and the web bundle)
@@ -42,6 +46,11 @@ jobs:
           python-version: "3.13"
       - run: python -m pip install -r scripts/release-requirements.txt
       - run: python scripts/build_release.py --out dist
+      - name: Install built wheel and smoke-test the public CLI
+        run: |
+          python -m pip install --no-deps dist/*.whl
+          provenant --version
+          provenant verify
       - uses: actions/attest-build-provenance@7668571508540a607bdfd90a87a560489fe372eb # v2.1.0
         with:
           subject-path: "dist/*.whl, dist/*.tar.gz"
@@ -57,3 +66,22 @@ jobs:
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
         with:
           files: dist/*
+
+  publish-pypi:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/provenant-agent-shield/
+    steps:
+      - uses: actions/download-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: dist
+          path: dist/
+      - name: Keep only Python distributions for PyPI upload
+        run: find dist -maxdepth 1 -type f ! -name '*.whl' ! -name '*.tar.gz' -delete
+      - name: Publish to PyPI using Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
