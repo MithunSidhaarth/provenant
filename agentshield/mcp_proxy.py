@@ -182,7 +182,13 @@ class MCPProxy:
             args = {"uri": uri}
             if uri.lower().startswith("file://"):
                 from urllib.parse import unquote, urlsplit
-                args["path"] = unquote(urlsplit(uri).path)
+                parts = urlsplit(uri)
+                path = unquote(parts.path)
+                if re.match(r"^[A-Za-z]:", parts.netloc):                 # file://C:\x or file://C:/x (non-standard)
+                    path = unquote(parts.netloc + parts.path)
+                elif re.match(r"^/[A-Za-z]:", path):                       # file:///C:/x -> C:/x
+                    path = path[1:]
+                args["path"] = path
             call = GuardCall(self._qualified("resources_read"), args, self.session_id, self.workspace, "mcp")
             v = self.guard.check(call, hold=True)
             if v.decision == ALLOW and not self.guard.redeem(v, call):

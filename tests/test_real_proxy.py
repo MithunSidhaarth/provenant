@@ -126,8 +126,9 @@ class RealProxy(unittest.TestCase):
         r = self.rpc("admin/exec", {"cmd": "id"})
         self.assertEqual(r["error"]["code"], -32601)
         self.assertIn("allow-list", r["error"]["message"])
-        r = self.rpc("resources/read", {"uri": "file://" + str(self.ws / ".env")})
-        self.assertTrue(r["result"]["content"][0]["text"].startswith("DENY"))
+        for uri in ((self.ws / ".env").as_uri(), "file://" + str(self.ws / ".env")):     # standard and raw Windows forms
+            r = self.rpc("resources/read", {"uri": uri})
+            self.assertTrue(r["result"]["content"][0]["text"].startswith("DENY"), (uri, r))
 
     def test_audit_chain_is_intact(self):
         self.rpc("tools/list")
