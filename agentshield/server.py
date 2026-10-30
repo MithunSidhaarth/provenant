@@ -366,12 +366,12 @@ def serve(host: str = "127.0.0.1", port: int = 8765, audit_dir: Path | None = RO
     return httpd
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="Provenant dashboard")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--open", action="store_true", help="open the dashboard in the default browser")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     httpd = serve(args.host, args.port)
     url = f"http://{args.host}:{args.port}/"
     print(f"Provenant dashboard: {url}  (Ctrl+C to stop)")
