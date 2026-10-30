@@ -105,7 +105,7 @@ def main(argv: list[str]) -> int:
         wheel_url = f"{PUBLIC_BASE}/{wheel}"
         onboarding["version"] = v
         onboarding["wheel_url"] = wheel_url
-        old_wheel_url = re.compile(r"https://github\\.com/MithunSidhaarth/provenant/raw/main/dist/[^\\s\\\"']+\\.whl")
+        old_wheel_url = re.compile(r"https://github\.com/MithunSidhaarth/provenant/raw/main/dist/[^\s]+\.whl")
         def refresh_wheel_urls(value):
             if isinstance(value, dict):
                 return {k: refresh_wheel_urls(val) for k, val in value.items()}
@@ -117,7 +117,7 @@ def main(argv: list[str]) -> int:
         onboarding = refresh_wheel_urls(onboarding)
         onboarding["version"] = v
         onboarding["wheel_url"] = wheel_url
-        onboarding_path.write_text(json.dumps(onboarding, indent=1, ensure_ascii=False) + "\\n", encoding="utf-8")
+        onboarding_path.write_text(json.dumps(onboarding, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(prov, indent=1))
     return 0
 
