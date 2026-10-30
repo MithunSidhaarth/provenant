@@ -16,7 +16,7 @@ PyPI name availability and account-level publisher settings cannot be changed by
 
 ## Release steps
 
-1. Merge the release changes to `main).
+1. Merge the release changes to `main`.
 2. Confirm CI and the release verification job pass. The workflow runs unit tests, the security evaluation, dependency audits, builds wheel + sdist, and installs the wheel to smoke-test `provenant --version` and `provenant verify`.
 4. Confirm the PyPI Trusted Publisher is configured and the distribution name is available.
 5. Create and push a version tag matching the version in `pyproject.toml`, for example `v0.10.0`.
