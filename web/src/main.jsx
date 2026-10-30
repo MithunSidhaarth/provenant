@@ -29,6 +29,7 @@ function Nav({ chain, pending, onReset }) {
         Provenant
       </a>
       <div className="nav-links">
+        <a href="/getting-started" className="nav-start" data-nav="start"><span>Get started</span></a>
         {NAV.map(([id, label]) => (
           <a key={id} href={`#${id}`} className={active === id ? "on" : ""} data-nav={id}>
             {active === id && <motion.span layoutId="nav-bg" className="nav-bg" transition={{ type: "spring", stiffness: 500, damping: 40 }} />}

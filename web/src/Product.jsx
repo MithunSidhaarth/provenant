@@ -235,8 +235,9 @@ export function Features() {
 // ---------- download + developers -----------------------------------------------------------------
 export function Download() {
   const rel = useJson("/download/latest.json");
-  const origin = typeof location !== "undefined" ? location.origin : "";
   const wheel = rel?.wheel;
+  const pub = rel?.urls;                       // public GitHub URLs: the site itself may sit behind Vercel sign-in
+  const base = pub ? pub.wheel.slice(0, pub.wheel.lastIndexOf("/")) : null;
   const sha = wheel && rel.sha256?.[wheel];
   const snippet = JSON.stringify({ mcpServers: { provenant: { command: "provenant", args: ["serve", "--workspace", "/path/to/project"] } } }, null, 2);
   return (
@@ -245,27 +246,29 @@ export function Download() {
       <div className="dl-grid">
         <Reveal className="card dl-main">
           <div className="card-head"><h3>{rel ? `Provenant ${rel.version}` : "Provenant"}</h3><span className="muted">{rel ? `commit ${rel.commit.slice(0, 7)}` : ""}</span></div>
-          {wheel ? (
+          {wheel && pub ? (
             <>
-              <a className="btn primary big" href={`/download/${wheel}`} download>Download Provenant <span aria-hidden="true">↓</span></a>
+              <a className="btn primary big" href="/getting-started">Get protected: guided setup <span aria-hidden="true">→</span></a>
+              <a className="btn ghost big" href={pub.wheel}>Download the wheel <span aria-hidden="true">↓</span> <span className="muted small">{rel.size?.[wheel] ? `${Math.round(rel.size[wheel] / 1024)} KB` : ""}</span></a>
               <div className="sha"><span className="muted">SHA-256</span><code>{sha}</code><CopyButton text={sha || ""} /></div>
-              <Cmd>{`pip install ${origin}/download/${wheel}`}</Cmd>
+              <Cmd>{`python -m pip install --user ${pub.wheel}`}</Cmd>
               <div className="dl-links">
-                <a href="/download/SHA256SUMS.txt">SHA256SUMS</a>
-                <a href="/download/sbom.cdx.json">SBOM (CycloneDX)</a>
-                <a href="/download/provenance.json">Build provenance</a>
-                <a href={`/download/${rel.sdist}`}>Source archive</a>
+                <a href={pub.sha256sums}>SHA256SUMS</a>
+                <a href={`${base}/sbom.cdx.json`}>SBOM (CycloneDX)</a>
+                <a href={`${base}/provenance.json`}>Build provenance</a>
+                <a href={pub.sdist}>Source archive</a>
                 <a href={REPO} rel="noopener">GitHub</a>
                 <a href="/eval/REPORT.md">Security results</a>
               </div>
-              <p className="muted small">Requires Python 3.10+. Verified by a clean virtualenv install on Linux (Python 3.13). The CI matrix adds Windows and macOS once the workflows run.</p>
+              <p className="muted small">Requires Python 3.10+. Files are served from GitHub, so the link works without signing in anywhere. Checked by <code>scripts/check_download.py</code>: HTTP 200, binary content type, SHA-256, zip integrity, and a clean virtualenv install on Linux (Python 3.13). Windows and macOS run in CI once the workflows run.</p>
             </>
-          ) : <p className="muted">No release file on this deployment. Install from source: <code>git clone {REPO}</code>.</p>}
+          ) : <p className="muted" role="status">Release details could not be loaded on this deployment. Use the <a href="/getting-started">guided setup</a> or install from source: <code>git clone {REPO}</code>.</p>}
         </Reveal>
         <Reveal className="card dev" delay={0.08}>
           <div className="card-head"><h3>Developers</h3><span className="muted">quick start</span></div>
           <ol className="dev-steps">
-            <li><b>Protect your clients</b> wrap every stdio MCP server in Claude Desktop, Cursor and Windsurf, and add the Claude Code hook (reversible).<Cmd>provenant setup</Cmd></li>
+            <li><b>Protect your clients</b> shows a plan for Claude Desktop, Cursor, Windsurf and the Claude Code hook, asks, then applies it (reversible with <code>provenant rollback</code>).<Cmd>provenant setup</Cmd></li>
+            <li><b>Prove it</b> a harmless enforcement test: allow, deny, hold, audit. Then see which clients are actually connected.<Cmd>provenant verify && provenant status</Cmd></li>
             <li><b>Or add Provenant's own tools</b> to any MCP client. <code>provenant config --workspace DIR</code> prints this with your real paths:<pre className="snippet">{snippet}</pre></li>
             <li><b>See a denial</b> dry-run a call through the policy; nothing executes.<Cmd>{`provenant check Bash '{"command": "cat .env"}'`}</Cmd></li>
             <li><b>Write policy</b> copy the built-in policy, then test and lint it.<Cmd>provenant policy init && provenant policy test && provenant policy lint</Cmd></li>
@@ -328,7 +331,7 @@ export function FinalCTA() {
       <Reveal>
         <h2>We are not building another agent.<br /><em>We are building the layer that makes agents accountable.</em></h2>
         <div className="cta-row">
-          <a className="btn primary big" href="#download">Download Provenant</a>
+          <a className="btn primary big" href="/getting-started">Get protected</a>
           <a className="btn ghost big" href={REPO} rel="noopener">Read the source</a>
           <a className="btn ghost big" href="#top">Run the security demo</a>
         </div>

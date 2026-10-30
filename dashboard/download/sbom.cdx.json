@@ -1,15 +1,15 @@
 {
  "bomFormat": "CycloneDX",
  "specVersion": "1.5",
- "serialNumber": "urn:uuid:d3d0faa4-5ddd-4b95-ac02-1fec9b6c293e",
+ "serialNumber": "urn:uuid:9f0ec152-60e5-4658-a92e-7292a2843665",
  "version": 1,
  "metadata": {
-  "timestamp": "2026-10-30T18:48:52Z",
+  "timestamp": "2026-10-30T19:07:14Z",
   "component": {
    "type": "application",
    "name": "provenant",
-   "version": "0.8.0",
-   "purl": "pkg:pypi/provenant@0.8.0",
+   "version": "0.9.0",
+   "purl": "pkg:pypi/provenant@0.9.0",
    "externalReferences": [
     {
      "type": "vcs",
@@ -21,28 +21,28 @@
  "components": [
   {
    "type": "file",
-   "name": "provenant-0.8.0-py3-none-any.whl",
+   "name": "provenant-0.9.0-py3-none-any.whl",
    "hashes": [
     {
      "alg": "SHA-256",
-     "content": "df65fd8b7fdd9a291221a742eddc453580609abb86b54dfc8f7cb5e92daa13d8"
+     "content": "065661463b1dcc6c37b55d6fcfe887eb48e30b527677e531fd3a51fc5f889a2e"
     }
    ]
   },
   {
    "type": "file",
-   "name": "provenant-0.8.0.tar.gz",
+   "name": "provenant-0.9.0.tar.gz",
    "hashes": [
     {
      "alg": "SHA-256",
-     "content": "993170bed6d9a7ed18cf81b52304df35331609027c16f762ff906ca6e095b60c"
+     "content": "f8656cb57b7c67cf27f09b6a4b67807b6574012820ff65ccc46b5772fa78fc9d"
     }
    ]
   }
  ],
  "dependencies": [
   {
-   "ref": "pkg:pypi/provenant@0.8.0",
+   "ref": "pkg:pypi/provenant@0.9.0",
    "dependsOn": []
   }
  ],

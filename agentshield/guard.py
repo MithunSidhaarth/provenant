@@ -814,6 +814,8 @@ class Guard:
             result = self.policy.evaluate(call, session)
             if not isinstance(result.decision, Decision):
                 raise TypeError("unsupported decision")
+            from .classifier import apply as model_assist   # optional, off by default; can only escalate ALLOW
+            result = model_assist(self, call, result)
         except Exception as exc:
             result = PolicyResult(DENY, [Finding("guard", DENY, f"policy evaluation failed ({type(exc).__name__}); failing closed")],
                                   "unhashable", self.policy.version)

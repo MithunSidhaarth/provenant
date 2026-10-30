@@ -4,7 +4,7 @@ import { Arena } from "./Arena.jsx";
 import { api, reduced } from "./api.js";
 import { ErrorNote } from "./ui.jsx";
 
-const HEADLINE = [["Your", "agent", "can", "act."], ["Provenant", "decides"], ["whether", "it", "should."]];
+const HEADLINE = [["Give", "your", "AI", "agents"], ["a", "security"], ["boundary."]];
 
 // The load sequence: a hairline draws across the screen, the screen splits along it, the page is underneath.
 export function Intro({ onDone }) {
@@ -34,7 +34,7 @@ export function Intro({ onDone }) {
 function Headline({ ready }) {
   let n = 0;
   return (
-    <h1 className="hero-title" aria-label="Your agent can act. Provenant decides whether it should.">
+    <h1 className="hero-title" aria-label="Give your AI agents a security boundary.">
       {HEADLINE.map((line, li) => (
         <span className={`hl-line${li === 1 ? " accent" : ""}`} key={li} aria-hidden="true">
           {line.map((w) => {
@@ -82,12 +82,18 @@ export function Hero({ ready, scenarios, onRun }) {
         </motion.div>
         <Headline ready={ready} />
         <motion.p className="hero-lede" initial={{ opacity: 0, y: 12 }} animate={ready ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.7, duration: 0.8 }}>
-          A security and governance layer that intercepts agent tool calls, enforces deterministic policy, and
-          routes sensitive actions to a human before anything runs.
+          Provenant evaluates tool calls, enforces deterministic security policies, routes configured risky actions
+          for human approval, and records auditable decisions. Add optional model-assisted risk intelligence without
+          surrendering policy control to an LLM.
         </motion.p>
         <motion.div className="hero-cta" initial={{ opacity: 0, y: 10 }} animate={ready ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.8 }}>
-          <a className="btn primary big" href="#download">Download Provenant</a>
-          <a className="btn ghost big" href="#video" onClick={(e) => { if (!document.getElementById("video")) { e.preventDefault(); document.getElementById("how")?.scrollIntoView(); } }}>Watch the demo</a>
+          <a className="btn primary big" href="/getting-started">Get protected</a>
+          <a className="btn ghost big" href="#how">See how it works</a>
+          <a className="hero-link" href="#trust">Security model →</a>
+        </motion.div>
+        <motion.div className="hero-steps" initial={{ opacity: 0 }} animate={ready ? { opacity: 1 } : {}} transition={{ delay: 0.9 }}>
+          <span><b>1</b> Install</span><span><b>2</b> <code>provenant setup</code> connects Claude Code, Claude Desktop, Cursor or Windsurf</span>
+          <span><b>3</b> <code>provenant verify</code> proves a forbidden action is blocked on your machine</span>
         </motion.div>
       </div>
 

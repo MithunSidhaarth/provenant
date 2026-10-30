@@ -1,10 +1,19 @@
 {
- "version": "0.8.0",
- "commit": "32a36e53bdf3502f05ed67c2099fe0c7978528fc",
- "wheel": "provenant-0.8.0-py3-none-any.whl",
- "sdist": "provenant-0.8.0.tar.gz",
+ "version": "0.9.0",
+ "commit": "c168556d6eac47cac0f330b96809bfb33a1cb82c",
+ "wheel": "provenant-0.9.0-py3-none-any.whl",
+ "sdist": "provenant-0.9.0.tar.gz",
+ "size": {
+  "provenant-0.9.0-py3-none-any.whl": 136088,
+  "provenant-0.9.0.tar.gz": 159255
+ },
+ "urls": {
+  "wheel": "https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl",
+  "sdist": "https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0.tar.gz",
+  "sha256sums": "https://github.com/MithunSidhaarth/provenant/raw/main/dist/SHA256SUMS.txt"
+ },
  "sha256": {
-  "provenant-0.8.0-py3-none-any.whl": "df65fd8b7fdd9a291221a742eddc453580609abb86b54dfc8f7cb5e92daa13d8",
-  "provenant-0.8.0.tar.gz": "993170bed6d9a7ed18cf81b52304df35331609027c16f762ff906ca6e095b60c"
+  "provenant-0.9.0-py3-none-any.whl": "065661463b1dcc6c37b55d6fcfe887eb48e30b527677e531fd3a51fc5f889a2e",
+  "provenant-0.9.0.tar.gz": "f8656cb57b7c67cf27f09b6a4b67807b6574012820ff65ccc46b5772fa78fc9d"
  }
 }

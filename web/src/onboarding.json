@@ -1,0 +1,380 @@
+{
+ "_comment": "Single source of truth for the Get Started guide. tests/test_site_commands.py runs every `provenant` command here against the real CLI, so keep them exact.",
+ "version": "0.9.0",
+ "wheel_url": "https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl",
+ "os": [
+  {
+   "id": "windows",
+   "label": "Windows",
+   "shells": [
+    {
+     "id": "powershell",
+     "label": "PowerShell",
+     "where": "Start menu, type PowerShell, open Windows PowerShell (not as administrator)."
+    },
+    {
+     "id": "cmd",
+     "label": "Command Prompt",
+     "where": "Start menu, type cmd, open Command Prompt."
+    }
+   ]
+  },
+  {
+   "id": "macos",
+   "label": "macOS",
+   "shells": [
+    {
+     "id": "sh",
+     "label": "Terminal",
+     "where": "Applications, Utilities, Terminal."
+    }
+   ]
+  },
+  {
+   "id": "linux",
+   "label": "Linux",
+   "shells": [
+    {
+     "id": "sh",
+     "label": "Terminal",
+     "where": "Your terminal emulator, as your normal user (no sudo)."
+    }
+   ]
+  }
+ ],
+ "methods": [
+  {
+   "id": "installer",
+   "label": "One-line installer",
+   "recommended": true,
+   "what": "Finds Python 3.10+, installs Provenant for your user only (no admin, no dependencies), adds a provenant command, then starts provenant setup, which shows a plan and asks before changing anything.",
+   "commands": {
+    "powershell": "irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex",
+    "cmd": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex\"",
+    "sh": "curl -fsSL https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.sh | sh"
+   },
+   "prefix": {
+    "powershell": "provenant",
+    "cmd": "provenant",
+    "sh": "provenant"
+   },
+   "note": "Read the script first if you prefer: open the same URL in your browser."
+  },
+  {
+   "id": "pipx",
+   "label": "pipx",
+   "recommended": false,
+   "what": "Installs Provenant into its own isolated environment and puts provenant on your PATH. Needs pipx (python -m pip install --user pipx, then pipx ensurepath).",
+   "commands": {
+    "powershell": "pipx install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl",
+    "cmd": "pipx install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl",
+    "sh": "pipx install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl"
+   },
+   "prefix": {
+    "powershell": "provenant",
+    "cmd": "provenant",
+    "sh": "provenant"
+   }
+  },
+  {
+   "id": "pip",
+   "label": "pip (no PATH changes)",
+   "recommended": false,
+   "what": "Installs the wheel for your user with pip. You then run Provenant as a Python module, which works even when pip's scripts folder is not on PATH.",
+   "commands": {
+    "powershell": "py -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl",
+    "cmd": "py -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl",
+    "sh": "python3 -m pip install --user https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl"
+   },
+   "prefix": {
+    "powershell": "py -m provenant",
+    "cmd": "py -m provenant",
+    "sh": "python3 -m provenant"
+   }
+  }
+ ],
+ "python_check": {
+  "powershell": "py --version",
+  "cmd": "py --version",
+  "sh": "python3 --version",
+  "expect": "Python 3.10 or newer",
+  "install": {
+   "windows": "Install Python from python.org/downloads (tick \"Add python.exe to PATH\") or run: winget install Python.Python.3.12",
+   "macos": "Install Python from python.org/downloads, or with Homebrew: brew install python",
+   "linux": "Use your package manager, for example: sudo apt install python3 python3-pip"
+  }
+ },
+ "clients": [
+  {
+   "id": "claude-code",
+   "label": "Claude Code",
+   "status": "supported",
+   "status_note": "Tested with a real Claude Code session: rm -rf and reading .env were blocked.",
+   "connects": "A PreToolUse / PostToolUse / UserPromptSubmit hook. Claude Code asks Provenant before every tool call, including built-in tools like Bash, Read and Write.",
+   "changes": "~/.claude/settings.json (adds three hook entries; everything else is kept)",
+   "restart": "Start a new Claude Code session.",
+   "setup": "setup --client claude-code",
+   "undo": "rollback --client claude-code"
+  },
+  {
+   "id": "claude-desktop",
+   "label": "Claude Desktop",
+   "status": "supported",
+   "status_note": "Local (stdio) MCP servers are routed through the Provenant proxy. Remote (HTTP) MCP servers are not proxied yet.",
+   "connects": "Each local MCP server entry is rewritten to start through the Provenant proxy, which checks every tools/call. The original entry is kept inside it.",
+   "changes": {
+    "windows": "%APPDATA%\\Claude\\claude_desktop_config.json",
+    "macos": "~/Library/Application Support/Claude/claude_desktop_config.json",
+    "linux": "~/.config/Claude/claude_desktop_config.json"
+   },
+   "restart": "Quit Claude Desktop completely (tray or menu bar icon, Quit), then open it again.",
+   "setup": "setup --client claude-desktop",
+   "undo": "rollback --client claude-desktop"
+  },
+  {
+   "id": "cursor",
+   "label": "Cursor",
+   "status": "experimental",
+   "status_note": "Uses the same proxy and config rewrite, tested on sample configs only, not yet inside the Cursor app.",
+   "connects": "Each local MCP server in Cursor's global MCP config starts through the Provenant proxy.",
+   "changes": "~/.cursor/mcp.json",
+   "restart": "Restart Cursor.",
+   "setup": "setup --client cursor",
+   "undo": "rollback --client cursor"
+  },
+  {
+   "id": "windsurf",
+   "label": "Windsurf",
+   "status": "experimental",
+   "status_note": "Uses the same proxy and config rewrite, tested on sample configs only, not yet inside the Windsurf app.",
+   "connects": "Each local MCP server in Windsurf's MCP config starts through the Provenant proxy.",
+   "changes": "~/.codeium/windsurf/mcp_config.json",
+   "restart": "Restart Windsurf.",
+   "setup": "setup --client windsurf",
+   "undo": "rollback --client windsurf"
+  },
+  {
+   "id": "manual",
+   "label": "Manual MCP config",
+   "status": "supported",
+   "status_note": "For any client that reads an mcpServers JSON file. Preview first with --dry-run.",
+   "connects": "Wraps every local MCP server in the config file you name.",
+   "changes": "The file you pass (a timestamped backup is written next to it)",
+   "restart": "Restart the client that reads that file.",
+   "setup": "wrap path/to/mcp.json --dry-run",
+   "setup_apply": "wrap path/to/mcp.json",
+   "undo": "unwrap path/to/mcp.json"
+  }
+ ],
+ "verify": {
+  "command": "verify",
+  "status": "status",
+  "doctor": "doctor",
+  "expected": [
+   "Read hello.txt (inside a temp folder): expected ALLOW",
+   "Reuse that grant for a different file: expected refused",
+   "Bash: rm -rf ~ (evaluated only; never executed): expected DENY",
+   "Check the canary file still exists: expected present",
+   "Bash: npm publish (evaluated only): expected REQUIRE_APPROVAL",
+   "Find these decisions in the audit log: 4 entries, chain intact"
+  ]
+ },
+ "levels": [
+  {
+   "id": "installed",
+   "label": "Installed",
+   "means": "The provenant package runs on this machine. Nothing routes through it yet."
+  },
+  {
+   "id": "engine",
+   "label": "Engine ready",
+   "means": "The policy loads and the audit chain verifies."
+  },
+  {
+   "id": "configured",
+   "label": "Configured",
+   "means": "A client config or the Claude Code hook points at Provenant."
+  },
+  {
+   "id": "connected",
+   "label": "Connected",
+   "means": "Provenant has seen at least one real tool call from that client."
+  },
+  {
+   "id": "verified",
+   "label": "Verified",
+   "means": "provenant verify passed against your current policy."
+  }
+ ],
+ "model": {
+  "status": "not_available",
+  "status_text": "No Provenant model is trained or hosted yet. Model assistance works with an OpenAI-compatible endpoint you run or rent.",
+  "config_path": "~/.provenant/model.json",
+  "config_example": "{\n  \"enabled\": true,\n  \"endpoint\": \"https://your-inference-host/v1/chat/completions\",\n  \"model\": \"your-model-name\",\n  \"api_key_env\": \"PROVENANT_MODEL_API_KEY\",\n  \"send\": \"redacted\",\n  \"timeout_s\": 4,\n  \"retries\": 1\n}",
+  "policy_example": "\"model_assist\": {\"escalate_on\": [\"high\", \"critical\"], \"on_error\": \"allow\"}",
+  "env": {
+   "powershell": "$env:PROVENANT_MODEL_API_KEY = Read-Host \"Paste key\"",
+   "cmd": "set /p PROVENANT_MODEL_API_KEY=Paste key: ",
+   "sh": "read -rs PROVENANT_MODEL_API_KEY && export PROVENANT_MODEL_API_KEY"
+  },
+  "check": "model status",
+  "test": "model test"
+ },
+ "troubleshooting": [
+  {
+   "id": "python-missing",
+   "step": "install",
+   "title": "'python' or 'py' is not recognized",
+   "means": "No Python 3.10+ is installed, or it is installed but this terminal cannot find it.",
+   "fix": {
+    "windows": "Install Python from python.org/downloads and tick \"Add python.exe to PATH\" (or run: winget install Python.Python.3.12). Then open a new terminal.",
+    "macos": "Install Python from python.org/downloads or with: brew install python. Then open a new terminal.",
+    "linux": "Install it with your package manager, for example: sudo apt install python3 python3-pip"
+   },
+   "verify": {
+    "powershell": "py --version",
+    "cmd": "py --version",
+    "sh": "python3 --version"
+   },
+   "if_fails": {
+    "windows": "If 'py' still fails but 'python' opens the Microsoft Store, turn off the python.exe alias in Settings, Apps, Advanced app settings, App execution aliases, then reinstall from python.org.",
+    "macos": "Run the 'Install Certificates' and 'Update Shell Profile' scripts in /Applications/Python 3.x, then open a new terminal.",
+    "linux": "Check 'which python3'. Some distributions name it python3.12; use that name instead."
+   }
+  },
+  {
+   "id": "cli-missing",
+   "step": "install",
+   "title": "'provenant' is not recognized",
+   "means": "Provenant is installed, but pip put the provenant command in a folder that is not on PATH, or this terminal was opened before the install.",
+   "fix": {
+    "windows": "Open a new terminal. If it still fails, run Provenant as a module, which always works: py -m provenant",
+    "macos": "Open a new terminal. If it still fails, run Provenant as a module: python3 -m provenant",
+    "linux": "Open a new terminal. If it still fails, run Provenant as a module: python3 -m provenant"
+   },
+   "verify": {
+    "powershell": "py -m provenant --version",
+    "cmd": "py -m provenant --version",
+    "sh": "python3 -m provenant --version"
+   },
+   "if_fails": {
+    "windows": "'No module named provenant' means it was installed into a different Python. Install again with the same py command.",
+    "macos": "'No module named provenant' means it was installed into a different Python. Install again with python3 -m pip.",
+    "linux": "'No module named provenant' means it was installed into a different Python. Install again with python3 -m pip."
+   }
+  },
+  {
+   "id": "cli-broken",
+   "step": "install",
+   "title": "The package installs but the command does not run",
+   "means": "A partial or mixed install: often an old 0.8.0 copy or an interrupted download.",
+   "fix": {
+    "windows": "py -m pip install --user --force-reinstall https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl",
+    "macos": "python3 -m pip install --user --force-reinstall https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl",
+    "linux": "python3 -m pip install --user --force-reinstall https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl"
+   },
+   "verify": {
+    "powershell": "py -m provenant doctor",
+    "cmd": "py -m provenant doctor",
+    "sh": "python3 -m provenant doctor"
+   },
+   "if_fails": {
+    "all": "Run the same command with --json and open an issue on GitHub with its output. It never contains secrets."
+   }
+  },
+  {
+   "id": "wheel-html",
+   "step": "install",
+   "title": "The downloaded .whl file is actually HTML",
+   "means": "The download link answered with a web page (usually a login page) instead of the package. 0.8.0's site link did this.",
+   "fix": {
+    "all": "Install straight from the GitHub URL in step 2, which serves the real file. Delete the bad .whl."
+   },
+   "verify": {
+    "powershell": "py -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant-0.9.0-py3-none-any.whl",
+    "cmd": "py -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant-0.9.0-py3-none-any.whl",
+    "sh": "python3 -c \"import zipfile,sys; print(zipfile.is_zipfile(sys.argv[1]))\" provenant-0.9.0-py3-none-any.whl"
+   },
+   "if_fails": {
+    "all": "False means the file is not a wheel. Compare its SHA-256 with SHA256SUMS.txt in the repository's dist folder."
+   }
+  },
+  {
+   "id": "vercel-login",
+   "step": "install",
+   "title": "The download link redirects to a Vercel login page",
+   "means": "That deployment is protected by Vercel Authentication, so anonymous visitors get a sign-in page instead of the file.",
+   "fix": {
+    "all": "Use the GitHub download URL in step 2. It is public and serves the binary."
+   },
+   "verify": {
+    "powershell": "(Invoke-WebRequest -Method Head -UseBasicParsing https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl).Headers['Content-Type']",
+    "cmd": "curl -sIL https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl",
+    "sh": "curl -sIL https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-0.9.0-py3-none-any.whl"
+   },
+   "if_fails": {
+    "all": "The final Content-Type should be application/octet-stream. If it says text/html, tell us on GitHub."
+   }
+  },
+  {
+   "id": "client-not-detected",
+   "step": "connect",
+   "title": "Setup does not find my AI client",
+   "means": "Setup reads the client's config file. The file does not exist until the client has run once with an MCP server configured.",
+   "fix": {
+    "all": "Open the client, add at least one MCP server in its settings, close it, then run setup again. Or choose Manual MCP config and pass the file path."
+   },
+   "verify": {
+    "all": "setup --dry-run"
+   },
+   "if_fails": {
+    "all": "Run doctor: it lists every config path it checked."
+   }
+  },
+  {
+   "id": "mcp-start",
+   "step": "connect",
+   "title": "An MCP server does not start after setup",
+   "means": "The wrapped entry starts the proxy with the Python that ran setup. If that Python or virtual environment moved or was deleted, the server cannot start.",
+   "fix": {
+    "all": "Undo and redo the change for that client: rollback --client CLIENT, then setup --client CLIENT."
+   },
+   "verify": {
+    "all": "doctor"
+   },
+   "if_fails": {
+    "all": "Open the client's MCP log (Claude Desktop: Settings, Developer, Open logs folder) and look for the provenant proxy line."
+   }
+  },
+  {
+   "id": "policy-unexpected",
+   "step": "verify",
+   "title": "The security test does not behave as expected",
+   "means": "Usually a customised ~/.provenant/policy.json changed a decision, or the policy file has an error.",
+   "fix": {
+    "all": "Check the policy for mistakes with: policy lint"
+   },
+   "verify": {
+    "all": "verify"
+   },
+   "if_fails": {
+    "all": "Rename ~/.provenant/policy.json temporarily so the built-in policy is used, and run verify again. If it then passes, the custom policy is the cause."
+   }
+  },
+  {
+   "id": "model-unavailable",
+   "step": "activate",
+   "title": "Model inference is unavailable",
+   "means": "The endpoint is unreachable, the key is missing, or the model answered in the wrong format. Deterministic protection keeps working either way.",
+   "fix": {
+    "all": "Check the endpoint and whether the key variable is set (the key itself is never shown): model status"
+   },
+   "verify": {
+    "all": "model test"
+   },
+   "if_fails": {
+    "all": "Set \"enabled\": false in ~/.provenant/model.json. Your policy's model_assist.on_error decides whether calls wait for a human while the model is down."
+   }
+  }
+ ]
+}
