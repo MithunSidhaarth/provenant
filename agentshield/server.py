@@ -176,7 +176,7 @@ class App:
         # The shared chain also contains explicitly simulated/demo records. Only count
         # events whose producer stamped them as live; old untagged records are ambiguous
         # and are deliberately excluded rather than presented as real agent activity.
-        live_entries = [e for e in entries if e.get("data", {}).get("mode") == "live"]
+        live_entries = [e for e in entries if e.get("data", {}).get("mode") == "live" and e.get("data", {}).get("source") in ("mcp", "claude-code")]
         keep = ("seq", "ts", "event", "session_id", "data", "hash")
         decisions = [e for e in live_entries if e.get("event") == "policy_decision"]
         decision_names = [e.get("data", {}).get("decision") for e in decisions]
