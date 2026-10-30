@@ -321,6 +321,8 @@ def cmd_setup(yes: bool = False, dry: bool = False, only: list[str] | None = Non
 
     if not plan and not want_hook:
         print("\n  " + green("Everything found is already protected.") + "  " + dim("provenant status") + "\n")
+        if not dry:
+            _offer_phone(yes)
         return 0
     if dry:
         print("\n  " + dim("Dry run: nothing changed.") + "\n")
@@ -353,6 +355,7 @@ def cmd_setup(yes: bool = False, dry: bool = False, only: list[str] | None = Non
             ok = False
         failed += not ok
         print(ui.row(green(SYM["ok"]) if ok else red(SYM["no"]), "Claude Code", "hook installed" if ok else red("hook install failed"), 18))
+    _offer_phone(yes)
     print(ui.section("Next"))
     if applied:
         print(f"  1. Restart {', '.join(applied)} so it launches its tools through Provenant.")
@@ -361,6 +364,136 @@ def cmd_setup(yes: bool = False, dry: bool = False, only: list[str] | None = Non
     print(f"  {dim('Undo all of this any time:      provenant rollback')}")
     print()
     return 1 if failed else 0
+
+
+def _offer_phone(yes: bool) -> None:
+    """Part of setup: phone alerts for suspicious mail and phone approval of held calls. Needs only a Bolna API key."""
+    from . import bolna
+    print(ui.section("Phone alerts (optional)"))
+    if bolna.configured():
+        d = bolna.describe()
+        print(ui.row(green(SYM["ok"]), "Phone", f"set up for {d['phone']}  " + dim("provenant phone test"), 18))
+        return
+    key, phone = os.environ.get("PROVENANT_BOLNA_API_KEY", ""), os.environ.get("PROVENANT_PHONE", "")
+    tty = bool(sys.stdin and sys.stdin.isatty())
+    if not (key and phone):
+        if yes or not tty:
+            print(ui.row(dim(SYM["dot"]), "Phone", dim("skipped. Add it later: provenant phone setup"), 18))
+            return
+        print("  " + dim("Provenant can phone you when an agent reads a suspicious mail, and to approve a held action."))
+        print("  " + dim("It needs your Bolna API key (bolna.ai) and your own phone number. The key stays on this PC."))
+        if not _ask("Set up phone alerts now?", default=False):
+            print(ui.row(dim(SYM["dot"]), "Phone", dim("skipped. Add it later: provenant phone setup"), 18))
+            return
+        cmd_phone(["setup"])
+        return
+    cmd_phone(["setup", "--from-env"])
+
+
+def cmd_phone(rest: list[str]) -> int:
+    import getpass
+    from . import bolna
+    sub = rest[0] if rest else "status"
+    if sub == "status":
+        print(json.dumps(bolna.describe(), indent=2))
+        return 0 if bolna.configured() else 1
+    if sub == "setup":
+        cfg = {k: v for k, v in bolna.load().items() if k in ("api_key", "phone", "agent_id", "alerts")}
+        if "--from-env" in rest:
+            key, phone = os.environ.get("PROVENANT_BOLNA_API_KEY", ""), os.environ.get("PROVENANT_PHONE", "")
+        else:
+            if not (sys.stdin and sys.stdin.isatty()):
+                print("  Not a terminal. Set PROVENANT_BOLNA_API_KEY and PROVENANT_PHONE, then run: provenant phone setup --from-env")
+                return 1
+            key = getpass.getpass("  Bolna API key (hidden): ").strip() or cfg.get("api_key", "")
+            phone = input("  Your phone number with country code, e.g. +919876543210: ").strip()
+        if not key or not bolna.E164.match(phone):
+            print(f"  {red(SYM['no'])} need a Bolna API key and a phone number like +919876543210")
+            return 1
+        if key != cfg.get("api_key"):
+            cfg.pop("agent_id", None)
+        cfg.update({"api_key": key, "phone": phone})
+        cfg.setdefault("alerts", {"mail": True, "min_level": "high"})
+        path = bolna.save(cfg)
+        print(f"  {green(SYM['ok'])} saved to {dim(ui.short_path(path))}  (key not shown; file is readable only by you where the OS allows)")
+        print("  " + dim("Alerts: high-risk mail. Change with: provenant phone alerts mail on|off, provenant phone alerts level medium|high"))
+        print("  " + dim("Try it:  provenant phone test   (places one short real call)"))
+        return 0
+    if sub == "test":
+        if not bolna.configured():
+            print("  Not set up. Run: provenant phone setup")
+            return 1
+        r = bolna.run_call("Phone call purpose: a test from Provenant. Say hello in one sentence, say the phone alerts are "
+                           "working, and end the call.", 180)
+        r.pop("transcript", None)
+        print(json.dumps(r, indent=2))
+        return 0 if r.get("status") == "completed" else 1
+    if sub == "alerts":
+        cfg = bolna.load()
+        raw = {k: v for k, v in cfg.items() if k in ("api_key", "phone", "agent_id", "alerts")}
+        al = dict(raw.get("alerts") or {"mail": True, "min_level": "high"})
+        if rest[1:2] == ["mail"] and rest[2:3] in (["on"], ["off"]):
+            al["mail"] = rest[2] == "on"
+        elif rest[1:2] == ["level"] and rest[2:3] in (["medium"], ["high"]):
+            al["min_level"] = rest[2]
+        else:
+            print("  usage: provenant phone alerts mail on|off   |   provenant phone alerts level medium|high")
+            return 2
+        raw["alerts"] = al
+        if os.environ.get("BOLNA_API_KEY"):
+            raw.pop("api_key", None)
+        bolna.save(raw)
+        print(f"  {green(SYM['ok'])} alerts: {al}")
+        return 0
+    if sub == "forget":
+        p = bolna.config_path()
+        if p.exists():
+            p.unlink()
+        print(f"  {green(SYM['ok'])} removed {p}")
+        return 0
+    print("  usage: provenant phone setup|status|test|alerts|forget")
+    return 2
+
+
+def cmd_mail(rest: list[str]) -> int:
+    from . import mailscan
+    sub = rest[0] if rest else "log"
+    if sub == "scan":
+        src = rest[1] if len(rest) > 1 else "-"
+        try:
+            raw = sys.stdin.read() if src == "-" else Path(src).read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            print(f"  {red(SYM['no'])} cannot read {src}: {type(exc).__name__}")
+            return 1
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            data = raw
+        vs = mailscan.analyze_output(data)
+        if "--json" in rest:
+            print(json.dumps(vs, indent=2))
+        elif not vs:
+            print("  " + dim("no mail found in that input"))
+        for v in vs if "--json" not in rest else []:
+            col = {"high": red, "medium": yellow}.get(v["level"], green)
+            print(f"  {col(v['level'].upper().ljust(7))} {v['score']:>3}  {bold(v['from'][:48])}  {dim(v['subject'][:40])}")
+            for sg in v["signals"][:4]:
+                print("           " + dim(SYM["bar"] + " " + sg["reason"]))
+        return 1 if any(v["level"] == "high" for v in vs) else 0
+    if sub == "log":
+        n = int(_opt(rest, "-n", 20))
+        rows = [e["data"] for e in guard_mod.Store().audit.snapshot() if e.get("event") == "mail_verdict" and isinstance(e.get("data"), dict)]
+        if "--json" in rest:
+            print(json.dumps(rows[-n:], indent=2))
+            return 0
+        if not rows:
+            print("  " + dim("No mail screened yet. It runs on mail tools of wrapped MCP servers and the Claude Code hook."))
+        for v in rows[-n:]:
+            col = {"high": red, "medium": yellow}.get(v.get("level"), green)
+            print(f"  {col(str(v.get('level', '?')).upper().ljust(7))} {v.get('score', 0):>3}  {bold(str(v.get('from', ''))[:48])}  {dim(str(v.get('subject', ''))[:40])}")
+        return 0
+    print("  usage: provenant mail scan FILE|-  [--json]   |   provenant mail log [-n N] [--json]")
+    return 2
 
 
 def cmd_wrap(target: str, undo: bool = False, workspace: str | None = None, dry: bool = False) -> int:
@@ -444,6 +577,11 @@ class _Feed:
             labels = ", ".join(sorted({f.get('label', '?') for f in d["injection_indicators"]}))
             return f"  {dim(t)} {ui.on_yellow(' TAINT ') if ui.COLOR else '[TAINT]'} {bold(_short_tool(d.get('tool')))}  " \
                    + yellow(ui.clip(f"injection in output ({labels}); side effects now need a human", ui.width() - 40))
+        if ev == "mail_verdict" and d.get("level") in ("medium", "high"):
+            col = red if d["level"] == "high" else yellow
+            why = "; ".join(x.get("reason", "") for x in (d.get("signals") or [])[:2])
+            return f"  {dim(t)} {col('MAIL ' + d['level'].upper())} {bold(str(d.get('from', ''))[:40])}  " \
+                   + col(ui.clip(f"{d.get('subject', '')[:40]}: {why}", ui.width() - 60))
         if ev in ("manifest_withheld", "manifest_refused"):
             what = ", ".join(sorted(d.get("withheld", {}))) or d.get("tool", "")
             return f"  {dim(t)} {ui.badge('DENY')} {bold('manifest')}  tool definition changed or poisoned: {what}"
@@ -747,6 +885,8 @@ def _help() -> str:
         f"    {c('provenant call APPROVAL_ID')}phone the human about one held call",
         f"    {c('provenant pins reset [server]')}re-approve tool definitions after an upgrade",
         f"    {c('provenant model status|test')}optional model-assisted risk labels (off by default)",
+        f"    {c('provenant mail scan FILE|-  /  mail log')}screen mails for phishing and injection; see verdicts",
+        f"    {c('provenant phone setup|status|test|alerts')}phone alerts and approvals (needs a Bolna API key)",
         "",
         "  " + dim("Docs: https://github.com/MithunSidhaarth/provenant/blob/main/docs/REAL_GUARD.md"),
         ""])
@@ -785,6 +925,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_rollback(yes="--yes" in rest or "-y" in rest, dry="--dry-run" in rest, only=only, as_json="--json" in rest)
     if cmd == "model":
         return cmd_model(rest)
+    if cmd == "phone":
+        return cmd_phone(rest)
+    if cmd == "mail":
+        return cmd_mail(rest)
     if cmd == "log":
         return cmd_log(int(_opt(rest, "-n", 25)), follow="-f" in rest or "--follow" in rest)
     if cmd == "pending":
