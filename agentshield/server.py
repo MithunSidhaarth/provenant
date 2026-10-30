@@ -176,19 +176,33 @@ class App:
         # The shared chain also contains explicitly simulated/demo records. Only count
         # events whose producer stamped them as live; old untagged records are ambiguous
         # and are deliberately excluded rather than presented as real agent activity.
-        live_entries = [e for e in entries if e.get("data", {}).get("mode") == "live" and e.get("data", {}).get("source") in ("mcp", "claude-code")]
+        # Include only events emitted by the real MCP proxy or Claude Code hooks. The
+        # prompt source label is intentionally distinct in the audit schema; proxy --task
+        # is also a real user-supplied task, not a simulation. Never infer "live" from
+        # an absent mode/source field: legacy and demo records remain excluded.
+        live_sources = {"mcp", "claude-code", "claude-code prompt", "proxy --task"}
+        live_entries = [e for e in entries
+                        if e.get("data", {}).get("mode") == "live"
+                        and e.get("data", {}).get("source") in live_sources]
         keep = ("seq", "ts", "event", "session_id", "data", "hash")
         decisions = [e for e in live_entries if e.get("event") == "policy_decision"]
         decision_names = [e.get("data", {}).get("decision") for e in decisions]
+        tool_requests = [e for e in live_entries if e.get("event") == "tool_request"]
         stats = {
             "audit_entries": len(live_entries),
-            "tool_requests_observed": sum(e.get("event") == "tool_request" for e in live_entries),
+            "live_sessions": len({e.get("session_id") for e in live_entries if e.get("session_id")}),
+            "tool_requests_observed": len(tool_requests),
+            "mcp_tool_requests": sum(e.get("data", {}).get("source") == "mcp" for e in tool_requests),
+            "claude_code_tool_requests": sum(e.get("data", {}).get("source") == "claude-code" for e in tool_requests),
+            "user_prompts_observed": sum(e.get("event") == "user_prompt" for e in live_entries),
             "policy_decisions": len(decisions),
             "allowed": decision_names.count("ALLOW"),
             "blocked": decision_names.count("DENY"),
             "held": decision_names.count("REQUIRE_APPROVAL"),
             "tool_results_observed": sum(e.get("event") == "tool_result" for e in live_entries),
             "approval_requests": sum(e.get("event") == "approval_requested" for e in live_entries),
+            "approval_outcomes": sum(e.get("event") in ("approval_granted", "approval_rejected") for e in live_entries),
+            "execution_grants_redeemed": sum(e.get("event") == "grant_redeemed" for e in live_entries),
             "last_event_at": live_entries[-1].get("ts") if live_entries else None,
         }
         return {"entries": [_mask({k: e.get(k) for k in keep}, 600)
