@@ -49,7 +49,7 @@ Hard rules from the brief, which must never be broken:
 | `agentshield/guard_policy.json` | built-in real-tool policy (`~/.provenant/policy.json` overrides) |
 | `agentshield/mcp_proxy.py` | real stdio MCP proxy: launches the real server, gates `tools/call`, pins manifests, taints on results |
 | `agentshield/cc_hook.py` | Claude Code PreToolUse / PostToolUse / UserPromptSubmit hook |
-| `agentshield/cli.py`, `provenant.py`, `provenant.bat`, `pyproject.toml` | `provenant` command: setup, wrap/unwrap client configs, install/uninstall claude-code, status, log -f, approve |
+| `agentshield/cli.py`, `ui.py`, `provenant.py`, `provenant.bat`, `pyproject.toml`, `install.ps1`, `install.sh` | `provenant` command (coloured UI from `ui.py`; setup with plan + confirm, status [--json] via `status_dict()`, log -f, interactive approve, check, verify [--json], wrap/unwrap, install/uninstall claude-code, plus v8 serve/call/audit/config/policy test) and one-line installers |
 | `agentshield/server.py` | HTTP API + dashboard host on 127.0.0.1:8765, with a self-only CSP and a static allow-list |
 | `dashboard/` | `index.html`, `app.js` (esbuild bundle of `web/src`, committed), `style.css` (Split design) |
 | `web/src/` | React 18 + Motion 11 + anime.js 3 source: `main.jsx`, `Hero.jsx` (intro + draggable before/after), `Guard.jsx` (MCP section, install, checker, feed, red-team), `Sim.jsx` (lab, playground, approvals, evidence, audit, policy). Rebuild: `cd web && npm install && npm run build` |
@@ -67,7 +67,7 @@ Hard rules from the brief, which must never be broken:
 | `web/src/Product.jsx` | v8 site sections: how it works, phone approval (visualization), efficiency, features (tested/experimental/planned), download, trust, demo video (reads `dashboard/media/manifest.json`) |
 | `policy/policy.json` | agent permissions, data classes, limits |
 | `scenarios/*.json` | 7 scenarios with `expected_protected` |
-| `tests/` | 166 unittest tests (`test_live.py` is v8; `test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py` are v6) |
+| `tests/` | 169 unittest tests (`test_live.py` is v8; `test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py`, `test_cli.py` are v6) |
 | `docs/` | ARCHITECTURE.md, THREAT_MODEL.md (T1 to T16), DEMO_SCRIPT.md (6 minutes), REAL_GUARD.md (v6 guide) |
 | `run.bat`, `demo.bat`, `test.bat`, `find_python.bat` | Windows launchers |
 
@@ -104,6 +104,7 @@ python3 provenant.py log -f                    # v6: live ok/BLOCK/HOLD/TAINT fe
 | v4.1 | 6ba7f08, 4c5ffd1 | `find_python.bat`: version-checked probing, then full paths for Store or python.org installs | 97 |
 | v7 | split-redesign | Dashboard rebuilt from scratch in React + Motion + anime.js (Split design: load sequence, draggable before/after hero, DENY stamps). New Guard/MCP section: install steps, status, dry-run checker, live feed, held calls, red-team results. Guard endpoints hardened (masking, Host check, derived fields). Hosted demo on Vercel. | 131 |
 | v6 | feat/real-guard | Provenant Guard: real MCP proxy + Claude Code hook in front of real tools; real-tool policy; persistent shared audit chain; `provenant setup/wrap/install/status/log -f/approve`; pip-installable. Real Claude Code in bypassPermissions mode was blocked from `rm -rf ./*` and `cat .env`. | 124 |
+| v8.1 | feat/guard-polish (PR #4, draft) | Guard CLI polish (colour badges, setup plan + confirm, interactive approve, masked secrets in the feed, `status_dict()`/`status --json`) and one-line installers (`install.ps1`, `install.sh`, pipx), with product-style step output. | 169 |
 | v8 | 110fd78, 740cc90, b6e74da | Live runtime: SQLite approvals + single-use call-bound grants, demo/live separation, phone-approval adapter (claude-call-me), netguard pinning, gateway MCP tool server with structured tools, audit anchoring + retention, privacy detail levels, policy simulator. Closed a notification-shaped `tools/call` proxy bypass and 18 guard gaps that the old red-team file hid. Eval suite + token benchmark. Release pipeline (SBOM, SHA256SUMS, provenance). Website: product sections, real Download, mobile layout fixes | 166 |
 | v5 | 628e507 | Renamed to Provenant (user-facing). Brutalist dashboard. Procedural gaussian-splat particle field that reacts to DENY/ALLOW/approval. anime.js + Motion. Everything vendored offline. Motion/lite toggle and fps watchdog. Self-only CSP. Comparison runs on load. | 99 |
 
@@ -148,6 +149,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 - The Windows launchers can't be tested in the cloud container.
 
 ## Next steps
+
+000. PR #4 (CLI polish + one-line installers) is rebased on v8 and kept as a draft until mithun says merge. After merge, try `irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex` on the laptop: install.ps1 has never run on Windows.
 
 00. v8 is merged. On the laptop: `git pull`, `test.bat` (166), `provenant.bat serve --workspace D:\AUTO\provenant` from an MCP client. Try a real phone approval with claude-call-me and only then call it working. Push a `v0.8.0` tag (or run the release workflow by hand) if tag pushes are allowed from the laptop.
 

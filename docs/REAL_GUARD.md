@@ -19,26 +19,37 @@ There are two enforcement points, sharing one deterministic policy, one approval
 
 ## Install (one minute)
 
+```powershell
+# Windows (PowerShell, no admin)
+irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex
+```
 ```bash
-git clone https://github.com/MithunSidhaarth/provenant && cd provenant
-python3 provenant.py setup          # Windows: provenant.bat setup
+# macOS / Linux (uses pipx if you have it, otherwise pip --user; no sudo)
+curl -fsSL https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.sh | sh
 ```
 
-`setup` finds the Claude Desktop, Cursor and Windsurf configs and routes every stdio MCP server in them through the proxy. It also installs the Claude Code hooks in `~/.claude/settings.json` when Claude Code is present. Every config it edits gets a timestamped backup. Each wrapped entry keeps its original command, so `provenant unwrap <client>` and `provenant uninstall claude-code` restore everything.
+Both installers find Python 3.10+, install the `provenant` package for your user and put a `provenant` command on your PATH. On Windows the launcher is `~/.provenant/bin/provenant.cmd`. Then they run `provenant setup`. Read the scripts first if you like: they are short. Note that Provenant itself would hold or block an *agent* that tried to pipe a download into a shell. These one-liners are for a person to type.
 
-Alternatively, `pip install .` gives you a `provenant` command with the same subcommands.
+Other ways:
+- `pipx install https://github.com/MithunSidhaarth/provenant/archive/refs/heads/main.zip`
+- `pip install --user <same URL>`
+- from a clone, with no install: `python3 provenant.py <command>`, or `provenant.bat <command>` on Windows
+
+`setup` finds the Claude Desktop, Cursor and Windsurf configs and shows what it will protect. It asks before changing anything, then routes every local (stdio) MCP server through the proxy. It also installs the Claude Code hooks in `~/.claude/settings.json` when Claude Code is present. Every config it edits gets a timestamped backup, and each wrapped entry keeps its original command, so `provenant unwrap <client>` and `provenant uninstall claude-code` restore everything. `setup --dry-run` shows the plan only, and `setup --yes` skips the question.
+
+![provenant status, live log and a dry-run check](img/provenant-cli.png)
 
 Targeted commands:
 
 ```bash
 provenant wrap claude-desktop | cursor | windsurf | vscode | claude-code-project | path/to/config.json
 provenant install claude-code [--project]
-provenant status                # what is protected, policy version, audit chain health, pending approvals
+provenant status [--json]       # what is protected, policy version, audit chain health, pending approvals
 provenant log -f                # live feed:  ok / BLOCK / HOLD / TAINT, one line per decision
 provenant pending               # held calls
-provenant approve appr_xxx      # must be typed at a terminal by a person; single use, bound to the exact call
+provenant approve [appr_xxx]    # a person at a terminal only; no id = walk through each held call; single use, bound to the exact call
 provenant check Bash '{"command":"rm -rf ~"}'    # dry-run a call through the policy
-provenant verify                # recompute the audit hash chain
+provenant verify [--json]       # recompute the audit hash chain
 provenant policy init           # copy the built-in policy to ~/.provenant/policy.json to customise it
 provenant pins reset [server]   # re-approve tool definitions after a legitimate server upgrade
 ```
