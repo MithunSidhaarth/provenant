@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "provenant"
-version = "0.9.1"
+version = "0.9.2"
 description = "A deterministic, model-independent policy gateway between AI agents and their real tools: MCP proxy, gated tool server, Claude Code hook, phone approvals."
 readme = "README.md"
 requires-python = ">=3.10"

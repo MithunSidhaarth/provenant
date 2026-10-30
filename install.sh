@@ -4,7 +4,7 @@
 # Uses pipx when available, otherwise installs for the current user with pip (no sudo, no dependencies),
 # then runs `provenant setup`, which shows what it will protect and asks before changing anything.
 set -eu
-VERSION="0.9.1"   # kept equal to pyproject.toml by tests/test_packaging.py
+VERSION="0.9.2"   # kept equal to pyproject.toml by tests/test_packaging.py
 SRC="${PROVENANT_SRC:-https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant-$VERSION-py3-none-any.whl}"
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     M='\033[35m'; G='\033[32m'; R='\033[31m'; D='\033[2m'; B='\033[1m'; N='\033[0m'

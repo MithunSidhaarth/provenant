@@ -11,8 +11,8 @@
 #  * Every native command's exit code is read right after it runs and a failed command's output is never used.
 #  * The file is plain ASCII and never calls `exit` when piped into iex (that would close the user's window).
 
-$PvVersion = '0.9.1'                # kept equal to pyproject.toml by tests/test_installer.py
-$PvWheelSha256 = 'c0763f088db467856a415f4d8c27ac93d2ce4f0277b57b0af6299dc015171aae'   # rewritten by scripts/build_release.py
+$PvVersion = '0.9.2'                # kept equal to pyproject.toml by tests/test_installer.py
+$PvWheelSha256 = '1aa6a56b876bd0b2b8a32f81fc2471c90fd053c1ac5e004c971f555a1986e6af'   # rewritten by scripts/build_release.py
 $PvMinCode = 31000                  # Python 3.10.0 as major*10000 + minor*100 + micro
 $PvProbeCode = 'import sys; print(sys.executable); print(sys.version_info[0] * 10000 + sys.version_info[1] * 100 + sys.version_info[2]); print(int(sys.prefix != sys.base_prefix))'
 $PvImportCode = 'import agentshield.cli as c; print(c.VERSION)'

@@ -1,9 +1,9 @@
 {
- "artifact_version": "0.9.1",
+ "artifact_version": "0.9.2",
  "source": "https://github.com/MithunSidhaarth/provenant",
- "commit": "f7936585db5751541b8cded00d2e4188b9076878",
+ "commit": "b819beb849ad7564c06e00ec970b92aa83ff2bdc",
  "working_tree_modified": true,
- "built_at_utc": "2026-10-30T19:19:31Z",
+ "built_at_utc": "2026-10-30T19:27:54Z",
  "builder": {
   "python": "3.13.17",
   "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
@@ -11,7 +11,7 @@
   "script": "scripts/build_release.py"
  },
  "artifacts": {
-  "provenant-0.9.1-py3-none-any.whl": "c0763f088db467856a415f4d8c27ac93d2ce4f0277b57b0af6299dc015171aae",
-  "provenant-0.9.1.tar.gz": "86c4cfafac0a7587e74cbb7073df3505c86aea6b8c04bb1827e916855349a880"
+  "provenant-0.9.2-py3-none-any.whl": "1aa6a56b876bd0b2b8a32f81fc2471c90fd053c1ac5e004c971f555a1986e6af",
+  "provenant-0.9.2.tar.gz": "03bf8f30ef821eeb38ce777f840fab253a8d1e666f81b992cfdb01865ded7350"
  }
 }

@@ -65,6 +65,21 @@ class Onboarding(unittest.TestCase):
         code, out = self.run_cli("rollback", "--yes")
         self.assertIn("Nothing to undo", out)
 
+    def test_antigravity_config_is_wrapped_and_restored(self):
+        ag = self.home / ".gemini" / "config" / "mcp_config.json"
+        ag.parent.mkdir(parents=True)
+        original = {"mcpServers": {"local": {"command": "npx", "args": ["-y", "x"], "env": {"K": "v"}},
+                                   "remote": {"serverUrl": "https://mcp.example/mcp"}}}
+        ag.write_text(json.dumps(original))
+        code, out = self.run_cli("setup", "--yes", "--client", "antigravity")
+        self.assertEqual(code, 0, out)
+        cfg = json.loads(ag.read_text())
+        self.assertIn("proxy", cfg["mcpServers"]["local"]["args"])
+        self.assertEqual(cfg["mcpServers"]["remote"], original["mcpServers"]["remote"])   # remote left alone
+        self.assertEqual(json.loads(self.cursor.read_text()), ORIGINAL)                    # other clients untouched
+        code, out = self.run_cli("rollback", "--yes", "--client", "antigravity")
+        self.assertEqual(json.loads(ag.read_text()), original)
+
     def test_missing_clients_reported_and_status_layers(self):
         code, out = self.run_cli("setup", "--dry-run")
         self.assertIn("Claude Desktop    not installed", out)
