@@ -260,10 +260,10 @@ function App() {
             <Command text={run("mail test")} label="mail-test" />
             <p className="gs-warn">This places a real call and may use Bolna credits. The CLI must ask you to confirm first. Run it only when you're ready to receive the call.</p>
             <h3>Control phone alerts any time</h3>
-            <div className="gs-facts">
-              <div><b>Pause calls</b><Command text={run("mail disable")} label="mail-disable" /><p>Mail scanning remains active; only phone calls stop.</p></div>
-              <div><b>Resume calls</b><Command text={run("mail enable")} label="mail-enable" /></div>
-            </div>
+            <ul className="gs-facts">
+              <li><b>Pause calls</b><Command text={run("mail disable")} label="mail-disable" /><p>Mail scanning remains active; only phone calls stop.</p></li>
+              <li><b>Resume calls</b><Command text={run("mail enable")} label="mail-enable" /></li>
+            </ul>
             <div className="gs-detail">
               <p><b>What the call says:</b> a short high-risk email alert with sender domain, subject, and risk signals. The email body and links are not sent to Bolna, and the call is not an approval request.</p>
               <p><b>What gets checked:</b> prompt-injection text, urgency and credential/payment requests, Reply-To mismatch, suspicious links, and known-brand/domain mismatches. This is heuristic screening—not a guarantee that other messages are safe.</p>
