@@ -20,9 +20,9 @@ from .ui import SYM, bold, cyan, dim, green, red, yellow
 
 try:
     from importlib.metadata import version as _pkg_version
-    VERSION = _pkg_version("provenant")
+    VERSION = _pkg_version("provenant-agent-shield")
 except Exception:
-    VERSION = "0.9.0"
+    VERSION = "0.10.0"
 
 CLIENT_LABELS = {"claude-desktop": "Claude Desktop", "cursor": "Cursor", "windsurf": "Windsurf",
                  "antigravity": "Antigravity",
