@@ -4,7 +4,7 @@ This file is the single source of truth for any agent or person who picks up thi
 
 **Keep it current.** After every milestone, update the "Status", "Version history" and "Next steps" sections. Commit and push the update with the work.
 
-Last updated: 2026-10-30 18:30 UTC, after v8 merged to main (PR #6) and deployed to https://provenant-indol.vercel.app.
+Last updated: 2026-10-30 22:40 UTC, after the video and the website motion pass.
 
 ## Product
 
@@ -130,8 +130,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 - **0.9.0 (PR feat/onboarding-0.9, not merged):** see UPDATE.md. The wheel URL in the site and installers is a GitHub raw URL under `dist/`, so it works only after this branch is merged to main. Run `python3 scripts/check_download.py --install` after merge. No model is trained or hosted; the site says so. install.ps1 still never run on real Windows.
 
 - **v8 is merged to main (PR #6, merge b0d524d) and live in production at https://provenant-indol.vercel.app** (check it in a private window: Vercel Authentication may still gate non-team visitors). The hero is now `web/src/Arena.jsx`: an anime.js two-lane attack replay (unprotected lane vs the Provenant gate) that replaced the drag-split comparison. Wheel installed in a clean venv and `provenant serve` answered initialize, tools/list, an allowed read and a held path-escape over stdio. Website walkthrough (desktop 1440 and mobile 390): no horizontal overflow, zero console errors, Download returns the wheel.
-- Launch deck: `/mnt/project-files/provenant-launch/deck/` (PPTX, PDF, speaker script). Video narration script: `/mnt/project-files/provenant-launch/video/NARRATION_SCRIPT.md`. Launch video (about 2 min, rude/confident roast script, ElevenLabs voice) is in final mix; frame sheets are in `/mnt/project-files/provenant-launch/video/preview/`. When done: put the mp4 + poster in `dashboard/media/`, set `manifest.json` to `{"video": "/media/provenant-launch.mp4", "poster": "/media/poster.png"}` (watch the file size), rebuild, PR.
-- Requested next by mithun, after the video: a page loader (counter 0 to 100, wordmark reveal, gate-line split) and awwwards-style scroll animations (section-title mask reveals, velocity marquee of ALLOW/DENY/HOLD, scroll-scrubbed statement, hero parallax), matching the current dark green/red/amber theme. Not started.
+- Launch deck: `/mnt/project-files/provenant-launch/deck/` (PPTX, PDF, speaker script). Video narration script: `/mnt/project-files/provenant-launch/video/NARRATION_SCRIPT.md`. Launch video done: full quality at `/mnt/project-files/provenant-launch/video/provenant-launch.mp4` (1:42, 1080p30, 326 MB); a 720p copy (7.7 MB) + `poster.jpg` are in `dashboard/media/` and shown in the site's Watch section via `manifest.json`.
+- Website motion pass (`web/src/Scroll.jsx`): anime.js page loader (counter 0 to 100, wordmark rise, gate-line split; replaces `Intro`), scroll-velocity marquee (ALLOW/DENY/REQUIRE APPROVAL), scroll-lit statement, hero parallax, section-title clip reveals (`ui.jsx` Section). Reduced-motion users skip the loader. Walkthrough at 1440 and 390: zero console errors, no horizontal overflow.
 
 - v7 (dashboard rebuild + Guard section) is on branch `split-redesign` with a PR to main and a hosted demo on Vercel (project `provenant`, team meth2). Rebuild the bundle with `cd web && npm run build` after any change in `web/src`.
 - main was v5 and is running on the laptop at 127.0.0.1:8765. v4 was confirmed with 97/97 tests on the laptop. The v5 pull still needs confirming there, including "Motion: full" on the real GPU.
