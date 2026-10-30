@@ -206,11 +206,11 @@ function Feed({ items, hosted }) {
     <div className="feed card">
       <div className="card-head">
         <h3>Observed decision feed</h3>
-        <span className="live"><i />{hosted ? "no remote agent connected" : "live audit events"}</span>
+        <span className="live"><i />{hosted === true ? "no remote agent connected" : hosted === false ? "live audit events" : "checking source…"}</span>
       </div>
       <ol className="feed-list">
         <AnimatePresence initial={false}>
-          {items.length === 0 && <Empty key="empty">{hosted ? "This Vercel deployment cannot read your machine’s local audit log. Run the local dashboard to see real agent activity." : "No observed live policy decisions yet. Connect an agent through Provenant and its events will appear here."}</Empty>}
+          {items.length === 0 && <Empty key="empty">{hosted === true ? "This Vercel deployment cannot read your machine’s local audit log. Run the local dashboard to see real agent activity." : hosted === false ? "No observed live policy decisions yet. Connect an agent through Provenant and its events will appear here." : "Checking whether this dashboard can access a local Guard audit log…"}</Empty>}
           {items.map((it) => (
             <motion.li key={it.key} layout initial={{ opacity: 0, x: -14, height: 0 }} animate={{ opacity: 1, x: 0, height: "auto" }}
               exit={{ opacity: 0 }} transition={{ type: "spring", stiffness: 380, damping: 34 }}>
