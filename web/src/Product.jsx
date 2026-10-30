@@ -116,7 +116,7 @@ export function PhoneApproval() {
       lede="A held action can ring your phone through the claude-call-me voice agent. You can ask questions, then approve or refuse that one action. The voice agent only carries words: Provenant reads the transcript with fixed rules and is the only thing that can change the approval.">
       <div className="phone-grid">
         <Reveal className="phone card">
-          <div className="phone-top"><span className={`ring${done ? "" : " on"}`} /> <b>Ivy · Provenant approval</b><span className="vis-tag">visualization</span></div>
+          <div className="phone-top"><span className={`ring${done ? "" : " on"}`} /> <b>Ivy · Provenant approval</b><span className="vis-tag">simulation · no live call</span></div>
           <ol className="phone-lines">
             <AnimatePresence initial={false}>
               {TRANSCRIPT.slice(0, Math.min(n, TRANSCRIPT.length)).map(([who, text], i) => (
@@ -140,7 +140,7 @@ export function PhoneApproval() {
             <div><b>Bound</b> the code is an HMAC of this request's id and call fingerprint; changed arguments need a new approval</div>
             <div><b>Status</b> adapter and validator are built and tested against simulated transcripts. A live call needs your own Bolna account and claude-call-me; we have not claimed one in this demo.</div>
           </div>
-          <Cmd>provenant call appr_1a2b3c4d5e6f</Cmd>
+          <p className="muted small">Illustrative transcript only. No phone call is placed and no approval is recorded by this animation.</p>
         </Reveal>
       </div>
     </Section>
