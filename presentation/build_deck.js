@@ -126,10 +126,10 @@ s.addText("Measured, regenerated from code", { placeholder: "title" });
 s.addChart(pres.charts.BAR, [{ name: "Attacks contained", labels: ["shell", "path", "ssrf", "cloud", "pii", "credtheft", "exfil", "tamper", "rce", "family", "dlp", "database"], values: [44, 19, 19, 14, 12, 12, 12, 11, 10, 10, 9, 8] }],
   { x: 0.6, y: 3.7, w: 7.6, h: 3.1, barDir: "col", chartColors: [HEX.mint], showValue: true, dataLabelPosition: "outEnd", dataLabelColor: HEX.fg, dataLabelFontSize: 10, dataLabelFontFace: "+mn-lt",
     catAxisLabelColor: HEX.muted, valAxisLabelColor: HEX.muted, catAxisLabelFontSize: 10, valAxisHidden: true, valGridLine: { style: "none" }, catGridLine: { style: "none" }, showLegend: false,
-    catAxisLabelFontFace: "+mn-lt", showTitle: true, title: "Attacks contained by category (all 100%)", titleColor: HEX.fg, titleFontSize: 13, titleFontFace: "+mn-lt", objectName: "category chart" });
+    catAxisLabelFontFace: "+mn-lt", showTitle: true, title: "Largest 12 of 18 attack categories (all 100% contained)", titleColor: HEX.fg, titleFontSize: 13, titleFontFace: "+mn-lt", objectName: "category chart" });
 text(s, [{ text: "235 unit tests pass, including a wheel built and installed in a clean venv.", options: { breakLine: true } }, { text: "Attacks found 41 gaps in our own v8 guard in round 2. All fixed, all now regression cases.", options: { breakLine: true } }, { text: "Passing these cases is evidence for these cases, not proof of no bypass.", options: { italic: true, color: HEX.muted } }],
   { x: 8.6, y: 3.8, w: 4.1, h: 3.0, fontSize: 15, paraSpaceAfter: 10 });
-s.addNotes("P3. 40 seconds. Numbers come from python evals/run_eval.py, rerun today. 225 attacks across 15 categories: every one is DENY or REQUIRE_APPROVAL, never ALLOW. 53 legitimate actions all allowed: no false positives. Mention round 2: we red-teamed ourselves and found 41 gaps, fixed them. The categories not shown (taint, classify, failclosed) are also 100%.");
+s.addNotes("P3. 40 seconds. Numbers come from python evals/run_eval.py, rerun today. 225 attacks across 18 categories: every one is DENY or REQUIRE_APPROVAL, never ALLOW. 53 legitimate actions all allowed: no false positives. Mention round 2: we red-teamed ourselves and found 41 gaps, fixed them. The six smaller categories not on the chart (injection, persist, evasion, taint, classify, failclosed) are also 100%.");
 
 // 10 Limitations
 s = slide("CONTENT", "Demo, evaluation and close"); kicker(s, "HONEST LIMITS", "P3");

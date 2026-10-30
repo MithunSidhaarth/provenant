@@ -34,7 +34,7 @@
 
 - "What if the attacker paraphrases the address?" Provenance compares values, so a reworded address can slip that one rule. The other rules still apply: after the agent reads injected text, every side effect needs a human. It's on our limits slide.
 - "Why not use an LLM to judge?" An LLM judge can be prompt-injected by the same text. We have an optional model, but it can only make decisions stricter, never allow anything, and it's off by default.
-- "How fast?" About 0.16 milliseconds per decision on our test machine. The proxy adds about 14 ms per call.
+- "How fast?" About 0.16 milliseconds per decision on our test machine. The proxy adds roughly 15 to 25 milliseconds per call, including writing the audit log.
 - "Can the agent approve its own call?" provenant approve refuses to run without a real terminal, so an agent running commands can't approve. We call that a speed bump, not a proof.
 - "Remote MCP servers?" Not yet. Only local stdio servers are proxied today.
 - "Which models does it work with?" Any. It never looks inside the model; it only sees tool calls.

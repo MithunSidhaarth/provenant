@@ -24,7 +24,7 @@ Rule: answer in two sentences, then stop. If you don't know, say "We haven't mea
 
 **Is the audit log tamper-proof?** Tamper-evident. Any edit breaks the chain and `audit verify` reports where; truncation needs an external checkpoint (`provenant audit checkpoint`).
 
-**Performance?** Policy decision p50 about 0.16 ms. Proxy overhead p50 about 14 ms per call.
+**Performance?** Policy decision p50 about 0.16 ms. Proxy overhead p50 roughly 15 to 25 ms per call, depending on the machine (it includes the database and audit writes).
 
 **Remote MCP servers?** Not yet; stdio only.
 
@@ -34,7 +34,7 @@ Rule: answer in two sentences, then stop. If you don't know, say "We haven't mea
 
 **Is the call real?** Yes: a real Bolna voice call to my phone, placed only with `--call` and a yes. The email is fake on purpose (reserved .example domains).
 
-**How did you test it?** 225 attack cases across 15 categories, 53 legitimate actions, 32 policy scenarios and 9 live proxy checks, all from `python evals/run_eval.py`. Plus 235 unit tests, including installing the wheel in a clean environment.
+**How did you test it?** 225 attack cases across 18 categories, 53 legitimate actions, 32 policy scenarios and 9 live proxy checks, all from `python evals/run_eval.py`. Plus 235 unit tests, including installing the wheel in a clean environment.
 
 **Who wrote the attacks? Isn't that circular?** We did, so it is evidence for these cases, not proof. Round 2 was written to break our own v8 guard and found 41 gaps, all fixed.
 
