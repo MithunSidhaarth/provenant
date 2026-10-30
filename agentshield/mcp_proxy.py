@@ -254,8 +254,25 @@ class MCPProxy:
                     self.guard.audit.append("manifest_withheld", self.session_id, {"withheld": withheld})
                     _notify(f"[provenant] withheld tools from {self.name}: {sorted(withheld)}")
             elif kind and kind[0] in UNTRUSTED_RESULTS:
+                result = msg.get("result")
                 try:
-                    flags = self.guard.ingest_output(self.session_id, self._qualified(kind[1]), msg.get("result"))
+                    # Mail scanning is observational: it never changes the MCP result or decides
+                    # whether a tool call may run. The deterministic policy remains authoritative.
+                    from .mail_security import process_result
+                    reports = process_result(
+                        result, self.name, kind[1],
+                        audit=lambda event, data: self.guard.audit.append(event, self.session_id, data),
+                    )
+                    for report in reports:
+                        if report["verdict"] == "high":
+                            _notify(f"[provenant] HIGH-RISK EMAIL from {report['sender_domain']}: "
+                                    f"{report['subject'][:100]} (score {report['risk_score']})")
+                except Exception as exc:
+                    self.guard.audit.append("mail_scan_error", self.session_id,
+                                            {"server": self.name, "tool": str(kind[1])[:100],
+                                             "error": type(exc).__name__})
+                try:
+                    flags = self.guard.ingest_output(self.session_id, self._qualified(kind[1]), result)
                     if flags:
                         _notify(f"[provenant] injection indicators in {self.name}.{kind[1]} output: "
                                 f"{[f['label'] for f in flags]}")
