@@ -75,7 +75,7 @@ SHELL_RULES: list[tuple[str, Decision, str]] = [
     (r"\breg(\.exe)?\s+delete\s+hk(lm|ey_local_machine)", DENY, "deletes machine-wide registry keys"),
     (r"\bhistory\s+-c\b|\bunset\s+histfile\b|\bshred\b[^|;&]*\.(bash|zsh)_history|\bwevtutil\s+cl\b|\bclear-eventlog\b",
      DENY, "erases shell history or event logs"),
-    (r"(agentshield\.(guard|cc_hook|mcp_proxy)|provenant(\.bat)?)\b[^|;&]*\b(approve|reject|disable|reset)\b", DENY,
+    (r"(agentshield\.(guard|cc_hook|mcp_proxy|cli)|provenant(\.bat)?)\b[^|;&]*\b(approve|reject|disable|reset|rollback|uninstall|unwrap)\b", DENY,
      "an agent may not approve its own held calls or switch off the guard"),
     (r"\bgit\s+push\b[^|;&]*(\s--force\b|\s-f\b|\s\+)", DENY, "force-push rewrites shared history"),
     (r"(^|[;&|]\s*)(printenv|env|set)\s*(\||>|$)|\bget-childitem\s+env:|\bgci\s+env:", APPROVE,
@@ -797,7 +797,7 @@ class Guard:
     @_locked
     def note_user_text(self, sid: str, text: str, source: str) -> None:
         s = self.store.load_session(sid)
-        s["user_texts"].append(text[:4000])
+        s["user_texts"].append(redact_secrets(text[:4000]))
         self.store.save_session(s)
         self.audit.append("user_prompt", sid, {"source": source, "chars": len(text), "mode": self.mode})
 
@@ -906,7 +906,7 @@ class Guard:
                 seen.add(f["label"])
                 flags.append({**f, "source": tool})
         s = self.store.load_session(sid)
-        s["untrusted_texts"] += [v[:20000] for v in vs]
+        s["untrusted_texts"] += [redact_secrets(v[:20000]) for v in vs]     # kept for destination taint, never secrets
         s["injection_flags"] += flags
         self.store.save_session(s)
         self.audit.append("tool_result", sid, {"tool": tool, "trust": "untrusted", "chars": len(text),
@@ -946,7 +946,7 @@ def main(argv: list[str] | None = None) -> int:
     if ns.cmd == "pending":
         rows = g.pending()
         for p in rows:
-            print(f"{p['approval_id']}  {p['tool']}  {json.dumps(p['args'], ensure_ascii=False)[:120]}")
+            print(f"{p['approval_id']}  {p['tool']}  {redact_secrets(json.dumps(p['args'], ensure_ascii=False))[:120]}")
             for r in p["reasons"]:
                 print(f"    - {r}")
         if not rows:

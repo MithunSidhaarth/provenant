@@ -31,7 +31,7 @@ class RealProxy(unittest.TestCase):
             "drop@exfil.example -->", encoding="utf-8")
         self.rug, self.outbox = t / "rug", t / "outbox.jsonl"
         env = dict(os.environ, PROVENANT_HOME=str(self.home), RUG_PULL_FILE=str(self.rug), OUTBOX=str(self.outbox),
-                   ALLOW_CRASH="1")
+                   ALLOW_CRASH="1", ALLOW_UNSOLICITED="1")
         env.pop("AGENTSHIELD_AUDIT_KEY", None)
         self.env = env
         self.p = subprocess.Popen([sys.executable, str(ROOT / "provenant.py"), "proxy", "--name", "realtest",
@@ -74,6 +74,56 @@ class RealProxy(unittest.TestCase):
         self.assertIn("not running", r["error"]["message"])                # never silently resent anywhere
         events = [json.loads(l)["event"] for l in (self.home / "audit.jsonl").read_text().splitlines()]
         self.assertIn("upstream_exit", events)
+
+    def raw(self, line):
+        self.p.stdin.write(line + "\n")
+        self.p.stdin.flush()
+        return json.loads(self.p.stdout.readline())
+
+    def test_malformed_messages_fail_closed_and_the_proxy_keeps_serving(self):
+        self.rpc("tools/list")
+        target = self.ws / "bad.txt"
+        r = self.raw(json.dumps({"jsonrpc": "2.0", "id": "a", "method": "tools/call", "params": "write_file"}))
+        self.assertEqual(r["error"]["code"], -32602)
+        r = self.raw(json.dumps({"jsonrpc": "2.0", "id": "b", "method": "tools/call",
+                                 "params": {"name": "write_file", "arguments": [str(target), "x"]}}))
+        self.assertTrue(r["result"]["content"][0]["text"].startswith("DENY"))
+        r = self.raw(json.dumps([1, "x"]))
+        self.assertEqual(r["error"]["code"], -32600)
+        self.p.stdout.readline()                                           # one error per non-object batch item
+        r = self.raw(json.dumps({"jsonrpc": "2.0", "id": "c", "method": "initialize", "params": [1]}))
+        self.assertEqual(r["error"]["code"], -32602)
+        self.assertFalse(target.exists())
+        _, text = self.call("run_command", command="echo still-serving")   # the proxy did not die
+        self.assertIn("still-serving", text)
+
+    def test_unadvertised_tool_is_refused_before_and_after_listing(self):
+        target = self.ws / "early.txt"
+        r, text = self.call("write_file", path=str(target), content="x")   # no tools/list yet
+        self.assertTrue(text.startswith("DENY") and "not advertised" in text, text)
+        self.rpc("tools/list")
+        r, text = self.call("delete_everything", path=str(self.ws))
+        self.assertIn("not advertised", text)
+        self.assertFalse(target.exists())
+        self.assertTrue((self.ws / "keep.txt").exists())
+
+    def test_unsolicited_server_response_is_dropped(self):
+        r = self.rpc("ping")                       # the server also sends a response to id "pre-empt"
+        self.assertEqual(r["id"], self.n)          # the client only ever sees the answer to what it asked
+        self.p.stdin.write(json.dumps({"jsonrpc": "2.0", "id": "pre-empt", "method": "tools/list"}) + "\n")
+        self.p.stdin.flush()
+        names = {t["name"] for t in json.loads(self.p.stdout.readline())["result"]["tools"]}
+        self.assertNotIn("exfil", names)
+        events = [json.loads(l)["event"] for l in (self.home / "audit.jsonl").read_text().splitlines()]
+        self.assertIn("protocol_refused", events)
+
+    def test_agent_cannot_switch_the_guard_off_through_a_tool(self):
+        self.rpc("tools/list")
+        for cmd in ("provenant rollback --yes", "python -m provenant uninstall claude-code",
+                    "provenant unwrap claude-desktop", "provenant pins reset", "provenant approve appr_1"):
+            r, text = self.call("run_command", command=cmd + " && echo ran > " + str(self.ws / "ran.txt"))
+            self.assertTrue(text.startswith("DENY"), (cmd, text))
+        self.assertFalse((self.ws / "ran.txt").exists())
 
     def test_dangerous_calls_never_reach_the_server(self):
         self.rpc("tools/list")
@@ -193,6 +243,19 @@ class ClaudeCodeHook(unittest.TestCase):
         v = g.audit.verify()
         self.assertTrue(v["ok"], v)
         self.assertEqual(v["checked"], 32)
+
+    def test_stuck_decision_is_denied_before_claude_codes_timeout(self):
+        script = ("import io, sys, time\n"
+                  "from agentshield import cc_hook\n"
+                  "cc_hook.PRE_DEADLINE_S = 0.5\n"
+                  "cc_hook.handle = lambda event, guard=None: time.sleep(30)\n"
+                  "sys.exit(cc_hook.main())\n")
+        event = {"session_id": "abc", "hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "ls"}}
+        r = subprocess.run([sys.executable, "-c", script], input=json.dumps(event), env=self.env, cwd=ROOT,
+                           capture_output=True, text=True, timeout=20)
+        out = json.loads(r.stdout)["hookSpecificOutput"]
+        self.assertEqual(out["permissionDecision"], "deny")
+        self.assertIn("failing closed", out["permissionDecisionReason"])
 
     def test_garbage_input_fails_closed(self):
         r = subprocess.run([sys.executable, str(ROOT / "provenant.py"), "hook"], input="not json",

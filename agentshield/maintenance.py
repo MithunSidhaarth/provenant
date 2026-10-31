@@ -5,6 +5,9 @@ import json
 import subprocess
 import sys
 
+INSTALL_HINT = ("irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex   (Windows)\n"
+                "  curl -fsSL https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.sh | sh   (macOS/Linux)")
+
 
 def dashboard(args: list[str]) -> int:
     from . import server
@@ -23,6 +26,10 @@ def update(args: list[str]) -> int:
         except (OSError, subprocess.TimeoutExpired) as exc:
             print(f"Update check failed: {exc}")
             return 1
+        if result.returncode != 0 and "No matching distribution" in (result.stdout + result.stderr):
+            print(f"{package} is not published on PyPI yet. Reinstall the latest wheel with the one-line installer:\n"
+                  f"  {INSTALL_HINT}")
+            return 1
         print((result.stdout + result.stderr).strip() or "No version information returned.")
         return 0 if result.returncode == 0 else 1
     print("Updating Provenant from the official PyPI distribution…")
@@ -32,7 +39,8 @@ def update(args: list[str]) -> int:
         print(f"Could not start pip: {exc}")
         return 1
     if result.returncode:
-        print("Update failed. Check package publication, network access and the active Python environment.")
+        print("Update failed. If the package is not on PyPI yet, reinstall with the one-line installer:\n"
+              f"  {INSTALL_HINT}")
         return result.returncode
     print("Update installed. Restart Provenant and connected AI clients to load the new version.")
     return 0
