@@ -167,6 +167,13 @@ def live() -> dict:
         check("unknown JSON-RPC method refused", px.rpc("admin/exec").get("error", {}).get("code") == -32601)
         px.raw("{not json")
         check("malformed JSON gets a parse error", json.loads(px.p.stdout.readline()).get("error", {}).get("code") == -32700)
+        px.raw(json.dumps({"jsonrpc": "2.0", "id": "bad", "method": "tools/call", "params": "write_file"}))
+        bad = json.loads(px.p.stdout.readline())
+        _, txt = call("run_command", command="echo after-bad")
+        check("malformed params fail closed and the proxy keeps serving",
+              bad.get("error", {}).get("code") == -32602 and "after-bad" in txt)
+        _, txt = call("delete_everything", path=str(ws))
+        check("a tool the server never advertised is refused", txt.startswith("DENY") and (ws / "keep.txt").exists())
         r, txt = call("run_command", command="git push origin main")
         held = (r.get("_meta") or {}).get("provenant", {}).get("approval_id")
         check("risky call is held for a human, nothing runs", txt.startswith("REQUIRE_APPROVAL") and bool(held))

@@ -2,7 +2,28 @@
 
 All notable changes. Versions follow the `provenant-agent-shield` package version.
 
-## 0.10.2 (unreleased, branch `feat/live-guard-dashboard`)
+## 0.10.3 (branch `claude/project-thread-if8nxm`, not merged)
+
+Hardening of the enforcement boundary. No new dependencies, no new integrations; every fix has a regression test that fails on 0.10.2.
+
+### Security fixes
+- **An agent could switch Provenant off.** `provenant rollback --yes`, `provenant uninstall claude-code` and `provenant unwrap CLIENT` run from an agent's shell (Claude Code `Bash`, or an MCP `run_command`) were allowed. They are now denied, like `approve`, `reject`, `pins reset` and `mail disable` already were.
+- **One malformed MCP message killed the proxy.** A `tools/call` (or `initialize`, `prompts/get`) whose `params` was not an object raised outside the fail-closed path and ended the proxy, so every tool of that server disappeared for the session. Each message now fails closed on its own (`-32602`/`-32603`) and the proxy keeps serving.
+- **Unsolicited server responses were forwarded.** A server could send a response to an id the client had not used yet; the client would match it to its next `tools/list` and see tools that never went through manifest review. Responses whose id matches no forwarded request are dropped and audited.
+- **Calls to tools the server never advertised were evaluated like any other call.** They are now refused before policy evaluation ("unlisted tools never run"), including calls sent before the first `tools/list`.
+- **The MCP server dying mid-call hung the agent.** Every in-flight request now gets a JSON-RPC error (allowed calls are reported as "outcome unknown"), later requests are refused with nothing sent, and an `upstream_exit` record is written.
+- **Raw secrets were kept in local session state.** Tool output and prompts stored for taint tracking in `~/.provenant/state.db` are now secret-redacted; destinations (hosts, emails) are kept, so taint still works.
+- **Claude Code hook timeout failed open.** Claude Code runs a tool when its hook times out (30 s). A PreToolUse decision that takes longer than 20 s now answers `deny` itself.
+
+### Fixed
+- `provenant update` said only "ERROR: No matching distribution" because the package is not on PyPI; it now says so and prints the one-line installer.
+- `provenant dashboard` on a busy port printed a traceback; it now says the port is in use.
+- The simulated MCP gateway answered non-object `params` with `id: null`.
+
+### Tests
+- 256 unit and integration tests (246 before), live proxy checks 11/11 (9 before), attacks 225/225 contained, benign 53/53.
+
+## 0.10.2 (merged to main in PR #23)
 
 A same-named 0.10.1 wheel was already published without the dashboard, so these fixes ship as 0.10.2 to make the upgrade visible.
 

@@ -12,7 +12,9 @@ This document states what Provenant protects, how, and where it stops. The threa
 | `DENY` | The call never reaches the tool. The reason is shown to the agent and recorded. |
 | `REQUIRE_APPROVAL` | The call is held. Only a person typing at a terminal (`provenant approve`) or answering a verified phone call can release it, once. |
 
-No findings means `DENY` (fail closed). A policy file that fails to load means the built-in policy is used, and a missing built-in means `DENY`.
+A tool the policy cannot classify is held for a human. A policy file that fails to load or validate (yours in `~/.provenant/policy.json`, or the built-in one) makes every call `DENY` until it is fixed; Provenant does not fall back to a weaker policy. A rule that raises an error denies the call.
+
+Which agent actions actually pass through this decision point depends on how the agent is connected: see [COVERAGE.md](COVERAGE.md).
 
 ## What the policy looks at
 
@@ -34,8 +36,9 @@ flowchart LR
   P --> L[(Hash-chained HMAC audit log)]
 ```
 
-- **MCP proxy** (`provenant proxy`, installed by `provenant setup`): sits on the stdio pipe. Only allowed `tools/call` requests reach the server, including requests shaped like notifications. Tool manifests are pinned by HMAC; a changed definition (rug pull) is withheld until re-approved.
-- **Claude Code hook** (`provenant hook`): PreToolUse returns deny or ask; PostToolUse ingests results for taint; UserPromptSubmit records what the user actually asked for.
+- **MCP proxy** (`provenant proxy`, installed by `provenant setup`): sits on the stdio pipe. Only allowed `tools/call` requests reach the server; requests shaped like notifications are dropped. Tool manifests are pinned by HMAC; a changed definition (rug pull) is withheld until re-approved, and a tool the server did not advertise in this session is refused. A malformed message fails closed on its own, a server response nobody asked for is dropped, and if the server dies every waiting request gets an error.
+- **Claude Code hook** (`provenant hook`): PreToolUse returns deny or ask; PostToolUse ingests results for taint; UserPromptSubmit records what the user actually asked for. A decision that takes longer than 20 s is a deny (Claude Code would run the tool when its 30 s hook timeout expires). If the hook program cannot start at all, Claude Code runs the tool; `provenant doctor` reports a hook that points at a missing program.
+- **Self-protection**: an agent may not run `provenant approve`, `reject`, `rollback`, `uninstall`, `unwrap`, `pins reset` or `mail disable`, or write to `~/.provenant` or the Claude Code settings file.
 - **Gated tool server** (`provenant serve`): check, then redeem the grant, then execute. A grant cannot be replayed or used for different arguments.
 
 ## Human approval
@@ -54,6 +57,7 @@ Every request, decision, approval and result goes into an append-only, hash-chai
 
 ## Secrets and privacy
 
+- Tool output and prompts kept in `~/.provenant/state.db` for taint tracking are secret-redacted first.
 - No secrets in the repository; test fixtures use reserved fake values (`{{fake:NAME}}`, 900-area SSNs, `.example` domains).
 - The Bolna API key is stored in `~/.provenant/mail.json` with mode 0600, and encrypted with Windows DPAPI on Windows. Provenant never writes it to the registry.
 - The feed and dashboard mask secrets and phone numbers. Phone alerts never read links or message bodies aloud.

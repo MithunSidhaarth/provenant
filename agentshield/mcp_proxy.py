@@ -25,7 +25,11 @@ On top of the per-call policy the proxy:
 * pins every tool definition the server advertises (HMAC over name, description and schema) the first
   time it sees it, refusing definitions whose description carries an injection. Later lists and calls are
   checked against the pin, so a server that changes a tool after approval ("rug pull") has that tool
-  withheld and its calls refused. Pins persist in PROVENANT_HOME/pins/<name>.json;
+  withheld and its calls refused. A call to a tool the server did not advertise in this session is refused.
+  Pins persist in PROVENANT_HOME/pins/<name>.json;
+* answers only what was asked: a server response whose id matches no forwarded request is dropped (it could
+  otherwise pre-empt a tools/list and skip review). If the server exits, every in-flight request gets an
+  error and nothing is resent. A malformed message fails closed for that message; the proxy keeps serving;
 * scans every tool result as untrusted content: destinations that appear only in it are tainted, and
   injection indicators make later side effects need a human.
 
@@ -60,6 +64,7 @@ class Pins:
         except (OSError, ValueError):
             self.pins = {}
         self.withheld: dict[str, str] = {}
+        self.advertised: set[str] = set()    # names this server listed in this session and that passed review
 
     def sign(self, d: dict) -> str:
         body = {"name": d.get("name"), "description": d.get("description", ""), "inputSchema": d.get("inputSchema", {})}
@@ -89,6 +94,7 @@ class Pins:
         if changed:
             self.path.write_text(json.dumps(self.pins, indent=1), encoding="utf-8")
         self.withheld = withheld
+        self.advertised = (self.advertised | {d["name"] for d in ok}) - set(withheld)   # pages of a paginated list add up
         return ok, withheld
 
 
@@ -111,6 +117,7 @@ class MCPProxy:
         self.inp = inp or sys.stdin
         self._lock = threading.Lock()
         self._pending: dict = {}             # client request id -> ("list" | "call", tool)
+        self._upstream_alive = True
         exe = shutil.which(upstream_cmd[0]) or upstream_cmd[0]    # resolves npx.cmd etc. on Windows
         self.proc = subprocess.Popen([exe] + upstream_cmd[1:], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=None, text=True, encoding="utf-8", bufsize=1)
@@ -134,13 +141,39 @@ class MCPProxy:
         return f"mcp__{self.name}__{tool}"
 
     # --- client -> server ----------------------------------------------------------------------
+    def _upstream_gone(self) -> None:
+        """The real server exited: answer every in-flight request so the agent never hangs, and never resend."""
+        with self._lock:
+            if not self._upstream_alive:
+                return
+            self._upstream_alive = False
+            pending, self._pending = self._pending, {}
+        code = self.proc.poll()
+        self.guard.audit.append("upstream_exit", self.session_id, {"server": self.name, "returncode": code,
+                                                                   "in_flight": len(pending)})
+        for key, kind in pending.items():
+            note = " Its outcome is unknown: the call was allowed and may have partly run." if kind[0] == "call" else ""
+            self._error(json.loads(key), -32000, f"Provenant: the '{self.name}' MCP server exited "
+                                                 f"(code {code}) before answering.{note}")
+
     def on_client(self, msg: dict) -> None:
         method, mid = msg.get("method"), msg.get("id")
+        if not self._upstream_alive:
+            if mid is not None and method is not None:
+                self._error(mid, -32000, f"Provenant: the '{self.name}' MCP server is not running; nothing was sent")
+            return
         if method is None:                       # a response to a server->client request
             self._send_upstream(msg)
             return
         if not isinstance(method, str):
             self._error(mid, -32600, "invalid request: method must be a string")
+            return
+        if msg.get("params") is not None and not isinstance(msg.get("params"), dict):
+            if method in GATED:
+                self.guard.audit.append("protocol_refused", self.session_id,
+                                        {"method": method, "reason": "params is not an object"})
+            if mid is not None:
+                self._error(mid, -32602, "invalid params: params must be an object")
             return
         if mid is None:                          # notification
             if method in GATED:
@@ -169,6 +202,8 @@ class MCPProxy:
             self.guard.audit.append("protocol_refused", self.session_id, {"method": method[:80]})
             self._error(mid, -32601, f"Provenant: method '{method[:80]}' is not on the proxy's allow-list")
             return
+        else:
+            self._pending.setdefault(_key(mid), ("other", None))
         self._send_upstream(msg)
 
     def _error(self, mid, code: int, message: str) -> None:
@@ -213,6 +248,12 @@ class MCPProxy:
                 self.guard.audit.append("manifest_refused", self.session_id, {"tool": name, "reason": reason})
                 self._refuse(mid, "DENY: Provenant blocked this call. " + reason, "DENY")
                 return False
+            if name not in self.pins.advertised:
+                reason = (f"'{name[:80]}' was not advertised by the '{self.name}' server in this session "
+                          "(call tools/list first); unlisted tools never run")
+                self.guard.audit.append("manifest_refused", self.session_id, {"tool": name[:200], "reason": reason})
+                self._refuse(mid, "DENY: Provenant blocked this call. " + reason, "DENY")
+                return False
             call = GuardCall(self._qualified(name), args if args is not None else {}, self.session_id,
                              self.workspace, "mcp")
             v = self.guard.check(call, hold=True)
@@ -247,13 +288,17 @@ class MCPProxy:
                 return
         if "method" not in msg and "id" in msg:
             kind = self._pending.pop(_key(msg["id"]), None)
-            if kind and kind[0] == "list" and isinstance(msg.get("result"), dict):
+            if kind is None:                # nothing asked for this: it could pre-empt a tools/list and skip review
+                self.guard.audit.append("protocol_refused", self.session_id,
+                                        {"direction": "server", "reason": "unsolicited response dropped"})
+                return
+            if kind[0] == "list" and isinstance(msg.get("result"), dict):
                 tools, withheld = self.pins.review(msg["result"].get("tools") or [])
                 msg["result"]["tools"] = tools
                 if withheld:
                     self.guard.audit.append("manifest_withheld", self.session_id, {"withheld": withheld})
                     _notify(f"[provenant] withheld tools from {self.name}: {sorted(withheld)}")
-            elif kind and kind[0] in UNTRUSTED_RESULTS:
+            elif kind[0] in UNTRUSTED_RESULTS:
                 result = msg.get("result")
                 try:
                     # Mail scanning is observational: it never changes the MCP result or decides
@@ -290,12 +335,33 @@ class MCPProxy:
                 msg = json.loads(line)
             except ValueError:
                 continue                    # servers must not print non-protocol text on stdout
-            if isinstance(msg, dict):
-                self.on_upstream(msg)
-            elif isinstance(msg, list):     # JSON-RPC batch
-                for m in msg:
-                    if isinstance(m, dict):
-                        self.on_upstream(m)
+            for m in (msg if isinstance(msg, list) else [msg]):     # a list is a JSON-RPC batch
+                if isinstance(m, dict):
+                    self._on_upstream_safe(m)
+        self.proc.wait()
+        self._upstream_gone()
+
+    def _on_upstream_safe(self, m: dict) -> None:
+        try:
+            self.on_upstream(m)
+        except (BrokenPipeError, OSError):
+            raise
+        except Exception as exc:            # never forward what could not be reviewed; answer the waiting request
+            self.guard.audit.append("upstream_message_error", self.session_id, {"error": type(exc).__name__})
+            if "method" not in m and m.get("id") is not None:
+                self._error(m["id"], -32603, f"Provenant could not review the server's response ({type(exc).__name__}); "
+                                             "it was withheld")
+
+    def _on_client_safe(self, m: dict) -> None:
+        try:
+            self.on_client(m)
+        except (OSError, ValueError) as exc:     # OSError includes BrokenPipeError
+            upstream_closed = self.proc.stdin.closed or self.proc.poll() is not None
+            if isinstance(exc, ValueError) and not upstream_closed:
+                raise                       # not a closed pipe: answered as a failed request by run()
+            self._upstream_gone()           # upstream stdin closed under us
+            if m.get("id") is not None and m.get("method") is not None:
+                self._error(m["id"], -32000, f"Provenant: the '{self.name}' MCP server is not running")
 
     def run(self) -> int:
         t = threading.Thread(target=self._pump_upstream, daemon=True)
@@ -311,11 +377,17 @@ class MCPProxy:
                     self._send_client({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}})
                     continue
                 for m in (msg if isinstance(msg, list) else [msg]):
-                    if isinstance(m, dict):
-                        try:
-                            self.on_client(m)
-                        except (BrokenPipeError, OSError):
-                            return 1
+                    if not isinstance(m, dict):
+                        self._send_client({"jsonrpc": "2.0", "id": None,
+                                           "error": {"code": -32600, "message": "invalid request: not an object"}})
+                        continue
+                    try:
+                        self._on_client_safe(m)
+                    except Exception as exc:    # fail closed for this one message; the proxy keeps serving
+                        self.guard.audit.append("client_message_error", self.session_id, {"error": type(exc).__name__})
+                        if m.get("id") is not None:
+                            self._error(m["id"], -32603, f"Provenant could not process this request "
+                                                         f"({type(exc).__name__}); nothing was sent")
         finally:
             try:
                 self.proc.stdin.close()
