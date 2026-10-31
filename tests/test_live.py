@@ -292,6 +292,17 @@ class ToolServer(Base):
         self.assertIn("return 7", d)                                  # freshness key changed
         self.assertGreaterEqual(gw.eff.stats.cache_hits, 1)
 
+    def test_search_and_listing_print_each_path_once(self):
+        gw = self.gw()
+        (self.ws / "pkg" / "sub").mkdir(parents=True)
+        (self.ws / "pkg" / "sub" / "m.py").write_text("x = 1\nx = 2\n", encoding="utf-8")
+        s = self.text(gw.call("search_text", {"pattern": "x =", "path": "pkg"}))
+        self.assertEqual(s.splitlines(), ["sub/m.py", "  1: x = 1", "  2: x = 2"])
+        self.assertIn("sub/m.py:1: x = 1", self.text(gw.call("search_text", {"pattern": "x =", "path": "pkg", "full": True})))
+        self.assertEqual(self.text(gw.call("search_text", {"pattern": "nothing-here", "path": "pkg"})), "no matches")
+        listing = self.text(gw.call("list_directory", {"path": "pkg", "depth": 3})).splitlines()
+        self.assertEqual(listing, ["sub/", "  m.py  12B"])
+
     def test_authorization_is_never_cached(self):
         gw = self.gw()
         self.assertEqual(gw.call("read_file", {"path": "app.py"})["_meta"]["provenant"]["decision"], "ALLOW")

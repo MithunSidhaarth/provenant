@@ -1,6 +1,8 @@
 """Token-efficiency benchmark: the same scripted coding-agent trace, run twice through provenant-tools.
 
     python evals/token_bench.py         # writes docs/eval/token_benchmark.json and docs/eval/TOKEN_BENCHMARK.md
+    python evals/token_bench.py --dump trace.json   # also saves every tool result, for a real tokenizer:
+    node evals/count_tokens.mjs trace.json          # (see that file) recounts with BPE tokenizers
 
 baseline   ToolGateway with efficiency off: raw tool output (still policy-checked, as in any Provenant run)
 provenant  ToolGateway with compression, safe caching and dedup on
@@ -66,7 +68,7 @@ def run(mode: str, ws: Path) -> dict:
                          test_cmd=[sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."])
         history: dict[int, str] = {}
         ctx = calls = out_tokens = reread = 0
-        steps, failures = [], []
+        steps, failures, texts = [], [], []
         t0 = time.perf_counter()
         for i, (tool, args, needs) in enumerate(TRACE):
             if tool == "EDIT":
@@ -82,6 +84,7 @@ def run(mode: str, ws: Path) -> dict:
                 calls += 1
                 out_tokens += est(json.dumps({"name": tool, "arguments": request}))
                 history[gw.calls] = text
+                texts.append({"step": i, "text": text})
                 step_ctx += est(text)
                 ctx += est(text)
                 reread += ctx
@@ -100,13 +103,15 @@ def run(mode: str, ws: Path) -> dict:
                 if tool == "read_file" and attempt < 2 and "offset" not in request:
                     hit = gw.call("search_text", {"pattern": re.escape(missing[0]), "path": str(Path(args["path"]).parent), "glob": Path(args["path"]).name})
                     htext = hit["content"][0]["text"]
+                    texts.append({"step": i, "text": htext})
                     calls += 1
                     step_calls += 1
                     out_tokens += est(missing[0]) + 20
                     step_ctx += est(htext)
                     ctx += est(htext)
                     reread += ctx
-                    line = int(htext.split(":")[1]) if ":" in htext and htext.split(":")[1].isdigit() else 1
+                    m = re.search(r"^\s*(?:[^:\n]+:)?(\d+): ", htext, re.M)    # `path:N: text` or grouped `  N: text`
+                    line = int(m.group(1)) if m else 1
                     request = {**args, "offset": max(0, line - 5), "limit": 120}
                 else:
                     request = {**args, "full": True}
@@ -117,13 +122,15 @@ def run(mode: str, ws: Path) -> dict:
         return {"mode": mode, "tool_calls": calls, "context_tokens": ctx, "reread_input_tokens": reread,
                 "output_tokens": out_tokens, "cache_hits": gw.eff.stats.cache_hits, "dedup_hits": gw.eff.stats.dedup_hits,
                 "task_success": not failures, "failures": failures, "wall_seconds": round(time.perf_counter() - t0, 2),
-                "steps": steps}
+                "steps": steps, "texts": texts}
 
 
 
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    dump = Path(argv[argv.index("--dump") + 1]) if "--dump" in argv else None
     out = ROOT / "docs" / "eval"
     out.mkdir(parents=True, exist_ok=True)
     results = {}
@@ -134,6 +141,9 @@ def main() -> int:
             tar = subprocess.run(["git", "archive", "HEAD"], cwd=ROOT, capture_output=True, check=True).stdout
             subprocess.run(["tar", "-x", "-C", str(ws)], input=tar, check=True)
             results[mode] = run(mode, ws)
+    texts = {m: results[m].pop("texts") for m in results}
+    if dump:
+        dump.write_text(json.dumps(texts))
     b, p = results["baseline"], results["provenant"]
 
     def delta(k):

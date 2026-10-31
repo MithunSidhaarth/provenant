@@ -183,11 +183,12 @@ class ToolGateway:
         if name == "read_file":
             return self.eff.file(raw, full)
         if name == "list_directory":
-            return "\n".join(self.eff.listing(raw.splitlines(), full))
-        if name == "search_text":
+            return "\n".join(self.eff.tree(self.eff.listing(raw.splitlines(), full), full))
+        if name == "search_text" and raw != "no matches":
             lines = raw.splitlines()
             if self.eff.enabled and not full and len(lines) > self.eff.max_matches:
-                return "\n".join(lines[: self.eff.max_matches] + [f"[provenant] … {len(lines) - self.eff.max_matches} more matches"])
+                lines = lines[: self.eff.max_matches] + [f"[provenant] … {len(lines) - self.eff.max_matches} more matches"]
+            return "\n".join(self.eff.search(lines, full))
         return raw
 
     def _read_file(self, p: Path, a: dict) -> str:
