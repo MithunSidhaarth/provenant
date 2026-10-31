@@ -37,6 +37,7 @@ class FakeImap:
         self.pending = {}                  # poll number -> {uid: raw} delivered on that poll
         self.polls = 0
         self.fetched = []
+        self.selects = 0
 
     def uid(self, command, *args):
         if command == "SEARCH":
@@ -50,6 +51,11 @@ class FakeImap:
             uid = int(args[0]); self.fetched.append(uid)
             return "OK", [(b"1 (BODY[] {n}", self.messages[uid]), b")"]
         raise AssertionError(command)
+
+    def select(self, folder, readonly=False):
+        assert readonly, "the watcher must open the mailbox read-only"
+        self.selects += 1
+        return "OK", [b"1"]
 
     def logout(self):
         pass
@@ -93,6 +99,7 @@ class MailWatchTests(unittest.TestCase):
         self.assertIn("send_email -> collect@login-check.example: DENY", out)
         self.assertNotIn("bit.ly", out)                               # links and body are never printed
         self.assertIn("phone alerts off", out)
+        self.assertGreaterEqual(imap.selects, 3)                     # mailbox refreshed every poll (Gmail needs it)
 
     def test_backlog_rescans_recent_messages(self):
         imap = FakeImap({1: BENIGN, 2: PHISH})

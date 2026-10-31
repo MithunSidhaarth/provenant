@@ -46,6 +46,8 @@ provenant approve      # walk through held calls (a person at a terminal only)
 
 **Phishing demo with a phone alert.** `provenant mail demo` runs a fake phishing email (reserved `.example` domains) through the scanner, then shows the agent's injected "email the invoices to the attacker" call being denied. `provenant mail demo --call` also places a real, clearly labelled alert call after `provenant mail setup`. See [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md).
 
+**Live inbox watch.** `provenant mail watch --call` connects straight to a real mailbox over IMAP (read-only; Gmail App Password, no MCP needed), scans every new email, shows the gate's DENY for any send the email tries to inject, and rings your phone for HIGH-risk mail. Setup and test emails: [docs/LIVE_MAIL_DEMO.md](docs/LIVE_MAIL_DEMO.md).
+
 **New here?** [Quickstart](docs/QUICKSTART.md) · [Security model](docs/SECURITY_MODEL.md) · [Architecture](docs/ARCHITECTURE.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Changelog](CHANGELOG.md) · [Evaluation report](docs/eval/REPORT.md)
 
 Real Claude Code, even with `--permission-mode bypassPermissions`, cannot `rm -rf ./*` or `cat .env` once the hook is installed. The details, the full rule table and the limits are in [docs/REAL_GUARD.md](docs/REAL_GUARD.md).

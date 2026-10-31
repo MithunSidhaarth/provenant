@@ -693,6 +693,9 @@ def watch(args: list[str] | None = None, connect: Callable | None = None, sleep:
     try:
         while True:
             try:
+                # Gmail only shows mail that arrived after SELECT once the mailbox is refreshed: re-open it every poll.
+                if hasattr(conn, "select"):
+                    conn.select('"' + folder.replace('"', '') + '"', readonly=True)
                 new = [u for u in _uids(conn, f"UID {last + 1}:*") if u > last]
             except Exception as exc:
                 print(f"  (connection lost: {type(exc).__name__}; reconnecting)", flush=True)
@@ -714,6 +717,8 @@ def watch(args: list[str] | None = None, connect: Callable | None = None, sleep:
                     "risk_score": report["risk_score"], "verdict": report["verdict"], "sender_domain": report["sender_domain"],
                     "subject": report["subject"], "reason_codes": [r["code"] for r in report["reasons"]]})
                 stamp = time.strftime("%H:%M:%S")
+                if sys.stdout.isatty():
+                    print("\r" + " " * 50 + "\r", end="")
                 print(f"  {stamp}  {report['verdict'].upper():6} score {report['risk_score']:>2}  "
                       f"{report['sender_domain']}  \"{report['subject'][:70]}\"", flush=True)
                 for r in report["reasons"]:
@@ -733,6 +738,8 @@ def watch(args: list[str] | None = None, connect: Callable | None = None, sleep:
                         print("      (call limit reached for this run)")
                 print(flush=True)
             polls += 1
+            if not new and sys.stdout.isatty():
+                print(f"\r  checked {time.strftime('%H:%M:%S')}, no new mail", end="", flush=True)
             if max_polls is not None and polls >= max_polls:
                 break
             sleep(interval)
