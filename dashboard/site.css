@@ -234,16 +234,22 @@ h3 { font-weight: 600; font-size: 18px; letter-spacing: -.015em; }
 }
 @media (prefers-reduced-motion: reduce) { .hero-word.hit { animation: none; } html { scroll-behavior: auto; } .btn:hover { transform: none; } }
 
-/* loader */
+/* loader (#boot paints before JS, the React loader replaces it) */
+.boot { position: fixed; inset: 0; z-index: 199; background: #050507; display: grid; place-items: center; }
+.boot span { font: 800 clamp(48px, 11vw, 150px)/1 Bricolage, "Arial Black", system-ui, sans-serif; letter-spacing: -.05em; color: rgba(242,242,245,.14); }
+.ld-seam { position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; z-index: 1; transform-origin: center;
+  background: linear-gradient(90deg, transparent, var(--deny) 20%, #fff 50%, var(--allow) 80%, transparent); box-shadow: 0 0 24px rgba(167,162,255,.8); }
 .loader { position: fixed; inset: 0; z-index: 200; pointer-events: none; }
 .ld-half { position: absolute; left: 0; right: 0; height: 50.5%; background: #050507; }
+.ld-half.top { box-shadow: 0 1px 0 rgba(255,255,255,.08); } .ld-half.bot { box-shadow: 0 -1px 0 rgba(255,255,255,.08); }
 .ld-half.top { top: 0; } .ld-half.bot { bottom: 0; }
-.ld-inner { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: min(860px, 88vw); }
+.ld-inner { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: min(860px, 88vw); z-index: 2; }
+.ld-inner .ld-word { margin-top: -80px; }
 .ld-word { font: 800 clamp(48px, 11vw, 150px)/1 Bricolage, "Arial Black", system-ui, sans-serif; letter-spacing: -.05em; color: var(--ink); text-align: center; white-space: nowrap; }
 .ld-bar { height: 2px; margin-top: 26px; background: rgba(255,255,255,.08); overflow: hidden; }
 .ld-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--deny), var(--accent), var(--allow)); transform-origin: left; }
 .ld-meta { display: flex; justify-content: space-between; margin-top: 12px; font: 500 11px/1 GeistMono, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); }
-.ld-count { position: absolute; right: max(24px, 4vw); bottom: max(20px, 4vh); font: 800 clamp(64px, 12vw, 180px)/.8 Bricolage, "Arial Black", sans-serif; letter-spacing: -.06em; color: rgba(255,255,255,.07); font-variant-numeric: tabular-nums; }
+.ld-count { position: absolute; z-index: 2; right: max(24px, 4vw); bottom: max(20px, 4vh); font: 800 clamp(64px, 12vw, 180px)/.8 Bricolage, "Arial Black", sans-serif; letter-spacing: -.06em; color: rgba(255,255,255,.07); font-variant-numeric: tabular-nums; }
 
 /* cursor */
 .has-cur, .has-cur * { cursor: none !important; }

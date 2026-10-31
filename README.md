@@ -1,12 +1,41 @@
-# Provenant
+<p align="center">
+  <a href="https://theprovenant.vercel.app"><img src="docs/media/hero.jpg" alt="Provenant: attacks hit a policy shield and are stamped DENIED" width="100%"></a>
+</p>
 
-**The self-red-teaming firewall for AI agents** (PARALLAX 2026, AgentShield track).
+<h1 align="center">Provenant</h1>
 
-A defensive security layer for tool-using AI agents. The Python import package is `agentshield`; the PyPI distribution is `provenant-agent-shield`.
+<p align="center"><b>The firewall between AI agents and their tools.</b><br>
+Every tool call hits deterministic policy before it runs. A fooled model still can't do damage.</p>
 
-Provenant sits between an agent and its tools. Every tool call the agent proposes goes through one deterministic policy enforcement point. That point returns **ALLOW**, **DENY** or **REQUIRE_APPROVAL**, and the tool runs only after it has been authorized. Untrusted content, such as documents, knowledge-base articles and web pages, is treated as data. It can never grant itself authority, even when the agent obeys it.
+<p align="center">
+  <a href="https://theprovenant.vercel.app"><b>Website</b></a> ·
+  <a href="https://theprovenant.vercel.app/console">Console</a> ·
+  <a href="docs/QUICKSTART.md">Quickstart</a> ·
+  <a href="docs/SECURITY_MODEL.md">Security model</a> ·
+  <a href="docs/eval/REPORT.md">Eval report</a>
+</p>
 
-The demo agent is deliberately gullible: it follows any `ASSISTANT ACTION:` instruction it finds in content it reads. This simulates the worst-case model. Provenant keeps the environment safe anyway, because **the LLM is never the security boundary**.
+<p align="center">
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-5fd6a4?style=flat-square">
+  <img alt="Standard library only" src="https://img.shields.io/badge/dependencies-stdlib%20only-a7a2ff?style=flat-square">
+  <img alt="Attacks contained 231/231" src="https://img.shields.io/badge/attacks%20contained-231%2F231-ff7a6b?style=flat-square">
+  <img alt="Tests 257" src="https://img.shields.io/badge/tests-257%20passing-5fd6a4?style=flat-square">
+  <img alt="MCP and Claude Code" src="https://img.shields.io/badge/works%20with-MCP%20%C2%B7%20Claude%20Code-f3b562?style=flat-square">
+</p>
+
+---
+
+Built by **Team Parivartan** for PARALLAX 2026, AgentShield track. The Python import package is `agentshield`; the PyPI distribution is `provenant-agent-shield`.
+
+| | |
+|---|---|
+| **One gate** | Every proposed tool call goes through one deterministic policy point that returns **ALLOW**, **DENY** or **REQUIRE_APPROVAL**. No model in the loop. |
+| **Provenance** | Values that came from content the agent read (an email, a web page) can't become a recipient, a path or a command. |
+| **Single-use grants** | An allowed call runs once, bound to its exact arguments. Replays are refused. |
+| **Humans for high impact** | Risky calls wait for a named person, in the terminal or by phone. |
+| **Tamper-evident audit** | Every decision goes into a hash-chained, HMAC'd log. |
+
+Untrusted content is treated as data. It can never grant itself authority, even when the agent obeys it. The demo agent is deliberately gullible: it follows any `ASSISTANT ACTION:` instruction it finds in content it reads. That simulates the worst-case model, and Provenant keeps the environment safe anyway, because **the LLM is never the security boundary**.
 
 ## Real blocking: Provenant Guard
 
