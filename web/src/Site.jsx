@@ -193,6 +193,7 @@ function Hero({ ready }) {
     py = Math.max(90, Math.min(py, H * (W < 760 ? 0.5 : 0.58)));
     const now = performance.now(), s = stamp.current; if (!s || now - last.current < 1400) return; last.current = now;
     s.style.left = Math.max(100, Math.min(W - 100, px)) + "px"; s.style.top = py + "px"; s.classList.remove("go"); void s.offsetWidth; s.classList.add("go");
+    const w = word.current; if (w) { w.classList.remove("deny"); void w.offsetWidth; w.classList.add("deny"); }
   };
   return (
     <section className="hero" id="top">
@@ -201,7 +202,11 @@ function Hero({ ready }) {
         <motion.div className="hero-word-wrap" style={{ y: wy, scale: ws, opacity: wo }}>
           <motion.div initial={{ opacity: 0, scale: 1.25, filter: "blur(18px)" }} animate={ready ? { opacity: 1, scale: 1, filter: "blur(0px)" } : {}}
                       transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}>
-            <div ref={word} className="hero-word" aria-hidden="true">PROVENANT</div>
+            <div ref={word} className={"hero-word" + (ready ? " in" : "")} aria-hidden="true">
+              {"proven".split("").map((c, i) => <span key={i} className="ch" style={{ "--i": i }}>{c}</span>)}
+              <i className="gate" style={{ "--i": 6 }} />
+              {"ant".split("").map((c, i) => <span key={i} className="ch out" style={{ "--i": i + 7 }}>{c}</span>)}
+            </div>
           </motion.div>
         </motion.div>
         <div ref={stamp} className="hero-stamp" aria-hidden="true">DENIED</div>
