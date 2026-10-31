@@ -131,16 +131,16 @@
     const label = {watching:"WATCHING",connecting:"CONNECTING",reconnecting:"RECONNECTING",stopped:"STOPPED",not_configured:"NOT SET UP",error:"ERROR",unavailable:"LOCAL ONLY"}[d.state] || "—";
     $("inbox-tag").textContent = label;
     $("inbox-title").textContent = d.hosted ? "Inbox watch runs only in the local console" : d.state === "not_configured" ? "No mailbox connected" : d.account ? "Watching " + d.account + " · INBOX" : "Inbox watch stopped";
-    $("inbox-desc").textContent = d.error ? d.error : d.last_check ? "Last checked " + time(d.last_check) + " · every " + fmt(d.interval) + " s · read-only" : "IMAP, read-only · nothing is marked read, moved or deleted";
+    $("inbox-desc").textContent = d.error ? d.error : d.last_check ? "Last checked " + time(d.last_check) + " · every " + fmt(d.interval) + " s" : "IMAP · new mail only · nothing is marked read";
     $("inbox-counts").textContent = fmt(d.scanned) + " scanned · " + fmt(d.flagged) + " flagged · " + fmt(d.calls) + " calls";
     $("inbox-toggle").textContent = d.running ? "Stop watching" : "Start watching";
     $("inbox-toggle").hidden = !!d.hosted;
-    $("inbox-phone").textContent = d.phone_ready ? "calls you for " + String(d.alert_level || "high").toUpperCase() + " risk mail (max 5 an hour)" : "not set up. Run provenant phone setup (or provenant mail setup) to get calls";
+    $("inbox-phone").textContent = d.phone_ready ? "calls you for " + String(d.alert_level || "high").toUpperCase() + " risk mail (max 5 an hour)" + (d.protect ? ". On HIGH mail Ivy reads a code: say it back to keep the mail, otherwise it moves to " + (d.trash_folder || "Trash") + " (recoverable)" : "") : "not set up. Run provenant phone setup (or provenant mail setup) to get calls";
     const flagged = (Array.isArray(d.mails) ? d.mails : []).filter(m => m.level !== "low");
     const tone = (l) => l === "high" ? ["deny","HIGH"] : ["hold","SUSPICIOUS"];
     $("inbox-feed").innerHTML = flagged.length ? flagged.slice(0,60).map(m => {
       const t = tone(m.level); const reasons = (m.signals || []).slice(0,3).map(x => x.reason).join(" · ");
-      const c = m.call; const callLine = c ? '<div class="mail-call'+(["started","completed","calling"].includes(c.status) ? " ok" : "")+'">Phone: '+escapeHtml(c.status)+(c.detail ? " · "+escapeHtml(c.detail) : "")+'</div>' : "";
+      const c = m.call; const callLine = c ? '<div class="mail-call'+(["started","completed","calling"].includes(c.status) ? " ok" : "")+'">Phone: '+escapeHtml(c.status)+(c.detail ? " · "+escapeHtml(c.detail) : "")+'</div>'+(c.outcome ? '<div class="mail-call'+(String(c.outcome).startsWith("kept") ? " ok" : "")+'">'+escapeHtml(c.outcome)+'</div>' : "") : "";
       return '<article class="event"><time class="event-time">'+escapeHtml(time(m.ts))+'</time><div><div class="event-title">'+escapeHtml(m.subject || "(no subject)")+'</div><div class="event-meta">'+escapeHtml(m.from)+' · score '+fmt(m.score)+'</div>'+(reasons ? '<div class="mail-reasons">'+escapeHtml(reasons)+'</div>' : "")+callLine+'</div><span class="decision '+t[0]+'">'+t[1]+'</span></article>';
     }).join("") : '<div class="empty"><strong>'+(d.state === "not_configured" ? "Connect a mailbox once" : "Nothing suspicious yet")+'</strong>'+(d.state === "not_configured" ? "Run <code>provenant mail watch --setup</code> in a terminal (Gmail: use an App Password), then reload this page." : "New mail is checked every few seconds. Flagged mail appears here.")+'</div>';
   }

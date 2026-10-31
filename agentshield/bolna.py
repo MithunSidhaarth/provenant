@@ -22,9 +22,14 @@ from typing import Any, Callable
 
 API = "https://api.bolna.ai"
 FINAL = ("completed", "balance-low", "busy", "no-answer", "canceled", "failed", "stopped", "error")
-PERSONA = ("You are Ivy, the voice of the user's Claude coding agent. You phone the user when the agent needs them.\n"
-           "Personality: crisp, calm and quietly warm, a composed professional who respects their time. Plain words, "
-           "no jargon, no filler. If asked who you are: \"I'm Ivy, I call for your Claude agent.\"")
+PERSONA = ("You are Ivy, the voice of Provenant, the security firewall that sits between the user's AI agents and their "
+           "tools and watches their inbox. You phone the user when Provenant catches something: a suspicious email, or an "
+           "agent action held for their approval.\n"
+           "Personality: crisp, calm and quietly warm, a composed security professional who respects their time. Plain "
+           "words, no jargon, no filler. Never say you work for Claude or a coding agent. If asked who you are: "
+           "\"I'm Ivy from Provenant, your AI agent security guard.\"")
+# Bump when the agent's name or greeting changes: a saved agent with another version is replaced on the next call.
+AGENT_VERSION = "provenant-2"
 E164 = re.compile(r"^\+[1-9]\d{7,14}$")
 
 Opener = Callable[[urllib.request.Request, float], Any]
@@ -51,8 +56,7 @@ def load(home: Path | None = None) -> dict:
         cfg["api_key"] = os.environ["BOLNA_API_KEY"]
     if os.environ.get("CALL_ME_PHONE"):
         cfg["phone"] = os.environ["CALL_ME_PHONE"]
-    if os.environ.get("BOLNA_AGENT_ID") and not cfg.get("agent_id"):
-        cfg["agent_id"] = os.environ["BOLNA_AGENT_ID"]
+    # BOLNA_AGENT_ID belongs to the claude-call-me skill ("calling for your Claude agent"): never reuse it here.
     if home is None and not (cfg.get("api_key") and cfg.get("phone")):
         try:                                           # also accept what `provenant mail setup` saved (mail.json, DPAPI)
             from .mail_security import _load_settings
@@ -113,8 +117,8 @@ def _call_api(method: str, path: str, key: str, body: dict | None, opener: Opene
 
 def agent_body() -> dict:
     return {"agent_config": {
-        "agent_name": "Ivy (provenant)",
-        "agent_welcome_message": "Hey, it's Ivy, calling for your Claude agent. Got a sec?",
+        "agent_name": "Ivy (Provenant security)",
+        "agent_welcome_message": "Hi, it's Ivy from Provenant, your AI security guard. Got a moment?",
         "tasks": [{
             "task_type": "conversation",
             "toolchain": {"execution": "sequential", "pipelines": [["transcriber", "llm", "synthesizer"]]},
@@ -131,7 +135,7 @@ def agent_body() -> dict:
 
 
 def ensure_agent(cfg: dict, opener: Opener | None = None, home: Path | None = None) -> str:
-    if cfg.get("agent_id"):
+    if cfg.get("agent_id") and cfg.get("agent_version") == AGENT_VERSION:
         return str(cfg["agent_id"])
     out = _call_api("POST", "/v2/agent", cfg["api_key"], agent_body(), opener)
     aid = out.get("agent_id")
@@ -144,6 +148,7 @@ def ensure_agent(cfg: dict, opener: Opener | None = None, home: Path | None = No
     except (OSError, ValueError):
         raw = {}
     raw["agent_id"] = aid                              # only the agent id is added; env-var secrets stay in the env
+    raw["agent_version"] = AGENT_VERSION
     save(raw, home)
     return str(aid)
 

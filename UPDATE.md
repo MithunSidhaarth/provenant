@@ -54,3 +54,4 @@ If `provenant` is not found: `py -m provenant ...` / `python3 -m provenant ...`.
 - Opening the local console starts a read-only IMAP watch of INBOX. Every new mail goes through the mail scanner (`mailscan.py`); medium/high mail is listed in the console's "Inbox watch" section; mail at the phone alert level (default high) rings you through Bolna, at most 5 calls an hour. Bodies are never logged.
 - Setup once on the laptop: `provenant mail watch --setup` (Gmail App Password; Ctrl+C after it connects), and `provenant mail setup` or `provenant phone setup` for the phone. Then `provenant dashboard`.
 - Tests: 291/291 (2 skipped), eval 231/231, 53/53, 11/11. Not tested: real Gmail, real call.
+- Follow-up: Ivy now says she is calling from Provenant (a fresh Bolna agent is created once). On HIGH mail she reads a 4-digit code; say it back to keep the mail, otherwise it moves to Gmail Trash (recoverable). If the call fails, the mail is left alone. Tests 298/298.

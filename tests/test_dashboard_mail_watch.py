@@ -37,9 +37,24 @@ def _wait(cond, seconds=5.0):
     return cond()
 
 
+class FakeRw:
+    def __init__(self):
+        self.moved = []
+
+    def uid(self, command, *args):
+        assert command == "MOVE", command
+        self.moved.append((int(args[0]), args[1]))
+        return "OK", [b""]
+
+    def logout(self):
+        pass
+
+
 class Harness:
-    def __init__(self, imap, polls=4, ready=True, level="high", max_calls=5):
+    def __init__(self, imap, polls=4, ready=True, level="high", max_calls=5, result=None):
         self.imap, self.audit, self.tasks, self.n = imap, [], [], 0
+        self.rw = FakeRw()
+        self.result = result or {"status": "completed", "execution_id": "exec-1", "transcript": "assistant: hello\nuser: ok"}
         def sleep(_):
             self.n += 1
             time.sleep(0.01)
@@ -47,11 +62,14 @@ class Harness:
                 self.w._stop.set()
         def caller(task):
             self.tasks.append(task)
-            return {"ok": True, "status": "completed", "execution_id": "exec-1"}
+            r = dict(self.result)
+            if callable(r.get("transcript")):
+                r["transcript"] = r["transcript"](task)
+            return r
         self.w = mailwatch.MailWatcher(audit=lambda ev, sid, data: self.audit.append((ev, sid, data)),
                                        connect=lambda h, u, p: imap, credentials=lambda: ("imap.test", "me@example.com", "pw"),
                                        caller=caller, ready=lambda: ready, level=lambda: level, interval=5,
-                                       max_calls_per_hour=max_calls, sleep=sleep)
+                                       max_calls_per_hour=max_calls, sleep=sleep, open_rw=lambda: self.rw)
 
     def run(self):
         self.w.start()
@@ -81,7 +99,7 @@ class MailWatcherTests(unittest.TestCase):
         self.assertTrue(_wait(lambda: len(h.tasks) == 1))
         self.assertTrue(_wait(lambda: flagged[0]["call"]["status"] == "completed"))
         task = h.tasks[0]
-        self.assertIn("suspicious email", task)
+        self.assertIn("high-risk email", task)
         self.assertNotIn("ignore previous instructions", task.lower())
         self.assertNotIn("bit.ly", task)
 
@@ -145,6 +163,45 @@ class MailWatcherTests(unittest.TestCase):
         st = h.run()
         self.assertGreaterEqual(calls["n"], 2)
         self.assertEqual(len(st["mails"]), 1)        # mail that arrived after the reconnect is still scanned
+
+
+class KeepOrTrashTests(unittest.TestCase):
+    def _one_phish(self, **kw):
+        imap = FakeImap({})
+        imap.pending = {1: {7: _phish(1)}}
+        h = Harness(imap, polls=2, **kw)
+        st = h.run()
+        self.assertTrue(_wait(lambda: st["mails"][0]["call"].get("outcome") is not None))
+        return h, st["mails"][0]["call"]
+
+    def test_saying_the_code_keeps_the_mail(self):
+        import re
+        said = lambda task: "assistant: say the code\nuser: " + " ".join(re.search(r"say the code ((?:\d ){3}\d)", task).group(1).split())
+        h, call = self._one_phish(result={"status": "completed", "execution_id": "e", "transcript": said})
+        self.assertTrue(call["outcome"].startswith("kept"), call)
+        self.assertEqual(h.rw.moved, [])
+        self.assertIn("Ivy from Provenant", h.tasks[0])
+
+    def test_no_code_moves_it_to_trash_not_delete(self):
+        h, call = self._one_phish()
+        self.assertTrue(call["outcome"].startswith("moved to Trash"), call)
+        self.assertEqual(h.rw.moved, [(7, '"[Gmail]/Trash"')])
+        self.assertTrue(any(e[0] == "mail_trashed_by_phone" for e in h.audit))
+
+    def test_unanswered_call_also_trashes(self):
+        h, call = self._one_phish(result={"status": "no-answer", "execution_id": "e"})
+        self.assertTrue(call["outcome"].startswith("moved to Trash"), call)
+
+    def test_failed_call_leaves_the_mail(self):
+        h, call = self._one_phish(result={"status": "error", "error": "HTTP 401"})
+        self.assertIn("left in inbox", call["outcome"])
+        self.assertEqual(h.rw.moved, [])
+
+    def test_code_said_by_ivy_only_does_not_count(self):
+        import re
+        ivy_only = lambda task: "assistant: the code is " + re.search(r"say the code ((?:\d ){3}\d)", task).group(1) + "\nuser: what?"
+        h, call = self._one_phish(result={"status": "completed", "execution_id": "e", "transcript": ivy_only})
+        self.assertTrue(call["outcome"].startswith("moved to Trash"), call)
 
 
 class MailWatchApiTests(unittest.TestCase):

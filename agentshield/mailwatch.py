@@ -9,11 +9,16 @@ Mailbox credentials are the ones saved by `provenant mail watch --setup` (~/.pro
 or PROVENANT_IMAP_USER / PROVENANT_IMAP_PASSWORD. The dashboard never asks for or receives a password.
 Phone: bolna.py (`provenant phone setup`) first, else the `provenant mail setup` caller in mail_security.py.
 
-Observational only: nothing here decides whether an agent's tool call runs, and nothing deletes or moves mail.
+Keep-or-trash (on by default for the dashboard watch): the call reads a random 4-digit code. If the person says it
+back, the mail stays. If the call ends without the code (declined, unanswered, wrong code), the mail is MOVED to Gmail
+Trash (recoverable for 30 days), never deleted. If the call could not be placed or errored, the mail is left alone.
+The keep decision is deterministic (mail_security.keep_decision on the user's own transcript turns), never the LLM.
+Nothing here decides whether an agent's tool call runs.
 """
 from __future__ import annotations
 
 import collections
+import secrets
 import threading
 import time
 from typing import Any, Callable
@@ -53,7 +58,8 @@ def scan_raw(raw: bytes) -> dict:
 
 def alert_task(v: dict) -> str:
     why = "; ".join(s["reason"] for s in v["signals"][:3])
-    return ("Phone call purpose: warn the user about one suspicious email that just arrived in their inbox. "
+    return ("Phone call purpose: Provenant's inbox watch caught a suspicious email that just arrived in the user's inbox. "
+            "Open by saying you are Ivy from Provenant with an inbox security alert. "
             "This is a heads-up, not an approval request.\n"
             f"Sender: {v['from'][:80]}. Subject: {v['subject'][:80]}. Provenant risk: {v['level']} ({v['score']} of 100). "
             f"Why: {why[:300]}.\n"
@@ -62,21 +68,40 @@ def alert_task(v: dict) -> str:
             "or deleted the mail. Do not read out long addresses or links. Ask if they want anything else, then end the call.")
 
 
+def keep_task(v: dict, code: str) -> str:
+    why = "; ".join(s["reason"] for s in v["signals"][:3])
+    spoken = " ".join(code)
+    return ("Phone call purpose: Provenant's inbox watch caught a high-risk email that just arrived in the user's inbox. "
+            "Open by saying you are Ivy from Provenant with an inbox security alert.\n"
+            f"Sender: {v['from'][:80]}. Subject: {v['subject'][:80]}. Provenant risk: {v['level']} ({v['score']} of 100). "
+            f"Why: {why[:300]}.\n"
+            "Explain that in two short sentences and tell them not to click links, open attachments or share any code or "
+            "password from it. Then say exactly: 'Provenant will move this email to Trash. To keep it, say the code "
+            f"{spoken}.' Read the code digit by digit, then repeat it once, and wait for their answer. If they say those "
+            "four digits, say the email will be kept. Otherwise say it will be moved to Trash, where they can still "
+            "recover it. Never invent another code and never read links or the message body aloud. Keep it under a minute.")
+
+
+_FAILED = ("error", "not_configured", "failed", "balance-low", "timeout", "unknown", None)
+
+
 def default_caller(task: str) -> dict:
-    """Built-in Bolna caller first (provenant phone setup), else the mail-setup caller. Never raises."""
+    """Place one call and wait for it to end. Built-in Bolna caller first (provenant phone setup), else the
+    mail-setup caller. Returns {status, transcript, execution_id, error}. Never raises."""
     from . import bolna
     try:
         if bolna.configured():
-            r = bolna.run_call(task, timeout_sec=240)
-            return {"ok": r.get("status") not in ("error", "not_configured"), "status": r.get("status"),
-                    "execution_id": r.get("execution_id"), "error": r.get("error")}
+            return bolna.run_call(task, timeout_sec=240)
         if ms._user_env("BOLNA_API_KEY") and ms._user_env("CALL_ME_PHONE"):
             r = ms.send_phone_alert(task)
-            return {"ok": bool(r.get("ok")), "status": r.get("status", "error"), "execution_id": r.get("execution_id"),
-                    "error": r.get("error")}
-        return {"ok": False, "status": "not_configured", "error": "phone not set up: run provenant phone setup"}
+            if not r.get("ok"):
+                return {"status": "error", "error": r.get("error")}
+            done = ms._wait_for_call(r["execution_id"], time.sleep, seconds=240)
+            return {"status": done.get("status"), "transcript": done.get("transcript"), "execution_id": r["execution_id"],
+                    "error": done.get("error_message")}
+        return {"status": "not_configured", "error": "phone not set up: run provenant phone setup"}
     except Exception as exc:
-        return {"ok": False, "status": "error", "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+        return {"status": "error", "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
 
 
 def phone_ready() -> bool:
@@ -115,8 +140,10 @@ class MailWatcher:
                  credentials: Callable[[], tuple[str, str, str] | None] = inbox_credentials,
                  caller: Callable[[str], dict] = default_caller, ready: Callable[[], bool] = phone_ready,
                  level: Callable[[], str] = alert_level, interval: float = 15.0, max_calls_per_hour: int = 5,
-                 sleep: Callable[[float], None] | None = None) -> None:
+                 sleep: Callable[[float], None] | None = None, protect: bool = True,
+                 open_rw: Callable | None = None, trash_folder: str = "[Gmail]/Trash") -> None:
         self._audit = audit
+        self.protect, self.trash_folder, self._open_rw = protect, trash_folder, open_rw
         self._connect = connect or (lambda h, u, p: ms._imap_connect(h, u, p, "INBOX"))
         self._credentials, self._caller, self._ready, self._level = credentials, caller, ready, level
         self.interval, self.max_calls_per_hour = interval, max_calls_per_hour
@@ -163,6 +190,7 @@ class MailWatcher:
     def status(self) -> dict:
         lvl = self._level()
         return {**self.state, "alert_level": lvl, "phone_ready": self._ready(), "interval": self.interval,
+                "protect": self.protect, "trash_folder": self.trash_folder,
                 "mails": list(self.mails)[::-1]}
 
     # -- loop --------------------------------------------------------------------------------------------
@@ -174,6 +202,8 @@ class MailWatcher:
 
     def _run(self, creds: tuple[str, str, str]) -> None:
         host, user, password = creds
+        if self._open_rw is None:
+            self._open_rw = lambda: ms._imap_connect(host, user, password, "INBOX", readonly=False)
         conn, last = None, None
         try:
             while not self._stop.is_set():
@@ -190,7 +220,7 @@ class MailWatcher:
                         last = max(last, uid)
                         raw = ms._fetch(conn, uid)
                         if raw:
-                            self._handle(raw)
+                            self._handle(raw, uid)
                     self.state.update(state="watching", last_check=time.strftime("%Y-%m-%dT%H:%M:%S"),
                                       checked=self.state["checked"] + 1, error=None)
                 except Exception as exc:
@@ -211,7 +241,7 @@ class MailWatcher:
                 pass
             self.state.update(running=False, state="stopped" if self._stop.is_set() else "error")
 
-    def _handle(self, raw: bytes) -> None:
+    def _handle(self, raw: bytes, uid: int | None = None) -> None:
         v = scan_raw(raw)
         if v["fingerprint"] in self._seen:
             return
@@ -226,10 +256,10 @@ class MailWatcher:
                                    "score": v["score"], "level": v["level"], "signals": v["signals"],
                                    "fingerprint": v["fingerprint"]})
         if _RANK[v["level"]] >= _RANK[self._level()]:
-            row["call"] = self._maybe_call(v)
+            row["call"] = self._maybe_call(v, uid)
         self.mails.append(row)
 
-    def _maybe_call(self, v: dict) -> dict:
+    def _maybe_call(self, v: dict, uid: int | None = None) -> dict:
         if not self._ready():
             return {"status": "not_configured", "detail": "phone not set up (provenant phone setup)"}
         now = time.time()
@@ -238,14 +268,43 @@ class MailWatcher:
             return {"status": "skipped", "detail": f"call limit reached ({self.max_calls_per_hour} per hour)"}
         self._calls.append(now)
         self.state["calls"] += 1
-        call = {"status": "calling", "detail": "placing call"}
+        protect = self.protect and uid is not None and v["level"] == "high"
+        code = f"{secrets.randbelow(10000):04d}" if protect else ""
+        call = {"status": "calling", "detail": "placing call", "outcome": None}
+        if protect:
+            call["detail"] = f"say {code} on the call to keep this mail"
 
         def run() -> None:
-            r = self._caller(alert_task(v))
-            call.update(status=r.get("status") or ("started" if r.get("ok") else "error"),
-                        detail=(r.get("error") or "")[:160] or None, execution_id=r.get("execution_id"))
-            self._log("mail_phone_alert", {"fingerprint": v["fingerprint"], "status": call["status"],
+            r = self._caller(keep_task(v, code) if protect else alert_task(v))
+            status = r.get("status") or "error"
+            call.update(status=status, detail=(r.get("error") or "")[:160] or None, execution_id=r.get("execution_id"))
+            self._log("mail_phone_alert", {"fingerprint": v["fingerprint"], "status": status,
                                            "execution_id": r.get("execution_id")})
+            if not protect:
+                return
+            if status in _FAILED:
+                call["outcome"] = "left in inbox (the call did not go through)"
+                return
+            decision = ms.keep_decision(r, code)
+            if decision["keep"]:
+                call["outcome"] = "kept: " + decision["reason"]
+                self._log("mail_kept_by_phone", {"fingerprint": v["fingerprint"], "reason": decision["reason"]})
+                return
+            try:
+                rw = self._open_rw()
+                try:
+                    ms._trash(rw, uid, self.trash_folder)
+                finally:
+                    try:
+                        rw.logout()
+                    except Exception:
+                        pass
+            except Exception as exc:
+                call["outcome"] = f"could not move to Trash: {type(exc).__name__}"
+                return
+            call["outcome"] = f"moved to Trash: {decision['reason']}"
+            self._log("mail_trashed_by_phone", {"fingerprint": v["fingerprint"], "reason": decision["reason"],
+                                                "folder": self.trash_folder})
         threading.Thread(target=run, name="provenant-mail-call", daemon=True).start()
         return call
 
