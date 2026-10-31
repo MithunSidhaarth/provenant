@@ -39,19 +39,20 @@ trip to decide anything.
 gateway and policy checks: once with efficiency off (baseline, raw tool output) and once on. Each step lists facts
 the agent needs; if the shaped output hides one, the run makes the follow-up call a real agent would and counts it.
 
-Recount of the same run with real tokenizers (`evals/count_tokens.mjs`), 2026-10-31:
+Recount of the same run with real tokenizers (`evals/count_tokens.mjs`), 2026-10-31, at the commit that added this file:
 
 | Tokenizer | Metric | Baseline | Provenant | Change |
 |---|---|---|---|---|
-| chars/4 estimate | Tool-result tokens | 59,482 | 15,739 | -73.5% |
-| chars/4 estimate | Re-read input (no cache) | 477,077 | 195,590 | -59.0% |
-| Claude legacy BPE | Tool-result tokens | 67,688 | 18,049 | -73.3% |
-| Claude legacy BPE | Re-read input (no cache) | 541,508 | 220,431 | -59.3% |
-| o200k_base BPE | Tool-result tokens | 61,759 | 16,736 | -72.9% |
-| o200k_base BPE | Re-read input (no cache) | 494,663 | 204,089 | -58.7% |
+| chars/4 estimate | Tool-result tokens | 59,707 | 15,778 | -73.6% |
+| chars/4 estimate | Re-read input (no cache) | 478,280 | 195,965 | -59.0% |
+| Claude legacy BPE | Tool-result tokens | 68,006 | 18,111 | -73.4% |
+| Claude legacy BPE | Re-read input (no cache) | 543,230 | 221,025 | -59.3% |
+| o200k_base BPE | Tool-result tokens | 62,054 | 16,791 | -72.9% |
+| o200k_base BPE | Re-read input (no cache) | 496,268 | 204,642 | -58.8% |
 
-Grouped search and tree listings were added on 2026-10-31. On the same run they cut Provenant's tool-result tokens
-from 19,016 to 18,049 (Claude legacy BPE), about 5% more; the overall reduction went from about 72% to about 73%.
+Grouped search and tree listings were added on 2026-10-31. On the same repository snapshot they cut Provenant's
+tool-result tokens from 19,016 to 18,049 (Claude legacy BPE), about 5% more; the overall reduction went from about
+72% to about 73%.
 
 ## Limits of this evidence
 

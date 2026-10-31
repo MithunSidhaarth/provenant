@@ -172,7 +172,8 @@ def main(argv: list[str] | None = None) -> int:
     md += [f"| Cache hits | 0 | {p['cache_hits']} | |", f"| Dedup references | 0 | {p['dedup_hits']} | |",
            f"| Task success | {b['task_success']} | {p['task_success']} | |",
            f"| Extra LLM calls for policy | 0 | 0 | |", "",
-           "Follow-up calls caused by elided output are included in the Provenant numbers."]
+           "Follow-up calls caused by elided output are included in the Provenant numbers. A recount with real "
+           "tokenizers (evals/count_tokens.mjs), what the saving applies to and its limits: docs/TOKENS.md."]
     if p["failures"] or b["failures"]:
         md += ["", "Failures: " + json.dumps({"baseline": b["failures"], "provenant": p["failures"]})]
     (out / "TOKEN_BENCHMARK.md").write_text("\n".join(md) + "\n")

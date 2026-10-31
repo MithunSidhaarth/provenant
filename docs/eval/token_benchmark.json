@@ -1,17 +1,17 @@
 {
- "generated_utc": "2026-10-31 05:49 UTC",
- "commit": "be5be73",
+ "generated_utc": "2026-10-31 05:53 UTC",
+ "commit": "1acdea4",
  "summary": {
   "workload": "15-step scripted repository investigation (evals/token_bench.py)",
   "token_estimate": "ceil(chars/4)",
   "context_tokens": {
-   "baseline": 59482,
-   "provenant": 15739,
-   "change_pct": -73.5
+   "baseline": 59707,
+   "provenant": 15778,
+   "change_pct": -73.6
   },
   "reread_input_tokens": {
-   "baseline": 477077,
-   "provenant": 195590,
+   "baseline": 478280,
+   "provenant": 195965,
    "change_pct": -59.0
   },
   "output_tokens": {
@@ -31,8 +31,8 @@
    "provenant": true
   },
   "wall_seconds": {
-   "baseline": 54.77,
-   "provenant": 53.99
+   "baseline": 56.11,
+   "provenant": 55.31
   },
   "policy_llm_calls": 0
  },
@@ -40,20 +40,20 @@
   "baseline": {
    "mode": "baseline",
    "tool_calls": 15,
-   "context_tokens": 59482,
-   "reread_input_tokens": 477077,
+   "context_tokens": 59707,
+   "reread_input_tokens": 478280,
    "output_tokens": 259,
    "cache_hits": 0,
    "dedup_hits": 0,
    "task_success": true,
    "failures": [],
-   "wall_seconds": 54.77,
+   "wall_seconds": 56.11,
    "steps": [
     {
      "step": 0,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 1339,
+     "context_tokens": 1352,
      "ok": true
     },
     {
@@ -123,7 +123,7 @@
      "step": 10,
      "tool": "read_file",
      "calls": 1,
-     "context_tokens": 5373,
+     "context_tokens": 5572,
      "ok": true
     },
     {
@@ -151,7 +151,7 @@
      "step": 15,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 1350,
+     "context_tokens": 1363,
      "ok": true
     }
    ]
@@ -159,20 +159,20 @@
   "provenant": {
    "mode": "provenant",
    "tool_calls": 21,
-   "context_tokens": 15739,
-   "reread_input_tokens": 195590,
+   "context_tokens": 15778,
+   "reread_input_tokens": 195965,
    "output_tokens": 421,
    "cache_hits": 3,
    "dedup_hits": 3,
    "task_success": true,
    "failures": [],
-   "wall_seconds": 53.99,
+   "wall_seconds": 55.31,
    "steps": [
     {
      "step": 0,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 1045,
+     "context_tokens": 1057,
      "ok": true
     },
     {
@@ -242,7 +242,7 @@
      "step": 10,
      "tool": "read_file",
      "calls": 1,
-     "context_tokens": 1066,
+     "context_tokens": 1082,
      "ok": true
     },
     {
@@ -270,7 +270,7 @@
      "step": 15,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 1053,
+     "context_tokens": 1064,
      "ok": true
     }
    ]
