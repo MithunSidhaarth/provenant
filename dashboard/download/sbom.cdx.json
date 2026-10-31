@@ -1,10 +1,10 @@
 {
  "bomFormat": "CycloneDX",
  "specVersion": "1.5",
- "serialNumber": "urn:uuid:a0201e67-b4a8-4165-b63d-b77465631e83",
+ "serialNumber": "urn:uuid:e8f3f5d0-7d2c-4fa0-8ba6-90214065c139",
  "version": 1,
  "metadata": {
-  "timestamp": "2026-10-31T03:54:31Z",
+  "timestamp": "2026-10-31T04:05:38Z",
   "component": {
    "type": "application",
    "name": "provenant-agent-shield",
@@ -25,7 +25,7 @@
    "hashes": [
     {
      "alg": "SHA-256",
-     "content": "f1c23b60e5901e3b9a85ae3f3eb9d42edf1e938df497353a048fecfd97447ed8"
+     "content": "e7ada9105a46ce3262864fcaa038bd2db400b1adf165800e5eb4f446be7da59c"
     }
    ]
   },
@@ -35,7 +35,7 @@
    "hashes": [
     {
      "alg": "SHA-256",
-     "content": "3b440d87bdaf2f7dd4b7a779e01a588cd5b90c3cfb7a0535059af51567dd0d6f"
+     "content": "fa4491f1e332edce9a4091d76bb1e66065afa964ecf2c4a0cec7520bd8cb4504"
     }
    ]
   }

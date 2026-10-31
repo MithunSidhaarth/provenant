@@ -12,7 +12,7 @@
 #  * The file is plain ASCII and never calls `exit` when piped into iex (that would close the user's window).
 
 $PvVersion = '0.10.3'                # kept equal to pyproject.toml by tests/test_installer.py
-$PvWheelSha256 = 'f1c23b60e5901e3b9a85ae3f3eb9d42edf1e938df497353a048fecfd97447ed8'   # rewritten by scripts/build_release.py
+$PvWheelSha256 = 'e7ada9105a46ce3262864fcaa038bd2db400b1adf165800e5eb4f446be7da59c'   # rewritten by scripts/build_release.py
 $PvMinCode = 31000                  # Python 3.10.0 as major*10000 + minor*100 + micro
 $PvProbeCode = 'import sys; print(sys.executable); print(sys.version_info[0] * 10000 + sys.version_info[1] * 100 + sys.version_info[2]); print(int(sys.prefix != sys.base_prefix))'
 $PvImportCode = 'import agentshield.cli as c; print(c.VERSION)'
