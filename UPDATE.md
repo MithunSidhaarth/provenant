@@ -39,8 +39,15 @@ If `provenant` is not found: `py -m provenant ...` / `python3 -m provenant ...`.
 ## 0.9.2 installer follow-up (hidden prompt)
 - Real Windows run: step 5 looked hung. Cause: `& $cmd setup` ran inside `Pv-Main`, whose output is captured (`@(Pv-Main)[-1]`), so setup's text and its "Apply these changes? [Y/n]" prompt were swallowed while it waited for input. The installer now runs only `setup --dry-run` (no stdin, 30 s limit) and tells the user to run `provenant setup` themselves. Guarded by a static test (no bare native command in `Pv-Main`).
 
+<<<<<<< HEAD
 ## 0.10.0 — mail screening + built-in phone alerts (branch feat/mail-guard)
 - `agentshield/mailscan.py`, hooked into `Guard.ingest_output` for mail-like tools; `mail_verdict` audit entries; high risk adds a `suspicious_mail` flag (side effects then need approval).
 - `agentshield/bolna.py`: stdlib Bolna client (agent create once, call, poll). Config `~/.provenant/phone.json` or env. `voice.run_callme` prefers it over the claude-call-me script.
 - CLI: `provenant phone setup|status|test|alerts|forget`, `provenant mail scan|log`, phone offer at the end of `provenant setup`.
 - Tests: tests/test_mailguard.py (24). Full suite 235 OK (2 skipped); eval 225/225, 53/53, 9/9. No real Bolna call placed; no real mailbox tested.
+=======
+## 0.10.3: boundary hardening (2026-10-31)
+- Fixed: agents could switch Provenant off (`provenant rollback/uninstall/unwrap`); MCP write/delete tools with no file path were allowed; one malformed MCP message crashed the proxy; unsolicited server responses and unadvertised tools were not refused; a dying MCP server hung the agent; raw secrets were kept in session state; the Claude Code hook failed open on timeout.
+- New: docs/COVERAGE.md (what each boundary observes, blocks, holds and misses). No new dependencies, no per-product integrations.
+- Tests: 257/257 (2 skipped), eval 231/231 attacks, 53/53 benign, 11/11 live checks. Details: docs/FINAL_TEST_REPORT.md.
+>>>>>>> origin/main

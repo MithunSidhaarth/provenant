@@ -11,8 +11,8 @@
 #  * Every native command's exit code is read right after it runs and a failed command's output is never used.
 #  * The file is plain ASCII and never calls `exit` when piped into iex (that would close the user's window).
 
-$PvVersion = '0.9.2'                # kept equal to pyproject.toml by tests/test_installer.py
-$PvWheelSha256 = '1aa6a56b876bd0b2b8a32f81fc2471c90fd053c1ac5e004c971f555a1986e6af'   # rewritten by scripts/build_release.py
+$PvVersion = '0.10.3'                # kept equal to pyproject.toml by tests/test_installer.py
+$PvWheelSha256 = 'e7ada9105a46ce3262864fcaa038bd2db400b1adf165800e5eb4f446be7da59c'   # rewritten by scripts/build_release.py
 $PvMinCode = 31000                  # Python 3.10.0 as major*10000 + minor*100 + micro
 $PvProbeCode = 'import sys; print(sys.executable); print(sys.version_info[0] * 10000 + sys.version_info[1] * 100 + sys.version_info[2]); print(int(sys.prefix != sys.base_prefix))'
 $PvImportCode = 'import agentshield.cli as c; print(c.VERSION)'
@@ -274,7 +274,7 @@ function Pv-Main {
     $ErrorActionPreference = 'Stop'
     try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
     $custom = [bool]$env:PROVENANT_SRC
-    $wheelName = "provenant-$PvVersion-py3-none-any.whl"
+    $wheelName = "provenant_agent_shield-$PvVersion-py3-none-any.whl"
     $src = if ($custom) { $env:PROVENANT_SRC } else { "https://github.com/MithunSidhaarth/provenant/raw/main/dist/$wheelName" }
     $binDir = if ($env:PROVENANT_BIN) { $env:PROVENANT_BIN } else { Join-Path $HOME '.provenant\bin' }
     $work = Join-Path ([IO.Path]::GetTempPath()) ('provenant-' + [guid]::NewGuid().ToString('N'))
@@ -331,7 +331,7 @@ function Pv-Main {
         $chk = Pv-Native $py.Path @('-c', $PvImportCode) $work
         $seen = (($chk.Out | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }) | Select-Object -Last 1)
         if ($chk.Code -ne 0 -or $seen -ne $PvVersion) {
-            Pv-Fail "Provenant installed but could not be imported at version $PvVersion (got: $seen)." "Run: `"$($py.Path)`" -m pip uninstall provenant   and run this installer again."
+            Pv-Fail "Provenant installed but could not be imported at version $PvVersion (got: $seen)." "Run: `"$($py.Path)`" -m pip uninstall provenant-agent-shield   and run this installer again."
             return 1
         }
         Pv-Done "provenant $seen for $env:USERNAME (no admin needed)"

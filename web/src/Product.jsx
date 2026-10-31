@@ -116,7 +116,7 @@ export function PhoneApproval() {
       lede="A held action can ring your phone through the claude-call-me voice agent. You can ask questions, then approve or refuse that one action. The voice agent only carries words: Provenant reads the transcript with fixed rules and is the only thing that can change the approval.">
       <div className="phone-grid">
         <Reveal className="phone card">
-          <div className="phone-top"><span className={`ring${done ? "" : " on"}`} /> <b>Ivy · Provenant approval</b><span className="vis-tag">visualization</span></div>
+          <div className="phone-top"><span className={`ring${done ? "" : " on"}`} /> <b>Ivy · Provenant approval</b><span className="vis-tag">simulation · no live call</span></div>
           <ol className="phone-lines">
             <AnimatePresence initial={false}>
               {TRANSCRIPT.slice(0, Math.min(n, TRANSCRIPT.length)).map(([who, text], i) => (
@@ -138,9 +138,10 @@ export function PhoneApproval() {
           <div className="phone-rules">
             <div><b>Stays blocked</b> no answer · voicemail · timeout · provider error · approval without the code · any refusal word</div>
             <div><b>Bound</b> the code is an HMAC of this request's id and call fingerprint; changed arguments need a new approval</div>
+            <div><b>Email too</b> <code>provenant mail watch --protect</code> calls you about a phishing email in your real inbox; say the code to keep it, or it moves to Trash</div>
             <div><b>Status</b> adapter and validator are built and tested against simulated transcripts. A live call needs your own Bolna account and claude-call-me; we have not claimed one in this demo.</div>
           </div>
-          <Cmd>provenant call appr_1a2b3c4d5e6f</Cmd>
+          <p className="muted small">Illustrative transcript only. No phone call is placed and no approval is recorded by this animation.</p>
         </Reveal>
       </div>
     </Section>
@@ -200,6 +201,7 @@ const FEATURES = [
   ["Deterministic policy engine", "tested", "Explicit rules over the call's structure. Unknown tools are held; any error is a DENY."],
   ["Model independence", "tested", "Works on the tool call, not the model. Claude Code, Claude Desktop, Cursor, Windsurf or any stdio MCP client."],
   ["Gateway enforcement", "tested", "MCP proxy, the provenant-tools server and the Claude Code hook. Calls run only with a redeemed single-use grant."],
+  ["Live inbox watch + phone OTP", "experimental", "provenant mail watch reads a real mailbox over IMAP, flags phishing, shows the DENY for its injected send and calls you. With --protect, Ivy reads a 4-digit code: say it back to keep the email, otherwise it moves to Trash. Tested with a fake inbox and simulated transcripts."],
   ["Phone approval", "experimental", "claude-call-me adapter with a deterministic transcript validator. Tested with simulated transcripts; no live call claimed."],
   ["SQLite authorization state", "tested", "Approvals, grants and sessions with atomic transitions; 8 racing processes, exactly one wins."],
   ["Tamper-evident audit", "tested", "Hash chain + HMAC, minimal metadata by default, secrets redacted, external checkpoints catch truncation and rewrites."],
@@ -207,7 +209,7 @@ const FEATURES = [
   ["Secret detection", "tested", "Recognisable keys, tokens and private keys in outbound arguments, including split across fields. Pattern-based."],
   ["Network destination checks", "tested", "Decimal, hex, octal, IPv6-mapped and NAT64 forms; resolve-then-pin connections; every redirect re-checked."],
   ["Policy simulator", "tested", "Saved scenarios, explanations of the deciding rule, and lint for shadowed and overbroad rules."],
-  ["Security evaluation", "tested", "128 attacks, 35 legitimate actions, live process checks, latency. One command, regenerated from code."],
+  ["Security evaluation", "tested", "225 attacks across 18 categories, 53 legitimate actions, live process checks, latency. One command, regenerated from code."],
   ["Token optimization", "tested", "Outline reads, test-output trimming, safe cache, dedup. Measured, with the caveats shown."],
   ["Fail-closed behaviour", "tested", "Corrupt state, newer schema, broken policy, garbage input, failed grant redemption: nothing runs."],
   ["Signed releases", "experimental", "SHA256SUMS, CycloneDX SBOM and provenance on every build; Sigstore attestations in the release workflow (not yet run)."],

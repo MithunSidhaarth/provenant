@@ -4,7 +4,7 @@ This file is the single source of truth for any agent or person who picks up thi
 
 **Keep it current.** After every milestone, update the "Status", "Version history" and "Next steps" sections. Commit and push the update with the work.
 
-Last updated: 2026-10-30 18:30 UTC, after v8 merged to main (PR #6) and deployed to https://provenant-indol.vercel.app.
+Last updated: 2026-10-31 04:45 UTC, after the site redesign (PRs #26, #28, #30, #31 merged) and the move to the new Vercel project. PR #29 (0.10.3) and PR #23 (0.10.2) are merged.
 
 ## Product
 
@@ -65,16 +65,20 @@ Hard rules from the brief, which must never be broken:
 | `evals/` | v8: `run_eval.py` (128 attacks with `{{fake:NAME}}` placeholders, 35 benign, 32 scenarios, live proxy checks), `token_bench.py`. Outputs in `docs/eval/` and copied to `dashboard/eval/` |
 | `scripts/build_release.py`, `.github/workflows/` | v8: wheel + sdist + SHA256SUMS + CycloneDX SBOM + provenance; `--publish-site` copies to `dashboard/download/` (the site's Download button). CI and release workflows pin actions to SHAs; **neither has run on GitHub yet** |
 | `web/src/Product.jsx` | v8 site sections: how it works, phone approval (visualization), efficiency, features (tested/experimental/planned), download, trust, demo video (reads `dashboard/media/manifest.json`) |
+| `agentshield/resources.py` | finds dashboard/policy/scenarios/fixtures/evals in a checkout OR an installed wheel (data packages `provenant_*`); `state_dir()` = `~/.provenant` |
+| `presentation/`, `team/` | hackathon deck: 8 slides designed in `presentation/slides/deck.html`, rendered by `slides/render.js`, packed by `build_deck.js` (pptx; the PDF is the rendered PNGs); SPEAKER_NOTES.md. Teammate scripts, briefing PDFs (rebuild: `team/build_briefings.py` + `team/briefing_pdf.js`), presenter runbook, QA_BANK.md |
+| `docs/COVERAGE.md` | **capability matrix**: per boundary (MCP proxy, Claude Code hook, gated server, dry run, simulated world, mail) what is observed, blocked, held, inspected, known gaps, setup; proxy failure behaviour |
+| `docs/QUICKSTART.md`, `SECURITY_MODEL.md`, `TROUBLESHOOTING.md`, `DEMO_RUNBOOK.md`, `FINAL_READINESS_AUDIT.md`, `FINAL_TEST_REPORT.md`, `CHANGELOG.md` | new-user and judge docs (0.10.2) |
 | `policy/policy.json` | agent permissions, data classes, limits |
 | `scenarios/*.json` | 7 scenarios with `expected_protected` |
-| `tests/` | 169 unittest tests (`test_live.py` is v8; `test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py`, `test_cli.py` are v6) |
+| `tests/` | 257 unittest tests at 0.10.3 (`test_live.py` is v8; `test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py`, `test_cli.py` are v6) |
 | `docs/` | ARCHITECTURE.md, THREAT_MODEL.md (T1 to T16), DEMO_SCRIPT.md (6 minutes), REAL_GUARD.md (v6 guide) |
 | `run.bat`, `demo.bat`, `test.bat`, `find_python.bat` | Windows launchers |
 
 ## How to run and test
 
 ```bash
-python3 -m unittest discover -s tests -t .     # 166 tests, about 7 s
+python3 -m unittest discover -s tests -t .     # 257 tests, about 25 s
 python3 evals/run_eval.py                      # v8 security eval (fails on any miss or false positive)
 python3 evals/token_bench.py                   # v8 token benchmark
 python3 provenant.py serve --workspace .       # v8 gateway MCP tool server (stdio)
@@ -109,6 +113,8 @@ python3 provenant.py log -f                    # v6: live ok/BLOCK/HOLD/TAINT fe
 | v0.10.0 | feat/mail-guard | Per-mail screening of mail-tool results (`mailscan.py`: phishing/lookalike/link/attachment/auth/injection signals, audit verdicts, high-risk taints the session), built-in Bolna caller (`bolna.py`, key + phone via `provenant setup` / `provenant phone`), phone alerts for high-risk mail, voice approval prefers the built-in caller. `docs/MAIL_GUARD.md`. No real call placed yet. | 235 |
 | v8 | 110fd78, 740cc90, b6e74da | Live runtime: SQLite approvals + single-use call-bound grants, demo/live separation, phone-approval adapter (claude-call-me), netguard pinning, gateway MCP tool server with structured tools, audit anchoring + retention, privacy detail levels, policy simulator. Closed a notification-shaped `tools/call` proxy bypass and 18 guard gaps that the old red-team file hid. Eval suite + token benchmark. Release pipeline (SBOM, SHA256SUMS, provenance). Website: product sections, real Download, mobile layout fixes | 166 |
 | v8.1 | feat/guard-redteam2 | Guard red-team round 2: 100 new practical attacks in evals/attacks.json (cloud/infra & DB destructive, credential theft beyond dotfiles, regulated IDs, non-HTTP exfil, split-secret reassembly, code-arg classification). Found 41 gaps v8 allowed; all fixed. Attacks 225/225 contained, benign 53/53, unit 166/166. Policy guard-2026.10-4. docs/REDTEAM_ROUND2.md | 166 |
+| 0.10.2 | feat/live-guard-dashboard (PR #23) | Final hardening: wheel ships the dashboard + demo data (installed `provenant dashboard` crashed); mail settings in `~/.provenant/mail.json` + DPAPI (WinError 5 fix); `provenant mail demo [--call]`, `mail test`, `call-status`, stale Bolna agent recovery; demo records labelled and kept out of live console numbers (Demo scenarios panel); `--help` never runs a command; `check` takes a plain string; hosted `/` = site, `/console` = ops console; docs, deck, team pack | 235 |
+| 0.10.3 | claude/project-thread-if8nxm (PR, not merged) | Boundary hardening: agent may not run provenant rollback/uninstall/unwrap; MCP writes with no file path held; proxy survives malformed params, drops unsolicited responses, refuses unadvertised tools, answers in-flight calls when the server dies; secrets redacted in session state; Claude Code hook denies at 20 s before Claude Code's 30 s timeout fails open; clear `update`/dashboard-port errors. docs/COVERAGE.md. Deck, handouts, briefings updated. Eval 231/231, 53/53, 11/11 live | 257 |
 | v5 | 628e507 | Renamed to Provenant (user-facing). Brutalist dashboard. Procedural gaussian-splat particle field that reacts to DENY/ALLOW/approval. anime.js + Motion. Everything vendored offline. Motion/lite toggle and fps watchdog. Self-only CSP. Comparison runs on load. | 99 |
 
 Headline numbers (v4/v5):
@@ -125,14 +131,22 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 
 ## Status
 
+- **Website (2026-10-31, PRs #26/#28/#30/#31, merged):** live at **https://theprovenant.vercel.app** (Vercel team `mm-930f`, project `provenant`, auto-deploys from `main`; `provenant-liard.vercel.app` redirects there). The old project (team `meth2`, `provenant-indol.vercel.app`) hit the free plan's 100 deployments/day limit and is no longer updated; its alias was pointed by hand at the PR #30 preview. Hosted `/` is `dashboard/site.html` (`web/src/Site.jsx` → `dashboard/site.js`, `dashboard/site.css`); `/console` is the ops console. The page has a loader, a canvas "shield" hero (attack pills and stars hit a rotating point sphere, splash, and get stamped DENIED, with PROVENANT in a difference blend), scroll parallax, ALLOW/DENY bands, section wipes and a custom reticle cursor (fine pointers only). All of it is illustration, not live data. Checked with Playwright at 1440 and 390: zero console errors, no horizontal overflow.
+
+- **0.10.3 boundary hardening (2026-10-31, branch `claude/project-thread-if8nxm`, PR off main, NOT merged):** 9 confirmed bugs fixed (docs/FINAL_TEST_REPORT.md has the table), each with a regression test; 257 tests, eval 231/231 attacks, 53/53 benign, 11/11 live, policy p50 0.2 ms, proxy overhead p50 about 11 ms. Release 0.10.3 built (`dist/`, `dashboard/download/`, install.ps1 pin); only 0.10.3 is published, so after merge the hosted site's bundle must still reference 0.10.3 (the strings in `dashboard/start.js` were edited in place, not rebuilt). It supersedes PR #27 (a narrower proxy fix from another thread): merge one, not both. Not run: Windows, CI, real calls, real Gmail.
+
+- **Live inbox watch (2026-10-31, branch feat/live-guard-dashboard):** `provenant mail watch [--call]` reads a real mailbox over IMAP read-only (Gmail App Password, stored with DPAPI/0600), scans each new message, shows the gate decision for the email's injected send, and rings the phone for HIGH. `--protect`: Ivy reads a random 4-digit code; said back (user turns only) keeps the email, otherwise it moves to [Gmail]/Trash. 11 tests in tests/test_mail_watch.py with a fake IMAP server and simulated transcripts; 246 tests pass, run_eval green. **Never run against real Gmail or with a real call yet**: mithun rehearses with docs/LIVE_MAIL_DEMO.md.
+
+- **0.10.2 final hardening (branch `feat/live-guard-dashboard`, PR #23, NOT merged):** see docs/FINAL_READINESS_AUDIT.md and docs/FINAL_TEST_REPORT.md. Local `/` is the ops console (`dashboard/index.html` + `ops.js`/`ops.css`); the product site is `/site.html`. Demo: docs/DEMO_RUNBOOK.md. **A real Bolna call has still never been placed by us** (api.bolna.ai is blocked from the cloud): mithun runs `provenant mail setup`, `provenant mail test`, `provenant mail demo --call` on the laptop.
+
 - **0.9.1 (branch fix/windows-installer):** install.ps1 rewritten after the 0.9.0 Windows PowerShell 5.1 quoting failure (double quotes stripped from `python -c` arguments). Tests: tests/test_installer.py; real-Windows check is the `installer-windows` CI job, **not yet run**. Wheel pinned by SHA-256 inside install.ps1 (build_release.py rewrites it: rebuild the release last, after all code edits).
 
 - Guard red-team round 2 on branch `feat/guard-redteam2` (PR into main, off v8). 100 new attacks found 41 gaps in the v8 guard (cloud/DB destructive silently allowed, credential-theft, regulated IDs); all fixed in guard.py + guard_policy.json (now guard-2026.10-4). Whole corpus 225/225 contained, 53/53 benign, 166/166 tests, run_eval green. Dashboard JSON at docs/guard_redteam.json + /mnt/project-files/provenant-redteam/results.json. See docs/REDTEAM_ROUND2.md.
 - **0.9.0 (PR feat/onboarding-0.9, not merged):** see UPDATE.md. The wheel URL in the site and installers is a GitHub raw URL under `dist/`, so it works only after this branch is merged to main. Run `python3 scripts/check_download.py --install` after merge. No model is trained or hosted; the site says so. install.ps1 still never run on real Windows.
 
-- **v8 is merged to main (PR #6, merge b0d524d) and live in production at https://provenant-indol.vercel.app** (check it in a private window: Vercel Authentication may still gate non-team visitors). The hero is now `web/src/Arena.jsx`: an anime.js two-lane attack replay (unprotected lane vs the Provenant gate) that replaced the drag-split comparison. Wheel installed in a clean venv and `provenant serve` answered initialize, tools/list, an allowed read and a held path-escape over stdio. Website walkthrough (desktop 1440 and mobile 390): no horizontal overflow, zero console errors, Download returns the wheel.
-- Launch deck: `/mnt/project-files/provenant-launch/deck/` (PPTX, PDF, speaker script). Video narration script: `/mnt/project-files/provenant-launch/video/NARRATION_SCRIPT.md`. Launch video (about 2 min, rude/confident roast script, ElevenLabs voice) is in final mix; frame sheets are in `/mnt/project-files/provenant-launch/video/preview/`. When done: put the mp4 + poster in `dashboard/media/`, set `manifest.json` to `{"video": "/media/provenant-launch.mp4", "poster": "/media/poster.png"}` (watch the file size), rebuild, PR.
-- Requested next by mithun, after the video: a page loader (counter 0 to 100, wordmark reveal, gate-line split) and awwwards-style scroll animations (section-title mask reveals, velocity marquee of ALLOW/DENY/HOLD, scroll-scrubbed statement, hero parallax), matching the current dark green/red/amber theme. Not started.
+- **v8 is merged to main (PR #6, merge b0d524d) and live in production at https://provenant-indol.vercel.app** (old project; the site now lives at https://theprovenant.vercel.app) (check it in a private window: Vercel Authentication may still gate non-team visitors). The hero is now `web/src/Arena.jsx`: an anime.js two-lane attack replay (unprotected lane vs the Provenant gate) that replaced the drag-split comparison. Wheel installed in a clean venv and `provenant serve` answered initialize, tools/list, an allowed read and a held path-escape over stdio. Website walkthrough (desktop 1440 and mobile 390): no horizontal overflow, zero console errors, Download returns the wheel.
+- Launch deck: `/mnt/project-files/provenant-launch/deck/` (PPTX, PDF, speaker script). Video narration script: `/mnt/project-files/provenant-launch/video/NARRATION_SCRIPT.md`. Launch video done: full quality at `/mnt/project-files/provenant-launch/video/provenant-launch.mp4` (1:42, 1080p30, 326 MB); a 720p copy (7.7 MB) + `poster.jpg` are in `dashboard/media/` and shown in the site's Watch section via `manifest.json`.
+- Website motion pass (`web/src/Scroll.jsx`): anime.js page loader (counter 0 to 100, wordmark rise, gate-line split; replaces `Intro`), scroll-velocity marquee (ALLOW/DENY/REQUIRE APPROVAL), scroll-lit statement, hero parallax, section-title clip reveals (`ui.jsx` Section). Reduced-motion users skip the loader. Walkthrough at 1440 and 390: zero console errors, no horizontal overflow.
 
 - v7 (dashboard rebuild + Guard section) is on branch `split-redesign` with a PR to main and a hosted demo on Vercel (project `provenant`, team meth2). Rebuild the bundle with `cd web && npm run build` after any change in `web/src`.
 - main was v5 and is running on the laptop at 127.0.0.1:8765. v4 was confirmed with 97/97 tests on the laptop. The v5 pull still needs confirming there, including "Motion: full" on the real GPU.
@@ -157,6 +171,10 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 - The Windows launchers can't be tested in the cloud container.
 
 ## Next steps
+
+00000. mithun: review and merge the 0.10.3 PR (close PR #27, it is a subset). If the site-redesign branch rebuilds `dashboard/*.js` from `web/src`, it must include `web/src/onboarding.json` at 0.10.3 or the Download links break. Then on the laptop: `git pull`, `test.bat` (257), `provenant verify`.
+
+0000. On the laptop before the 11:00 IST freeze: `git pull` on feat/live-guard-dashboard, `test.bat` (235), `provenant mail setup` then `provenant mail test` (phone must ring), rehearse with team/TEAM_PRESENTER_RUNBOOK.md. mithun decides when to merge PR #23 (merge deploys the new Vercel routing).
 
 000. PR #4 (CLI polish + one-line installers) is rebased on v8 and kept as a draft until mithun says merge. After merge, try `irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex` on the laptop: install.ps1 has never run on Windows.
 

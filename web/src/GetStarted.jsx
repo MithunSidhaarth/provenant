@@ -8,7 +8,7 @@ import G from "./onboarding.json";
 
 const STEPS = [
   ["client", "Choose your AI client"], ["install", "Install Provenant"], ["connect", "Connect the client"],
-  ["activate", "Activate protection"], ["verify", "Run a safe security test"], ["done", "Checklist"],
+  ["activate", "Activate protection"], ["verify", "Run a safe security test"], ["mail", "Email security + phone alerts"], ["done", "Checklist"],
 ];
 const FULL = /^(py|python3|curl|\(Invoke|winget|brew|sudo|pipx|irm|powershell)\b/;
 const pick = (m, os) => (typeof m === "string" ? m : m?.[os] ?? m?.all ?? "");
@@ -122,7 +122,7 @@ function App() {
         <div className="gs-intro">
           <p className="kicker"><span className="kicker-dot" />Get protected</p>
           <h1>Connect your AI agent. Set your rules. <em>Verify that Provenant is protecting you.</em></h1>
-          <p className="gs-lede">Six short steps, about five minutes. You run each command yourself in your own terminal.
+          <p className="gs-lede">Seven short steps, about five minutes, plus optional email security setup. You run each command yourself in your own terminal.
             This page cannot see or change your computer, and it never claims a command has run: the proof appears in your terminal.</p>
         </div>
 
@@ -237,6 +237,36 @@ function App() {
             <div className="gs-detail">
               <p><b>What this proves:</b> the policy engine on your machine allows a harmless call, refuses to reuse a grant for different arguments, denies a destructive command (and its simulated side effect does not happen), sends a high-impact command to a human, and records all of it in the hash-chained audit log.</p>
               <p><b>What it does not prove:</b> that your client routes calls through Provenant. <code>{run("status")}</code> shows <b>Connected</b> only after a real tool call from your client.</p>
+            </div>
+          </>}
+
+          {id === "mail" && <>
+            <p>Optional: scan email messages returned through a local MCP connector and receive a Bolna phone call when a message is flagged high risk. This is configured from the Provenant CLI—no separate Claude skill or extra mail app installation is needed.</p>
+            <div className="gs-detail">
+              <p><b>Before you start</b></p>
+              <ul>
+                <li>Connect the local stdio mail MCP server through Provenant in Step 3. Cloud-hosted connectors that bypass the local proxy cannot be scanned.</li>
+                <li>Create or access your Bolna account and API key, then verify your own phone number in Bolna before testing outbound calls. Complete any phone verification required in your Bolna account; phone calls may incur usage charges.</li>
+                <li>Use a Provenant release that includes the Mail Security commands. The currently listed <code>v{G.version}</code> package may not include this newly merged feature yet; update the release link when the new wheel is published.</li>
+              </ul>
+            </div>
+            <h3>1. Configure email security and your phone</h3>
+            <p>Run this in the same terminal where Provenant is installed. The CLI asks for your Bolna API key with hidden input, then your phone number in international format (for example, +919876543210). Make sure this same number is verified in your Bolna account first.</p>
+            <Command text={run("mail setup")} label="mail-setup" />
+            <h3>2. Confirm the setup</h3>
+            <Command text={run("mail status")} label="mail-status" />
+            <p>Check that the scanner is active and phone alerts are enabled. The key itself should never be printed.</p>
+            <h3>3. Place a test call</h3>
+            <Command text={run("mail test")} label="mail-test" />
+            <p className="gs-warn">This places a real call and may use Bolna credits. The CLI must ask you to confirm first. Run it only when you're ready to receive the call.</p>
+            <h3>Control phone alerts any time</h3>
+            <ul className="gs-facts">
+              <li><b>Pause calls</b><Command text={run("mail disable")} label="mail-disable" /><p>Mail scanning remains active; only phone calls stop.</p></li>
+              <li><b>Resume calls</b><Command text={run("mail enable")} label="mail-enable" /></li>
+            </ul>
+            <div className="gs-detail">
+              <p><b>What the call says:</b> a short high-risk email alert with sender domain, subject, and risk signals. The email body and links are not sent to Bolna, and the call is not an approval request.</p>
+              <p><b>What gets checked:</b> prompt-injection text, urgency and credential/payment requests, Reply-To mismatch, suspicious links, and known-brand/domain mismatches. This is heuristic screening—not a guarantee that other messages are safe.</p>
             </div>
           </>}
 

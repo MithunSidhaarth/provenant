@@ -1,4 +1,65 @@
-# AgentShield architecture
+# Provenant architecture
+
+Provenant has two halves that share one policy idea. **Provenant Guard** sits in front of real tools on your machine. The **simulation** (the `agentshield` demo world) replays attacks against fake tools so the effect can be judged from world state. The Python package is still called `agentshield`.
+
+## Provenant Guard (real tools)
+
+```mermaid
+flowchart TB
+  subgraph Clients
+    CD[Claude Desktop / Cursor / Windsurf / VS Code]
+    CC[Claude Code]
+  end
+  CD -- stdio JSON-RPC --> PX[provenant proxy<br/>mcp_proxy.py]
+  CC -- PreToolUse / PostToolUse / UserPromptSubmit --> HK[provenant hook<br/>cc_hook.py]
+  PX --> G
+  HK --> G
+  SV[provenant serve<br/>tool_server.py] --> G
+  G{{Guard.check<br/>GuardPolicy guard.py + guard_policy.json}}
+  G -- ALLOW --> MCP[Real MCP server / tool]
+  G -- DENY --> NO[refused with reasons]
+  G -- REQUIRE_APPROVAL --> AP[(SQLite state.py<br/>approvals + single-use grants)]
+  AP -- provenant approve (TTY) / phone code --> MCP
+  MCP -- result --> TAINT[ingest_output: taint + injection scan<br/>mail_security scan for email results]
+  TAINT --> G
+  G --> AU[(~/.provenant audit chain<br/>hash-chained + HMAC, cross-process lock)]
+  AU --> DB[provenant dashboard<br/>server.py + dashboard/ops.js]
+  AU --> LOG[provenant log -f]
+```
+
+Key properties:
+- One decision function (`Guard.check`) for every entry point. Nothing the model writes or reads can change the policy.
+- `provenant serve` executes only after redeeming a single-use grant bound to the exact call (`state.py`, `BEGIN IMMEDIATE` + conditional update).
+- Network tools validate the destination, resolve once and pin the connection, and re-check every redirect (`netguard.py`).
+- The local console reads the audit chain. It counts only records stamped `mode=live` from a real source (MCP proxy, Claude Code hook). Demo records are listed separately.
+
+### A held call, end to end
+
+```mermaid
+sequenceDiagram
+  participant A as Agent
+  participant P as Proxy / hook
+  participant G as Guard
+  participant S as State (SQLite)
+  participant H as Human
+  A->>P: tools/call send_email(to=...)
+  P->>G: check(call)
+  G->>S: create approval (fingerprint, TTL)
+  G-->>P: REQUIRE_APPROVAL appr_x
+  P-->>A: held, nothing ran
+  H->>S: provenant approve appr_x (terminal)
+  A->>P: same call again
+  P->>G: check(call)
+  G->>S: consume approval once
+  G-->>P: ALLOW
+  P->>A: result
+```
+
+### Packaging
+
+The wheel `provenant_agent_shield-<version>-py3-none-any.whl` contains `agentshield` and `provenant` plus data packages: `provenant_dashboard`, `provenant_policy`, `provenant_scenarios`, `provenant_fixtures` and `provenant_evals`. `agentshield/resources.py` finds them in either a checkout or an install. State lives in `~/.provenant` (or `PROVENANT_HOME`).
+
+# Simulation (demo world)
 
 ## Design principle
 

@@ -8,6 +8,7 @@ Standard library only; Windows, macOS and Linux.
 from __future__ import annotations
 
 import json
+import re
 import os
 import shutil
 import sys
@@ -20,9 +21,9 @@ from .ui import SYM, bold, cyan, dim, green, red, yellow
 
 try:
     from importlib.metadata import version as _pkg_version
-    VERSION = _pkg_version("provenant")
+    VERSION = _pkg_version("provenant-agent-shield")
 except Exception:
-    VERSION = "0.9.0"
+    VERSION = "0.10.3"
 
 CLIENT_LABELS = {"claude-desktop": "Claude Desktop", "cursor": "Cursor", "windsurf": "Windsurf",
                  "antigravity": "Antigravity",
@@ -525,6 +526,8 @@ def _mask(text: str) -> str:
 
 
 def _summary(tool: str, args) -> str:
+    if args is None:                  # the request record is outside the window shown, or args were not recorded
+        return ""
     if isinstance(args, dict):
         for k in ("command", "cmd", "file_path", "path", "url", "to", "pattern", "query", "notebook_path"):
             if isinstance(args.get(k), str) and args[k]:
@@ -694,8 +697,11 @@ def cmd_check(tool: str, args_json: str, workspace: str) -> int:
     try:
         args = json.loads(args_json)
     except ValueError:
-        print(red(f"  {SYM['no']} arguments must be JSON, e.g. '{{\"command\": \"ls\"}}'"))
-        return 2
+        if not args_json.lstrip().startswith(("{", "[")):
+            args = {"command": args_json}         # `provenant check Bash "rm -rf ~"`: PowerShell 5.1 mangles quoted JSON
+        else:
+            print(red(f"  {SYM['no']} arguments must be JSON, e.g. '{{\"command\": \"ls\"}}'"))
+            return 2
     g = guard_mod.Guard()
     res = g.policy.evaluate(guard_mod.GuardCall(tool, args, "cli-check", workspace, "cli"), g.store.load_session("cli-check"))
     print(f"\n  {ui.badge(res.decision.value)} {bold(tool)}  {ui.clip(_summary(tool, args), ui.width() - 30)}")
@@ -864,6 +870,9 @@ def _help() -> str:
         f"    {c('provenant setup')}find your AI clients, show the plan, ask, then protect them",
         f"    {c('provenant verify')}safe enforcement test: allow, block, hold, audit",
         f"    {c('provenant status [--json]')}installed / configured / connected / verified",
+        f"    {c('provenant dashboard')}open the local security command center",
+        f"    {c('provenant test [--json]')}run safe enforcement, environment and audit checks",
+        f"    {c('provenant update [--check]')}upgrade from PyPI or check available versions",
         f"    {c('provenant doctor [--json]')}diagnose Python, PATH, configs, policy, audit, model",
         f"    {c('provenant rollback')}undo every client change Provenant made",
         ui.section("Watch and decide"),
@@ -885,8 +894,16 @@ def _help() -> str:
         f"    {c('provenant call APPROVAL_ID')}phone the human about one held call",
         f"    {c('provenant pins reset [server]')}re-approve tool definitions after an upgrade",
         f"    {c('provenant model status|test')}optional model-assisted risk labels (off by default)",
+<<<<<<< HEAD
         f"    {c('provenant mail scan FILE|-  /  mail log')}screen mails for phishing and injection; see verdicts",
         f"    {c('provenant phone setup|status|test|alerts')}phone alerts and approvals (needs a Bolna API key)",
+=======
+        f"    {c('provenant mail setup|status|test')}scan MCP email results; configure Bolna phone alerts",
+        f"    {c('provenant mail demo [--call]')}fake phishing email: scanner verdict, blocked send, optional alert call",
+        f"    {c('provenant mail watch [--call]')}watch a real inbox (IMAP, read-only); call your phone on HIGH-risk mail",
+        f"    {c('provenant mail call-status ID')}follow a placed alert call (queued, ringing, completed, failed)",
+        f"    {c('provenant mail enable|disable')}turn high-risk email phone alerts on or off",
+>>>>>>> origin/main
         "",
         "  " + dim("Docs: https://github.com/MithunSidhaarth/provenant/blob/main/docs/REAL_GUARD.md"),
         ""])
@@ -905,6 +922,20 @@ def main(argv: list[str] | None = None) -> int:
     if cmd in ("-V", "--version", "version"):
         print(f"provenant {VERSION}")
         return 0
+    if rest and rest[0] in ("-h", "--help", "help") and cmd not in ("proxy", "hook"):
+        # Per-command help never runs the command (`rollback --help` used to perform the rollback).
+        lines = [ln for ln in _help().splitlines() if re.search(rf"provenant (\S+\|)?{re.escape(cmd)}\b", ln)]
+        print("\n".join(lines) if lines else _help())
+        return 0
+    if cmd == "dashboard":
+        from .maintenance import dashboard
+        return dashboard(rest)
+    if cmd == "update":
+        from .maintenance import update
+        return update(rest)
+    if cmd == "test":
+        from .maintenance import test
+        return test("--json" in rest)
     if cmd == "proxy":
         from .mcp_proxy import main as proxy_main
         return proxy_main(rest)
@@ -925,10 +956,16 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_rollback(yes="--yes" in rest or "-y" in rest, dry="--dry-run" in rest, only=only, as_json="--json" in rest)
     if cmd == "model":
         return cmd_model(rest)
+<<<<<<< HEAD
     if cmd == "phone":
         return cmd_phone(rest)
     if cmd == "mail":
         return cmd_mail(rest)
+=======
+    if cmd == "mail":
+        from . import mail_security
+        return mail_security.main(rest)
+>>>>>>> origin/main
     if cmd == "log":
         return cmd_log(int(_opt(rest, "-n", 25)), follow="-f" in rest or "--follow" in rest)
     if cmd == "pending":

@@ -16,7 +16,8 @@ from .policy import PolicyEngine
 from .sandbox import ROOT, World, VAULT
 from .tools import ToolRegistry, is_internal_email
 
-SCENARIO_DIR = ROOT / "scenarios"
+from .resources import path as _resource
+SCENARIO_DIR = _resource("scenarios")
 AGENT_ID = "support-agent"
 
 

@@ -111,6 +111,8 @@ class MCPGateway:
             return _error(mid, -32600, "invalid request")
         if mid is None:                       # notification: nothing to answer
             return None
+        if not isinstance(params, dict):
+            return _error(mid, -32602, "invalid params: params must be an object")
         if method == "initialize":
             task = params.get("agentshield/userTask")
             if isinstance(task, str):
@@ -177,7 +179,7 @@ def serve_stdio(stdin=sys.stdin, stdout=sys.stdout) -> None:
         except json.JSONDecodeError:
             reply = _error(None, -32700, "parse error")
         except Exception as exc:              # fail closed, never crash the transport
-            reply = _error(None, -32603, f"internal error: {type(exc).__name__}")
+            reply = _error(msg.get("id") if isinstance(msg, dict) else None, -32603, f"internal error: {type(exc).__name__}")
         if reply is not None:
             stdout.write(json.dumps(reply, ensure_ascii=False) + "\n")
             stdout.flush()

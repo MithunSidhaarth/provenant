@@ -21,7 +21,8 @@ from .detectors import scan_sensitive
 from .models import Decision, Finding, PolicyResult, ToolCall, most_restrictive
 from .tools import ToolSpec, TOOLS, is_internal_email, is_sim_url
 
-DEFAULT_POLICY_PATH = Path(__file__).resolve().parent.parent / "policy" / "policy.json"
+from .resources import path as _resource
+DEFAULT_POLICY_PATH = _resource("policy") / "policy.json"
 
 ALLOW, DENY, APPROVE = Decision.ALLOW, Decision.DENY, Decision.REQUIRE_APPROVAL
 

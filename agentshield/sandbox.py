@@ -11,7 +11,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FIXTURES = ROOT / "fixtures"
+from .resources import path as _resource  # noqa: E402
+FIXTURES = _resource("fixtures")
 
 # Domains that exist inside the simulation. Anything else is "outside" and unreachable.
 INTERNAL_EMAIL_DOMAIN = "corp.example"

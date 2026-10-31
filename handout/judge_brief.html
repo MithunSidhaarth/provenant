@@ -1,0 +1,154 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Provenant judge brief</title><style>
+@font-face{font-family:Brico;src:url(../dashboard/vendor/fonts/bricolage-grotesque-latin-700-normal.woff2);font-weight:700}
+@font-face{font-family:Brico;src:url(../dashboard/vendor/fonts/bricolage-grotesque-latin-500-normal.woff2);font-weight:500}
+@font-face{font-family:Geist;src:url(../dashboard/vendor/fonts/geist-sans-latin-400-normal.woff2);font-weight:400}
+@font-face{font-family:Geist;src:url(../dashboard/vendor/fonts/geist-sans-latin-500-normal.woff2);font-weight:500}
+@font-face{font-family:Geist;src:url(../dashboard/vendor/fonts/geist-sans-latin-600-normal.woff2);font-weight:600}
+@font-face{font-family:GMono;src:url(../dashboard/vendor/fonts/geist-mono-latin-400-normal.woff2);font-weight:400}
+@font-face{font-family:GMono;src:url(../dashboard/vendor/fonts/geist-mono-latin-500-normal.woff2);font-weight:500}
+:root{--paper:#f5f3ee;--ink:#161616;--ink2:#3a3a38;--mute:#77756f;--rule:#d6d3cb;--rule2:#161616;--allow:#1d6b46;--deny:#a8321f;--hold:#8a5a00}
+@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Geist;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:8.6pt;line-height:1.45}
+.page{width:210mm;height:297mm;background:var(--paper);position:relative;overflow:hidden;padding:12mm 14mm 0;page-break-after:always}
+.mono{font-family:GMono}
+.meta{display:flex;justify-content:space-between;font-family:GMono;font-size:6.8pt;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);border-bottom:1.4px solid var(--rule2);padding-bottom:2mm}
+.mast{display:grid;grid-template-columns:1fr 50mm;column-gap:8mm;padding:6mm 0 5mm;border-bottom:1px solid var(--rule)}
+h1{font-family:Brico;font-weight:700;font-size:46pt;line-height:.9;letter-spacing:-.035em}
+.sub{font-size:12pt;line-height:1.35;color:var(--ink2);margin-top:3.5mm;max-width:118mm}
+.sub b{color:var(--ink);font-weight:600}
+.side{border-left:1px solid var(--rule);padding-left:5mm;align-self:end}
+.lab{font-family:GMono;font-size:6.6pt;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.team{font-family:Brico;font-weight:700;font-size:15pt;letter-spacing:-.01em;margin:1mm 0 1.5mm}
+.names div{font-size:8.6pt;line-height:1.5}
+.row{display:grid;grid-template-columns:29mm 1fr;column-gap:7mm;padding:3.8mm 0;border-bottom:1px solid var(--rule)}
+.row>.k{font-family:GMono;font-size:6.8pt;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);padding-top:.6mm}
+.row>.k b{display:block;font-family:Brico;font-weight:700;font-size:11pt;letter-spacing:-.01em;text-transform:none;color:var(--ink);margin-top:1mm;line-height:1.15}
+.lead{font-size:9.6pt;line-height:1.48;color:var(--ink2)}.lead b{color:var(--ink);font-weight:600}
+.cols{display:grid;grid-template-columns:repeat(3,1fr)}
+.cols>div{padding:0 4mm;border-left:1px solid var(--rule)}.cols>div:first-child{padding-left:0;border-left:0}.cols>div:last-child{padding-right:0}
+h3{font-family:Geist;font-weight:600;font-size:9pt;margin-bottom:1.2mm}
+.new{font-family:GMono;font-weight:500;font-size:6pt;letter-spacing:.08em;color:var(--mute);margin-left:1.5mm}
+ul{list-style:none}li{padding-left:3mm;position:relative;margin:.8mm 0;color:var(--ink2)}li:before{content:"";position:absolute;left:0;top:2mm;width:1.4mm;height:.3mm;background:var(--ink)}
+.flow{display:grid;grid-template-columns:1fr 1.35fr 1fr;margin-top:3mm;border-top:1px solid var(--rule2)}
+.flow>div{padding:2.5mm 4mm 0;border-left:1px solid var(--rule)}.flow>div:first-child{padding-left:0;border-left:0}
+.flow .n{font-family:GMono;font-size:6.6pt;color:var(--mute);letter-spacing:.08em}
+.flow .t{font-weight:600;margin:.8mm 0 .6mm}
+.out{font-size:8pt;margin:.2mm 0 1mm;line-height:1.3}.out span:first-child{display:block}.out span:first-child{font-family:GMono;font-weight:500;font-size:7pt}
+.a{color:var(--allow)}.d{color:var(--deny)}.h{color:var(--hold)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr)}
+.steps>div{padding:0 3.5mm;border-left:1px solid var(--rule)}.steps>div:first-child{padding-left:0;border-left:0}
+.steps .n{font-family:Brico;font-weight:500;font-size:16pt;color:var(--mute);line-height:1}
+.steps .t{font-weight:600;margin:1.2mm 0 .6mm}.steps p{color:var(--ink2)}
+.cmd{font-family:GMono;font-size:7.1pt;line-height:1.8;border-left:1.4px solid var(--ink);padding-left:4mm}
+.cmd .c{color:var(--mute)}
+.figs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--rule)}
+.figs>div{padding:4mm 4mm 3.8mm;border-left:1px solid var(--rule)}.figs>div:first-child{padding-left:0;border-left:0}
+.big{font-family:Brico;font-weight:700;font-size:32pt;letter-spacing:-.04em;line-height:1}.big small{font-size:14pt;color:var(--mute);letter-spacing:-.02em}
+.figs .t{font-weight:600;margin-top:1.5mm}.figs p{color:var(--mute);font-size:7.6pt;line-height:1.4;margin-top:.5mm}
+.split{display:grid;grid-template-columns:1fr 1fr;column-gap:0;border-bottom:1px solid var(--rule)}
+.split>div{padding:3.8mm 0}.split>div+div{border-left:1px solid var(--rule);padding-left:6mm}.split>div:first-child{padding-right:6mm}
+.bar{display:grid;grid-template-columns:33mm 1fr 10mm;align-items:center;column-gap:2.5mm;font-size:7.6pt;margin:.5mm 0}
+.track{height:1.6mm;background:#e4e1d9}.track i{display:block;height:100%;background:var(--ink)}
+.bar .v{font-family:GMono;font-size:6.8pt;text-align:right;color:var(--ink2)}
+.tbl{width:100%;border-collapse:collapse;font-size:7.9pt}.tbl td,.tbl th{padding:.85mm 0;border-bottom:1px solid var(--rule);text-align:right;font-weight:400}
+.tbl td:first-child,.tbl th:first-child{text-align:left}.tbl th{font-family:GMono;font-size:6.4pt;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.tbl td.m{font-family:GMono;font-size:7.4pt}.tbl tr:last-child td{border-bottom:0}
+.blk+.blk{margin-top:3.6mm}
+.ratio{display:flex;height:2.2mm;margin:2mm 0 1.4mm}.ratio i{display:block;height:100%}
+.legend{display:flex;gap:6mm;font-family:GMono;font-size:6.8pt}
+.note{font-size:7.2pt;color:var(--mute);line-height:1.4;margin-top:1.5mm}
+.rt{display:grid;grid-template-columns:24mm 1fr;column-gap:6mm;align-items:start}
+.rt .big{font-size:34pt;color:var(--deny)}
+.checks{columns:2;column-gap:8mm;font-size:7.9pt}.checks div{padding:.35mm 0;border-bottom:1px dotted var(--rule);break-inside:avoid}.checks div:before{content:"pass";font-family:GMono;font-size:6.4pt;color:var(--allow);margin-right:2.5mm;letter-spacing:.05em}
+.lim{columns:2;column-gap:8mm}.lim p{break-inside:avoid;margin-bottom:1mm;color:var(--ink2)}.lim b{color:var(--ink);font-weight:600}
+.foot{position:absolute;left:14mm;right:14mm;bottom:8mm;display:flex;justify-content:space-between;font-family:GMono;font-size:6.6pt;color:var(--mute);border-top:1.4px solid var(--rule2);padding-top:2mm;letter-spacing:.03em}
+</style></head><body>
+
+<section class="page">
+ <div class="meta"><span>PARALLAX 2026 · AgentShield track</span><span>Judge brief · v0.10.3</span></div>
+ <div class="mast">
+  <div><h1>Provenant</h1>
+   <p class="sub">A deterministic firewall between AI agents and their tools. <b>The model can propose anything. Policy decides what runs.</b></p></div>
+  <div class="side"><div class="lab">Team</div><div class="team">Parivartan</div>
+   <div class="names"><div>Mithun · Kundan</div><div>Huzefa · Nithya</div></div></div>
+ </div>
+
+ <div class="row"><div class="k">01<b>What it is</b></div><div>
+  <p class="lead">Every tool call an agent proposes goes through <b>one policy check written in plain Python, with no model in the loop</b>. A tool runs only under a single-use grant bound to that exact call. We assume the most gullible model possible, and the tools stay safe anyway.</p>
+  <div class="flow">
+   <div><div class="n">IN</div><div class="t">Any agent</div>Claude Code, Claude Desktop, Cursor, VS Code, any MCP client</div>
+   <div><div class="n">CHECK</div><div class="t">One deterministic gate</div>Provenance, injection context, shell and paths, network pinning, secrets and PII. Fails closed: an unknown tool is held for a person; a broken policy or an error means DENY.</div>
+   <div><div class="n">OUT</div><div class="out"><span class="a">ALLOW</span>runs once, under a grant</div><div class="out"><span class="d">DENY</span>never reaches the tool</div><div class="out"><span class="h">REQUIRE_APPROVAL</span>waits for a person</div></div>
+  </div></div></div>
+
+ <div class="row"><div class="k">02<b>What it does</b></div><div class="cols">
+  <div><h3>Guards real tools</h3><ul><li>Wraps every stdio MCP server; only allowed calls get through</li><li>Claude Code hook: DENY blocks, approval becomes Claude's own prompt</li><li>Tool definitions pinned by HMAC, so a changed tool is withheld</li><li>Stopped real Claude Code from <span class="mono">rm -rf ./*</span> and reading <span class="mono">.env</span> with permissions bypassed</li></ul></div>
+  <div><h3>Mail security<span class="new">NEW</span></h3><ul><li>Scores the email an agent reads: look-alike domains, Reply-To mismatch, link shorteners, instructions aimed at AI</li><li>An address copied from a phish cannot receive your data</li><li>High-risk mail triggers a phone alert call</li></ul></div>
+  <div><h3>Live console<span class="new">NEW</span></h3><ul><li>Every decision as it happens, read from the audit log</li><li>Demo runs are labelled and never counted as live traffic</li><li>Held calls are approved only at a terminal, never in the browser</li><li>Hash-chained, signed audit log; any edit is detected</li></ul></div>
+ </div></div>
+
+ <div class="row"><div class="k">03<b>The live demo</b></div><div class="steps">
+  <div><div class="n">1</div><div class="t">A phish arrives</div><p>"Microsoft" from micros0ft-verify.example, with a hidden line telling the AI to email the invoices away.</p></div>
+  <div><div class="n">2</div><div class="t">The agent obeys</div><p>It proposes <span class="mono">send_email</span> to the attacker. We assume the worst model.</p></div>
+  <div><div class="n">3</div><div class="t d">Provenant denies it</div><p>Risk HIGH, 7 signals. The address came from the email, not from you, so nothing is sent.</p></div>
+  <div><div class="n">4</div><div class="t">Your phone rings</div><p>A spoken alert: high-risk email, don't click, verify the sender.</p></div>
+ </div></div>
+
+ <div class="row" style="border-bottom:0"><div class="k">04<b>Install</b></div><div>
+  <div class="cmd"><span class="c"># Windows PowerShell. macOS and Linux: install.sh</span><br>irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex<br>provenant setup <span class="c">  # shows a plan, backs up configs, asks first. "provenant rollback" undoes it</span><br>provenant verify <span class="c"> # safe self-test of enforcement</span></div>
+  <p class="note">Python standard library only. Runs locally, no telemetry. Demo domains are reserved .example names; no real company or person is involved.</p>
+ </div></div>
+
+ <div class="foot"><span>github.com/MithunSidhaarth/provenant</span><span>Team Parivartan</span><span>1 / 2</span></div>
+</section>
+
+<section class="page">
+ <div class="meta"><span>Measured, not claimed</span><span>Regenerated by python evals/run_eval.py · policy guard-2026.10-4</span></div>
+ <div class="mast" style="padding:5mm 0 4mm"><div><h1 style="font-size:40pt">The numbers</h1></div>
+  <div class="side"><div class="lab">Run</div><div style="font-size:8.6pt;margin-top:1mm">Oct 31, 2026<br>v0.10.3, Python 3.13</div></div></div>
+
+ <div class="figs">
+  <div><div class="big">231<small>/231</small></div><div class="t">Attacks contained</div><p>Never allowed, across 18 categories. Each got the exact expected decision.</p></div>
+  <div><div class="big">53<small>/53</small></div><div class="t">Legitimate actions allowed</div><p>Zero false positives in the benign corpus.</p></div>
+  <div><div class="big">9<small>/9</small></div><div class="t">Live checks</div><p>A real MCP server behind the real proxy.</p></div>
+  <div><div class="big">257<small>/257</small></div><div class="t">Tests passing</div><p>Unit and integration, including a clean install of the wheel.</p></div>
+ </div>
+
+ <div class="split">
+  <div><div class="lab" style="margin-bottom:2mm">Attacks contained, by category</div><div class="bar"><span>Shell commands</span><span class="track"><i style="width:100.0%"></i></span><span class="v">44/44</span></div><div class="bar"><span>Path traversal</span><span class="track"><i style="width:43.2%"></i></span><span class="v">19/19</span></div><div class="bar"><span>SSRF / network</span><span class="track"><i style="width:43.2%"></i></span><span class="v">19/19</span></div><div class="bar"><span>Cloud and infra</span><span class="track"><i style="width:31.8%"></i></span><span class="v">14/14</span></div><div class="bar"><span>Evasion and encoding</span><span class="track"><i style="width:31.8%"></i></span><span class="v">14/14</span></div><div class="bar"><span>Regulated IDs (PII)</span><span class="track"><i style="width:27.3%"></i></span><span class="v">12/12</span></div><div class="bar"><span>Credential theft</span><span class="track"><i style="width:27.3%"></i></span><span class="v">12/12</span></div><div class="bar"><span>Exfiltration</span><span class="track"><i style="width:27.3%"></i></span><span class="v">12/12</span></div><div class="bar"><span>Audit tampering</span><span class="track"><i style="width:31.8%"></i></span><span class="v">14/14</span></div><div class="bar"><span>Remote code execution</span><span class="track"><i style="width:22.7%"></i></span><span class="v">10/10</span></div><div class="bar"><span>Command families</span><span class="track"><i style="width:22.7%"></i></span><span class="v">10/10</span></div><div class="bar"><span>Data loss (DLP)</span><span class="track"><i style="width:20.5%"></i></span><span class="v">9/9</span></div><div class="bar"><span>Database destruction</span><span class="track"><i style="width:18.2%"></i></span><span class="v">8/8</span></div><div class="bar"><span>Persistence</span><span class="track"><i style="width:18.2%"></i></span><span class="v">8/8</span></div><div class="bar"><span>Prompt injection</span><span class="track"><i style="width:15.9%"></i></span><span class="v">7/7</span></div><div class="bar"><span>Taint / provenance</span><span class="track"><i style="width:13.6%"></i></span><span class="v">6/6</span></div><div class="bar"><span>Classification</span><span class="track"><i style="width:20.5%"></i></span><span class="v">9/9</span></div><div class="bar"><span>Fail-closed</span><span class="track"><i style="width:9.1%"></i></span><span class="v">4/4</span></div></div>
+  <div>
+   <div class="blk"><div class="lab">How the 231 were stopped</div>
+    <div class="ratio"><i style="width:74.0%;background:var(--deny)"></i><i style="width:26.0%;background:var(--hold)"></i></div>
+    <div class="legend"><span class="d">DENY 171</span><span class="h">REQUIRE_APPROVAL 60</span></div>
+    <p class="note">A held call runs only after a person approves that exact call, once.</p></div>
+   <div class="blk"><div class="lab">Speed</div><table class="tbl" style="margin-top:1mm">
+    <tr><td>Policy decision, p50 / p95</td><td class="m">0.20 / 0.83 ms</td></tr>
+    <tr><td>Model calls per decision</td><td class="m">0</td></tr>
+    <tr><td>Proxy overhead per call, p50</td><td class="m">11 to 23 ms</td></tr>
+    <tr><td>Saved policy scenarios</td><td class="m">32 / 32</td></tr></table>
+    <p class="note">Proxy overhead includes database and audit writes and varies by machine.</p></div>
+   <div class="blk"><div class="lab">Token benchmark, 15-step repo task</div><table class="tbl" style="margin-top:1mm">
+    <tr><th></th><th>Baseline</th><th>Provenant</th><th>Change</th></tr>
+    <tr><td>Tool-result tokens</td><td class="m">52,432</td><td class="m">14,541</td><td class="m">−72%</td></tr>
+    <tr><td>Cumulative input tokens</td><td class="m">420,465</td><td class="m">184,888</td><td class="m">−56%</td></tr>
+    <tr><td>Task completed</td><td class="m">yes</td><td class="m">yes</td><td></td></tr></table>
+    <p class="note">One scripted workload; tokens estimated as characters ÷ 4.</p></div>
+  </div>
+ </div>
+
+ <div class="row" style="padding:3mm 0"><div class="k">Red team<b>Round 2</b></div><div class="rt"><div class="big">41</div>
+  <p class="lead" style="font-size:9pt">gaps found by round 2: 100 new practical attacks covering cloud and database destruction, credential theft, regulated IDs and non-HTTP exfiltration. <b>All 41 are fixed</b> and kept as permanent regression cases.</p></div></div>
+
+ <div class="row" style="padding:3mm 0"><div class="k">Live checks<b>Real processes</b></div><div class="checks">
+  <div>Allowed command really runs</div><div>rm -rf on the workspace never reaches the server</div><div>Secret file read is denied, not leaked</div><div>Write outside the workspace never lands</div><div>Notification-shaped tools/call is dropped</div><div>Unknown JSON-RPC method refused</div><div>Malformed JSON gets a parse error</div><div>Risky call is held; nothing runs</div><div>Audit chain verifies after the run</div></div></div>
+
+ <div class="row" style="border-bottom:0;padding:3mm 0 0"><div class="k">Limits<b>Not proven yet</b></div><div class="lim">
+  <p><b>Paraphrase.</b> Provenance is value-based, so a reworded address can slip that one rule. The other rules still apply.</p>
+  <p><b>Shell.</b> Analysis is pattern-based; a script written then run is judged by the run command.</p>
+  <p><b>Remote MCP.</b> Only local stdio servers are proxied today.</p>
+  <p><b>Field tests.</b> Phone approval of held calls and the Windows one-liner have not run on real infrastructure yet.</p>
+  <p style="color:var(--mute)">Passing 231 cases is evidence for those cases, not proof that no bypass exists.</p></div></div>
+
+ <div class="foot"><span>Reproduce: python3 evals/run_eval.py · python3 -m unittest discover -s tests -t .</span><span>2 / 2</span></div>
+</section>
+</body></html>

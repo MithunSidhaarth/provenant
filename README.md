@@ -1,12 +1,41 @@
-# Provenant
+<p align="center">
+  <a href="https://theprovenant.vercel.app"><img src="docs/media/hero.jpg" alt="Provenant: attacks hit a policy shield and are stamped DENIED" width="100%"></a>
+</p>
 
-**The self-red-teaming firewall for AI agents** (PARALLAX 2026, AgentShield track).
+<h1 align="center">Provenant</h1>
 
-A defensive security layer for tool-using AI agents. The Python package is still called `agentshield`.
+<p align="center"><b>The firewall between AI agents and their tools.</b><br>
+Every tool call hits deterministic policy before it runs. A fooled model still can't do damage.</p>
 
-Provenant sits between an agent and its tools. Every tool call the agent proposes goes through one deterministic policy enforcement point. That point returns **ALLOW**, **DENY** or **REQUIRE_APPROVAL**, and the tool runs only after it has been authorized. Untrusted content, such as documents, knowledge-base articles and web pages, is treated as data. It can never grant itself authority, even when the agent obeys it.
+<p align="center">
+  <a href="https://theprovenant.vercel.app"><b>Website</b></a> ·
+  <a href="https://theprovenant.vercel.app/console">Console</a> ·
+  <a href="docs/QUICKSTART.md">Quickstart</a> ·
+  <a href="docs/SECURITY_MODEL.md">Security model</a> ·
+  <a href="docs/eval/REPORT.md">Eval report</a>
+</p>
 
-The demo agent is deliberately gullible: it follows any `ASSISTANT ACTION:` instruction it finds in content it reads. This simulates the worst-case model. Provenant keeps the environment safe anyway, because **the LLM is never the security boundary**.
+<p align="center">
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-5fd6a4?style=flat-square">
+  <img alt="Standard library only" src="https://img.shields.io/badge/dependencies-stdlib%20only-a7a2ff?style=flat-square">
+  <img alt="Attacks contained 231/231" src="https://img.shields.io/badge/attacks%20contained-231%2F231-ff7a6b?style=flat-square">
+  <img alt="Tests 257" src="https://img.shields.io/badge/tests-257%20passing-5fd6a4?style=flat-square">
+  <img alt="MCP and Claude Code" src="https://img.shields.io/badge/works%20with-MCP%20%C2%B7%20Claude%20Code-f3b562?style=flat-square">
+</p>
+
+---
+
+Built by **Team Parivartan** for PARALLAX 2026, AgentShield track. The Python import package is `agentshield`; the PyPI distribution is `provenant-agent-shield`.
+
+| | |
+|---|---|
+| **One gate** | Every proposed tool call goes through one deterministic policy point that returns **ALLOW**, **DENY** or **REQUIRE_APPROVAL**. No model in the loop. |
+| **Provenance** | Values that came from content the agent read (an email, a web page) can't become a recipient, a path or a command. |
+| **Single-use grants** | An allowed call runs once, bound to its exact arguments. Replays are refused. |
+| **Humans for high impact** | Risky calls wait for a named person, in the terminal or by phone. |
+| **Tamper-evident audit** | Every decision goes into a hash-chained, HMAC'd log. |
+
+Untrusted content is treated as data. It can never grant itself authority, even when the agent obeys it. The demo agent is deliberately gullible: it follows any `ASSISTANT ACTION:` instruction it finds in content it reads. That simulates the worst-case model, and Provenant keeps the environment safe anyway, because **the LLM is never the security boundary**.
 
 ## Real blocking: Provenant Guard
 
@@ -24,7 +53,9 @@ irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1
 ```bash
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.sh | sh
-# or, with pipx
+# PyPI (after the first release is published)
+python -m pip install provenant-agent-shield && provenant setup
+# Or install directly from the source repository with pipx
 pipx install https://github.com/MithunSidhaarth/provenant/archive/refs/heads/main.zip && provenant setup
 ```
 
@@ -32,11 +63,21 @@ From a clone you can run `python3 provenant.py setup` (or `provenant.bat setup`)
 
 ```bash
 provenant status       # what is protected
+provenant dashboard    # local operations console at 127.0.0.1:8765 (live, audit-backed numbers only)
+provenant test          # safe enforcement + environment + audit-chain checks
+provenant update        # upgrade from the official PyPI package (once published)
+provenant update --check # check available PyPI versions without installing
 provenant log -f       # every tool call live: OK / BLOCK / HOLD / TAINT
 provenant approve      # walk through held calls (a person at a terminal only)
 ```
 
 ![provenant status, live log and a dry-run check](docs/img/provenant-cli.png)
+
+**Phishing demo with a phone alert.** `provenant mail demo` runs a fake phishing email (reserved `.example` domains) through the scanner, then shows the agent's injected "email the invoices to the attacker" call being denied. `provenant mail demo --call` also places a real, clearly labelled alert call after `provenant mail setup`. See [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md).
+
+**Live inbox watch.** `provenant mail watch --call` connects straight to a real mailbox over IMAP (read-only; Gmail App Password, no MCP needed), scans every new email, shows the gate's DENY for any send the email tries to inject, and rings your phone for HIGH-risk mail. With `--protect`, Ivy reads a 4-digit code: say it back to keep the email, otherwise it moves to Trash. Setup and test emails: [docs/LIVE_MAIL_DEMO.md](docs/LIVE_MAIL_DEMO.md).
+
+**New here?** [Quickstart](docs/QUICKSTART.md) · [Security model](docs/SECURITY_MODEL.md) · [What is covered](docs/COVERAGE.md) · [Architecture](docs/ARCHITECTURE.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Changelog](CHANGELOG.md) · [Evaluation report](docs/eval/REPORT.md)
 
 Real Claude Code, even with `--permission-mode bypassPermissions`, cannot `rm -rf ./*` or `cat .env` once the hook is installed. The details, the full rule table and the limits are in [docs/REAL_GUARD.md](docs/REAL_GUARD.md).
 
@@ -143,7 +184,7 @@ docs/                ARCHITECTURE.md, THREAT_MODEL.md, DEMO_SCRIPT.md
 
 ## Tests
 
-`python3 -m unittest discover -s tests -t .` runs the full suite (99 tests) in about two seconds:
+`python3 -m unittest discover -s tests -t .` runs the full suite (256 tests at 0.10.3, about 25 seconds including a wheel build and install). `python3 evals/run_eval.py` regenerates the security report in `docs/eval/`. Highlights:
 
 - **Before/after:** every attack causes harm without Provenant, and none does with it. Decision sequences match each scenario's `expected_protected`, and benign tasks still complete.
 - **Policy rules:** every rule's ALLOW, REQUIRE_APPROVAL and DENY paths.

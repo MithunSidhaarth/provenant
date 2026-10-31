@@ -55,11 +55,11 @@ def main(argv: list[str]) -> int:
     sbom = {
         "bomFormat": "CycloneDX", "specVersion": "1.5", "serialNumber": f"urn:uuid:{uuid.uuid4()}", "version": 1,
         "metadata": {"timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                     "component": {"type": "application", "name": "provenant", "version": v,
-                                   "purl": f"pkg:pypi/provenant@{v}",
+                     "component": {"type": "application", "name": "provenant-agent-shield", "version": v,
+                                   "purl": f"pkg:pypi/provenant-agent-shield@{v}",
                                    "externalReferences": [{"type": "vcs", "url": "https://github.com/MithunSidhaarth/provenant"}]}},
         "components": [{"type": "file", "name": a.name, "hashes": [{"alg": "SHA-256", "content": sha256(a)}]} for a in arts],
-        "dependencies": [{"ref": f"pkg:pypi/provenant@{v}", "dependsOn": []}],
+        "dependencies": [{"ref": f"pkg:pypi/provenant-agent-shield@{v}", "dependsOn": []}],
         "properties": [{"name": "runtime-dependencies", "value": "none (Python standard library only)"},
                        {"name": "requires-python", "value": ">=3.10"}],
     }
@@ -82,8 +82,15 @@ def main(argv: list[str]) -> int:
         # Pin the wheel's SHA-256 in the Windows installer, which refuses any other file. The wheel does not
         # contain install.ps1, so this does not change the hash.
         ps1 = ROOT / "install.ps1"
-        ps1.write_text(re.sub(r"(\$PvWheelSha256 = ')[0-9a-f]{64}(')", lambda m: m.group(1) + prov["artifacts"][wheel] + m.group(2),
-                              ps1.read_text(encoding="utf-8")), encoding="utf-8", newline="\n")
+        ps1_text = ps1.read_text(encoding="utf-8")
+        ps1_text = re.sub(r"(\$PvVersion = ')[^']+(')", lambda m: m.group(1) + v + m.group(2), ps1_text)
+        ps1_text = re.sub(r"(\$PvWheelSha256 = ')[0-9a-f]{64}(')", lambda m: m.group(1) + prov["artifacts"][wheel] + m.group(2), ps1_text)
+        ps1.write_text(ps1_text, encoding="utf-8", newline="\n")
+        # Keep the Unix installer in lockstep with pyproject.toml as well.
+        sh = ROOT / "install.sh"
+        sh_text = sh.read_text(encoding="utf-8")
+        sh_text = re.sub(r'(?m)^VERSION="[^"]+"', f'VERSION="{v}"', sh_text)
+        sh.write_text(sh_text, encoding="utf-8", newline="\n")
         sdist = next(a.name for a in arts if a.suffix == ".gz")
         # Public URLs on GitHub (the repository is public): the Vercel deployment may sit behind Vercel
         # Authentication, which answers a download with an HTML login page. dist/ is committed with the code.
@@ -92,6 +99,26 @@ def main(argv: list[str]) -> int:
                                                       "urls": {"wheel": f"{PUBLIC_BASE}/{wheel}", "sdist": f"{PUBLIC_BASE}/{sdist}",
                                                                "sha256sums": f"{PUBLIC_BASE}/SHA256SUMS.txt"},
                                                       "sha256": prov["artifacts"]}, indent=1))
+        # The Get Started page and troubleshooting commands must never keep pointing at an older wheel.
+        onboarding_path = ROOT / "web" / "src" / "onboarding.json"
+        onboarding = json.loads(onboarding_path.read_text(encoding="utf-8"))
+        wheel_url = f"{PUBLIC_BASE}/{wheel}"
+        onboarding["version"] = v
+        onboarding["wheel_url"] = wheel_url
+        old_wheel_url = re.compile(r"https://github\.com/MithunSidhaarth/provenant/raw/main/dist/[^\s]+\.whl")
+        def refresh_wheel_urls(value):
+            if isinstance(value, dict):
+                return {k: refresh_wheel_urls(val) for k, val in value.items()}
+            if isinstance(value, list):
+                return [refresh_wheel_urls(val) for val in value]
+            if isinstance(value, str):
+                value = re.sub(r"provenant(?:_agent_shield)?-[0-9]+\.[0-9]+\.[0-9]+-py3-none-any\.whl", wheel, value)
+                return old_wheel_url.sub(wheel_url, value)
+            return value
+        onboarding = refresh_wheel_urls(onboarding)
+        onboarding["version"] = v
+        onboarding["wheel_url"] = wheel_url
+        onboarding_path.write_text(json.dumps(onboarding, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(prov, indent=1))
     return 0
 

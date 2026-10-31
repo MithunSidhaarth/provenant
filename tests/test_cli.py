@@ -71,6 +71,16 @@ class ProvenantCLI(unittest.TestCase):
         code, out = self.run_cli("verify")
         self.assertIn("intact", out)
 
+    def test_subcommand_help_never_runs_the_command(self):
+        # Regression: `provenant rollback --help` performed the rollback; `wrap --help` read "--help" as a config path.
+        self.run_cli("setup", "--yes")
+        before = self.desktop.read_text()
+        for cmd in ("rollback", "wrap", "unwrap", "uninstall", "setup", "mail"):
+            code, out = self.run_cli(cmd, "--help")
+            self.assertEqual(code, 0, (cmd, out))
+            self.assertIn("provenant", out)
+        self.assertEqual(self.desktop.read_text(), before)
+
     def test_pip_style_hook_is_recognised(self):
         settings = self.home / "s.json"
         pip_cmd = f"{sys.executable} -m agentshield.cli hook"

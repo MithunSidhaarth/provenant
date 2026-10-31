@@ -2,6 +2,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 
 from agentshield.guard import ALLOW, APPROVE, DENY, Guard, GuardCall, GuardPolicy, Store
 
@@ -130,6 +131,29 @@ class GuardPolicyTests(unittest.TestCase):
     def test_approval_never_lifts_a_deny(self):
         v = self.guard.check(GuardCall("Bash", {"command": "rm -rf /"}, "d", WS))
         self.assertEqual((v.decision, v.approval_id), (DENY, None))
+
+    def test_agent_cannot_undo_its_own_protection(self):
+        self.assertDecisions(DENY, [("Bash", {"command": c}) for c in [
+            "provenant rollback --yes", "provenant uninstall claude-code", "py -m provenant unwrap cursor",
+            "provenant.bat rollback --client claude-code", "python -m agentshield.cli rollback -y"]])
+        self.assertDecisions(ALLOW, [("Bash", {"command": c}) for c in [
+            "provenant status", "provenant log -n 5", "provenant verify"]])
+
+    def test_writes_with_no_file_path_need_a_human(self):
+        self.assertDecisions(APPROVE, [("mcp__github__delete_repository", {"owner": "a", "repo": "b"}),
+                                       ("mcp__db__delete_records", {"table": "users"}),
+                                       ("mcp__crm__remove_contact", {"id": 7})])
+        self.assertDecisions(ALLOW, [("mcp__fs__delete_file", {"path": f"{WS}/old.txt"}),
+                                     ("Write", {"file_path": f"{WS}/a.txt", "content": "x"}),
+                                     ("TodoWrite", {"todos": []})])
+
+    def test_session_state_never_keeps_raw_secrets(self):
+        key = "sk_live_" + "7" * 24
+        self.guard.ingest_output("sec", "WebFetch", f"config dump: STRIPE={key} contact ops@corp.example")
+        self.guard.note_user_text("sec", f"rotate {key} please", "test")
+        raw = b"".join(p.read_bytes() for p in Path(self.tmp.name).glob("state.db*"))
+        self.assertNotIn(key.encode(), raw)
+        self.assertIn("ops@corp.example", self.guard.store.load_session("sec")["untrusted_texts"][0])  # taint still works
 
     def test_audit_chain_persists_and_verifies(self):
         self.guard.check(GuardCall("Bash", {"command": "ls"}, "a", WS))

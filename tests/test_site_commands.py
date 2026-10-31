@@ -54,7 +54,7 @@ class SiteCommands(unittest.TestCase):
 
     def test_version_and_urls_match_this_release(self):
         self.assertEqual(G["version"], VERSION)
-        wheel = f"provenant-{VERSION}-py3-none-any.whl"
+        wheel = f"provenant_agent_shield-{VERSION}-py3-none-any.whl"
         self.assertTrue(G["wheel_url"].endswith("/dist/" + wheel))
         self.assertTrue((ROOT / "dist" / wheel).exists(), "build the release: scripts/build_release.py --publish-site")
         for m in G["methods"]:
@@ -68,6 +68,8 @@ class SiteCommands(unittest.TestCase):
         latest = json.loads((ROOT / "dashboard/download/latest.json").read_text())
         self.assertEqual(latest["version"], VERSION)
         self.assertEqual(latest["urls"]["wheel"], G["wheel_url"])
+        wheel_names = set(re.findall(r"provenant(?:_agent_shield)?-[0-9]+\.[0-9]+\.[0-9]+-py3-none-any\.whl", json.dumps(G)))
+        self.assertEqual(wheel_names, {wheel}, "all installer and troubleshooting commands must use this release's wheel")
 
     def test_expected_verify_output_is_real(self):
         code, out = self.run_cli("verify")

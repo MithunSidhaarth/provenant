@@ -75,7 +75,7 @@ SHELL_RULES: list[tuple[str, Decision, str]] = [
     (r"\breg(\.exe)?\s+delete\s+hk(lm|ey_local_machine)", DENY, "deletes machine-wide registry keys"),
     (r"\bhistory\s+-c\b|\bunset\s+histfile\b|\bshred\b[^|;&]*\.(bash|zsh)_history|\bwevtutil\s+cl\b|\bclear-eventlog\b",
      DENY, "erases shell history or event logs"),
-    (r"(agentshield\.(guard|cc_hook|mcp_proxy)|provenant(\.bat)?)\b[^|;&]*\b(approve|reject|disable|reset)\b", DENY,
+    (r"(agentshield\.(guard|cc_hook|mcp_proxy|cli)|provenant(\.bat)?)\b[^|;&]*\b(approve|reject|disable|reset|rollback|uninstall|unwrap)\b", DENY,
      "an agent may not approve its own held calls or switch off the guard"),
     (r"\bgit\s+push\b[^|;&]*(\s--force\b|\s-f\b|\s\+)", DENY, "force-push rewrites shared history"),
     (r"(^|[;&|]\s*)(printenv|env|set)\s*(\||>|$)|\bget-childitem\s+env:|\bgci\s+env:", APPROVE,
@@ -515,6 +515,11 @@ class GuardPolicy:
         default = self.config.get("category_defaults", {}).get(cat)
         if default:
             return [Finding("category_default", Decision(default), f"'{cat}' tools default to {default}")]
+        if cat == "write" and not self._path_args(call):
+            # Workspace confinement only works on file paths. delete_repository(owner, repo) or
+            # remove_user(id) changes something no path rule can see, so a human confirms it.
+            return [Finding("non_file_write", APPROVE,
+                            f"{call.tool} changes or deletes something that is not a file path in the workspace")]
         if cat == "unknown":
             dec = Decision(self.config["unknown_tool"])
             return [Finding("unknown_tool", dec, f"{call.tool} is not classified by the policy; unclassified tools get {dec.value}")]
@@ -797,9 +802,9 @@ class Guard:
     @_locked
     def note_user_text(self, sid: str, text: str, source: str) -> None:
         s = self.store.load_session(sid)
-        s["user_texts"].append(text[:4000])
+        s["user_texts"].append(redact_secrets(text[:4000]))
         self.store.save_session(s)
-        self.audit.append("user_prompt", sid, {"source": source, "chars": len(text)})
+        self.audit.append("user_prompt", sid, {"source": source, "chars": len(text), "mode": self.mode})
 
     @_locked
     def check(self, call: GuardCall, hold: bool = True, grant: bool = True) -> Verdict:
@@ -822,14 +827,14 @@ class Guard:
         session["call_count"] = session.get("call_count", 0) + 1
         self.store.save_session(session)
         self.audit.append("policy_decision", call.session_id, {"call_id": call.call_id, "tool": call.tool,
-                                                               "source": call.source, **_audit_result(result)})
+                                                               "source": call.source, "mode": self.mode, **_audit_result(result)})
         v = Verdict(result.decision, result.reasons, result.to_dict()["findings"], call.call_id,
                     fingerprint=result.call_fingerprint)
         if result.decision == APPROVE and hold:
             granted = self.store.db.consume_approval(result.call_fingerprint, self.mode, self.clock(), call.call_id)
             if granted:
                 self.audit.append("approval_used", call.session_id, {"approval_id": granted["approval_id"],
-                                                                     "call_id": call.call_id,
+                                                                     "call_id": call.call_id, "mode": self.mode, "source": call.source,
                                                                      "fingerprint": result.call_fingerprint})
                 v.decision, v.approval_id, v.approved_by = ALLOW, granted["approval_id"], granted["decided_by"]
             else:
@@ -851,7 +856,7 @@ class Guard:
             ok = False
         try:
             self.audit.append("grant_redeemed" if ok else "grant_refused", call.session_id,
-                              {"call_id": call.call_id, "grant_id": verdict.grant_id})
+                              {"call_id": call.call_id, "grant_id": verdict.grant_id, "mode": self.mode, "source": call.source})
         except Exception:
             return False
         return ok
@@ -867,7 +872,7 @@ class Guard:
                                        "source": call.source, "reasons": result.reasons, "created_at": now,
                                        "expires_at": now + float(self.policy.config.get("approval_ttl_seconds", 900))})
         self.audit.append("approval_requested", call.session_id, {"approval_id": aid, "tool": call.tool,
-                                                                  "fingerprint": result.call_fingerprint})
+                                                                  "mode": self.mode, "source": call.source, "fingerprint": result.call_fingerprint})
         return aid
 
     @_locked
@@ -882,7 +887,7 @@ class Guard:
             p = self.store.db.get_approval(approval_id)
             self.audit.append("approval_granted" if approve else "approval_rejected", p["session_id"],
                               {"approval_id": approval_id, "approver": approver, "channel": channel,
-                               "fingerprint": p["fingerprint"], **({"evidence": evidence} if evidence else {})})
+                               "mode": self.mode, "source": p.get("source", "unknown"), "fingerprint": p["fingerprint"], **({"evidence": evidence} if evidence else {})})
         return r
 
     def get_approval(self, approval_id: str) -> dict | None:
@@ -893,7 +898,7 @@ class Guard:
         return [p for p in self.store.db.list_approvals("pending") if p["expires_at"] > now and p["mode"] == self.mode]
 
     @_locked
-    def ingest_output(self, sid: str, tool: str, output: Any) -> list[dict]:
+    def ingest_output(self, sid: str, tool: str, output: Any, source: str | None = None) -> list[dict]:
         """Record tool output the agent has seen. Untrusted output taints later destinations; injection
         indicators in it make later side effects need a human."""
         if not self.policy.untrusted_output(tool) and not tool.startswith("mcp__"):
@@ -911,10 +916,11 @@ class Guard:
                 flags.append({"label": "suspicious_mail", "source": tool, "match": v["from"][:60],
                               "snippet": f"high-risk mail ({v['score']}): " + "; ".join(x["reason"] for x in v["signals"][:2])[:160]})
         s = self.store.load_session(sid)
-        s["untrusted_texts"] += [v[:20000] for v in vs]
+        s["untrusted_texts"] += [redact_secrets(v[:20000]) for v in vs]     # kept for destination taint, never secrets
         s["injection_flags"] += flags
         self.store.save_session(s)
         self.audit.append("tool_result", sid, {"tool": tool, "trust": "untrusted", "chars": len(text),
+                                               "mode": self.mode, "source": source or ("claude-code" if sid.startswith("cc:") else "mcp"),
                                                "injection_indicators": flags})
         for v in verdicts:
             self.audit.append("mail_verdict", sid, {"tool": tool, **v})
@@ -968,7 +974,7 @@ def main(argv: list[str] | None = None) -> int:
     if ns.cmd == "pending":
         rows = g.pending()
         for p in rows:
-            print(f"{p['approval_id']}  {p['tool']}  {json.dumps(p['args'], ensure_ascii=False)[:120]}")
+            print(f"{p['approval_id']}  {p['tool']}  {redact_secrets(json.dumps(p['args'], ensure_ascii=False))[:120]}")
             for r in p["reasons"]:
                 print(f"    - {r}")
         if not rows:

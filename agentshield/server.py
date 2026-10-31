@@ -10,6 +10,7 @@ import argparse
 import copy
 import json
 import os
+import sys
 import threading
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -23,7 +24,8 @@ from .runner import Shield, Run
 from .sandbox import ROOT
 from .tools import TOOLS
 
-DASHBOARD = ROOT / "dashboard"
+from .resources import path as _resource, state_dir
+DASHBOARD = _resource("dashboard")
 CTYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
           ".css": "text/css; charset=utf-8", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8",
           ".json": "application/json; charset=utf-8", ".md": "text/markdown; charset=utf-8", ".whl": "application/zip",
@@ -171,11 +173,49 @@ class App:
 
     def guard_log(self, after: int) -> dict:
         if HOSTED:
-            return {"entries": [], "total": 0, "hosted": True}
+            return {"entries": [], "total": 0, "cursor": after, "hosted": True}
         entries = self.guard().audit.snapshot()
+        # The shared chain also contains explicitly simulated/demo records. Only count
+        # events whose producer stamped them as live; old untagged records are ambiguous
+        # and are deliberately excluded rather than presented as real agent activity.
+        # Include only events emitted by the real MCP proxy or Claude Code hooks. The
+        # prompt source label is intentionally distinct in the audit schema; proxy --task
+        # is also a real user-supplied task, not a simulation. Never infer "live" from
+        # an absent mode/source field: legacy and demo records remain excluded.
+        live_sources = {"mcp", "claude-code", "claude-code prompt", "proxy --task"}
+        def is_demo(e: dict) -> bool:
+            d = e.get("data", {})
+            return d.get("demo") is True or d.get("source") == "demo" or d.get("mode") == "demo" or e.get("session_id") == "mail-demo"
+        live_entries = [e for e in entries
+                        if e.get("data", {}).get("mode") == "live"
+                        and e.get("data", {}).get("source") in live_sources and not is_demo(e)]
+        # Demonstration records (e.g. `provenant mail demo`) are returned separately, labelled, never counted as live.
+        demo_entries = [e for e in entries if is_demo(e)]
         keep = ("seq", "ts", "event", "session_id", "data", "hash")
-        return {"entries": [_mask({k: e.get(k) for k in keep}, 600) for e in entries if e["seq"] > after][-300:],
-                "total": len(entries)}
+        decisions = [e for e in live_entries if e.get("event") == "policy_decision"]
+        decision_names = [e.get("data", {}).get("decision") for e in decisions]
+        tool_requests = [e for e in live_entries if e.get("event") == "tool_request"]
+        stats = {
+            "audit_entries": len(live_entries),
+            "live_sessions": len({e.get("session_id") for e in live_entries if e.get("session_id")}),
+            "tool_requests_observed": len(tool_requests),
+            "mcp_tool_requests": sum(e.get("data", {}).get("source") == "mcp" for e in tool_requests),
+            "claude_code_tool_requests": sum(e.get("data", {}).get("source") == "claude-code" for e in tool_requests),
+            "user_prompts_observed": sum(e.get("event") == "user_prompt" for e in live_entries),
+            "policy_decisions": len(decisions),
+            "allowed": decision_names.count("ALLOW"),
+            "blocked": decision_names.count("DENY"),
+            "held": decision_names.count("REQUIRE_APPROVAL"),
+            "tool_results_observed": sum(e.get("event") == "tool_result" for e in live_entries),
+            "approval_requests": sum(e.get("event") == "approval_requested" for e in live_entries),
+            "approval_outcomes": sum(e.get("event") in ("approval_granted", "approval_rejected") for e in live_entries),
+            "execution_grants_redeemed": sum(e.get("event") == "grant_redeemed" for e in live_entries),
+            "last_event_at": live_entries[-1].get("ts") if live_entries else None,
+        }
+        return {"entries": [_mask({k: e.get(k) for k in keep}, 600)
+                            for e in live_entries if e["seq"] > after][-300:],
+                "total": len(live_entries), "cursor": entries[-1]["seq"] if entries else after, "stats": stats,
+                "demo": [_mask({k: e.get(k) for k in keep}, 600) for e in demo_entries][-40:]}
 
     def guard_pending(self) -> list[dict]:
         if HOSTED:
@@ -203,6 +243,8 @@ class App:
 
     def guard_redteam(self) -> dict:
         f = ROOT / "docs" / "guard_redteam.json"
+        if not f.is_file():
+            f = DASHBOARD / "eval" / "guard_redteam.json"
         if not f.exists():
             return {"available": False}
         try:
@@ -359,20 +401,30 @@ def make_handler(app: App):
     return Handler
 
 
-def serve(host: str = "127.0.0.1", port: int = 8765, audit_dir: Path | None = ROOT / "data") -> ThreadingHTTPServer:
+def serve(host: str = "127.0.0.1", port: int = 8765, audit_dir: Path | None = None) -> ThreadingHTTPServer:
+    if audit_dir is None:
+        repo_data = ROOT / "data"
+        in_checkout = (ROOT / "pyproject.toml").is_file() and repo_data.is_dir() and os.access(repo_data, os.W_OK)
+        audit_dir = repo_data if in_checkout else state_dir("demo-audit")
     app = App(audit_dir)
     httpd = ThreadingHTTPServer((host, port), make_handler(app))
     httpd.app = app
     return httpd
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="Provenant dashboard")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--open", action="store_true", help="open the dashboard in the default browser")
-    args = ap.parse_args()
-    httpd = serve(args.host, args.port)
+    args = ap.parse_args(argv)
+    try:
+        httpd = serve(args.host, args.port)
+    except OSError as exc:
+        print(f"Provenant dashboard could not listen on {args.host}:{args.port} ({exc.strerror or exc}). "
+              f"Is it already running? Open http://{args.host}:{args.port}/ or pick another port with --port.",
+              file=sys.stderr)
+        raise SystemExit(1)
     url = f"http://{args.host}:{args.port}/"
     print(f"Provenant dashboard: {url}  (Ctrl+C to stop)")
     if args.open:
