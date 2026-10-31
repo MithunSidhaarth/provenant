@@ -1,0 +1,167 @@
+{
+ "generated_utc": "2026-10-31 05:38 UTC",
+ "source": "scripts/audit_mail_examples.py (agentshield/mailscan.py on the test fixtures)",
+ "thresholds": {
+  "medium": 30,
+  "high": 60
+ },
+ "examples": [
+  {
+   "label": "Look-alike PayPal phish",
+   "test": "tests/test_mailguard.py::test_phishing_is_high_with_reasons",
+   "from": "PayPal Security <service@paypa1-secure.com>",
+   "subject": "URGENT: verify your account",
+   "score": 100,
+   "level": "high",
+   "signals": [
+    {
+     "code": "lookalike_domain",
+     "reason": "sender domain: paypa1-secure.com imitates paypal.com"
+    },
+    {
+     "code": "display_name_spoof",
+     "reason": "sender name mentions paypal but the address is @paypa1-secure.com"
+    },
+    {
+     "code": "link_text_mismatch",
+     "reason": "link text shows paypal.com but goes to 198.51.100.7"
+    },
+    {
+     "code": "risky_attachment",
+     "reason": "attachment 'invoice.pdf.exe' can run code"
+    },
+    {
+     "code": "ip_link",
+     "reason": "a link points to a raw IP address"
+    },
+    {
+     "code": "credential_ask",
+     "reason": "asks for a password, code, card, ID or payment detail"
+    },
+    {
+     "code": "urgent_credential_ask",
+     "reason": "urgency combined with a credential or payment request"
+    },
+    {
+     "code": "urgency",
+     "reason": "pressure or urgency wording"
+    }
+   ]
+  },
+  {
+   "label": "Instructions aimed at the agent",
+   "test": "tests/test_mailguard.py::test_prompt_injection_in_a_mail_is_high",
+   "from": "Dana <dana@partner.example>",
+   "subject": "Notes",
+   "score": 60,
+   "level": "high",
+   "signals": [
+    {
+     "code": "prompt_injection",
+     "reason": "the mail tries to instruct the AI agent: override-instructions"
+    }
+   ]
+  },
+  {
+   "label": "CEO gift-card request (Gmail API shape)",
+   "test": "tests/test_mailguard.py::test_gmail_api_shape_with_base64_body_and_headers",
+   "from": "CEO <ceo@gmail.com>",
+   "subject": "Quick favour",
+   "score": 100,
+   "level": "high",
+   "signals": [
+    {
+     "code": "payment_pressure",
+     "reason": "gift cards, crypto, changed bank details or secrecy"
+    },
+    {
+     "code": "reply_to_mismatch",
+     "reason": "replies go to @other-domain.biz, not @gmail.com"
+    },
+    {
+     "code": "auth_fail",
+     "reason": "SPF/DKIM/DMARC did not pass"
+    },
+    {
+     "code": "credential_ask",
+     "reason": "asks for a password, code, card, ID or payment detail"
+    },
+    {
+     "code": "free_mail_authority",
+     "reason": "authority claimed from a free mail address (@gmail.com)"
+    }
+   ]
+  },
+  {
+   "label": "Fake bank final notice (raw RFC text)",
+   "test": "tests/test_mailguard.py::test_rfc_text_and_unreadable_input",
+   "from": "Bank <alerts@hdfc-secure-login.net>",
+   "subject": "Final notice",
+   "score": 90,
+   "level": "high",
+   "signals": [
+    {
+     "code": "lookalike_domain",
+     "reason": "sender domain: hdfc-secure-login.net imitates hdfcbank.com"
+    },
+    {
+     "code": "credential_ask",
+     "reason": "asks for a password, code, card, ID or payment detail"
+    },
+    {
+     "code": "urgent_credential_ask",
+     "reason": "urgency combined with a credential or payment request"
+    },
+    {
+     "code": "urgency",
+     "reason": "pressure or urgency wording"
+    }
+   ]
+  },
+  {
+   "label": "Ordinary mail: Lunch tomorrow?",
+   "test": "tests/test_mailguard.py::test_benign_mail_is_not_flagged",
+   "from": "Alice <alice@firstsource.com>",
+   "subject": "Lunch tomorrow?",
+   "score": 0,
+   "level": "low",
+   "signals": []
+  },
+  {
+   "label": "Ordinary mail: Security alert",
+   "test": "tests/test_mailguard.py::test_benign_mail_is_not_flagged",
+   "from": "Google <no-reply@accounts.google.com>",
+   "subject": "Security alert",
+   "score": 0,
+   "level": "low",
+   "signals": []
+  },
+  {
+   "label": "Ordinary mail: [repo] PR merged",
+   "test": "tests/test_mailguard.py::test_benign_mail_is_not_flagged",
+   "from": "GitHub <noreply@github.com>",
+   "subject": "[repo] PR merged",
+   "score": 0,
+   "level": "low",
+   "signals": []
+  },
+  {
+   "label": "Ordinary mail: Your order has shipped",
+   "test": "tests/test_mailguard.py::test_benign_mail_is_not_flagged",
+   "from": "Amazon <order@amazon.in>",
+   "subject": "Your order has shipped",
+   "score": 0,
+   "level": "low",
+   "signals": []
+  },
+  {
+   "label": "Ordinary mail: Dinner",
+   "test": "tests/test_mailguard.py::test_benign_mail_is_not_flagged",
+   "from": "Mom <mom@gmail.com>",
+   "subject": "Dinner",
+   "score": 0,
+   "level": "low",
+   "signals": []
+  }
+ ]
+}
