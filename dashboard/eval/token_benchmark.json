@@ -1,17 +1,17 @@
 {
- "generated_utc": "2026-10-31 05:53 UTC",
- "commit": "1acdea4",
+ "generated_utc": "2026-10-31 05:56 UTC",
+ "commit": "7af08f7",
  "summary": {
   "workload": "15-step scripted repository investigation (evals/token_bench.py)",
   "token_estimate": "ceil(chars/4)",
   "context_tokens": {
-   "baseline": 59707,
-   "provenant": 15778,
-   "change_pct": -73.6
+   "baseline": 59779,
+   "provenant": 15832,
+   "change_pct": -73.5
   },
   "reread_input_tokens": {
-   "baseline": 478280,
-   "provenant": 195965,
+   "baseline": 478854,
+   "provenant": 196555,
    "change_pct": -59.0
   },
   "output_tokens": {
@@ -31,8 +31,8 @@
    "provenant": true
   },
   "wall_seconds": {
-   "baseline": 56.11,
-   "provenant": 55.31
+   "baseline": 53.99,
+   "provenant": 56.19
   },
   "policy_llm_calls": 0
  },
@@ -40,20 +40,20 @@
   "baseline": {
    "mode": "baseline",
    "tool_calls": 15,
-   "context_tokens": 59707,
-   "reread_input_tokens": 478280,
+   "context_tokens": 59779,
+   "reread_input_tokens": 478854,
    "output_tokens": 259,
    "cache_hits": 0,
    "dedup_hits": 0,
    "task_success": true,
    "failures": [],
-   "wall_seconds": 56.11,
+   "wall_seconds": 53.99,
    "steps": [
     {
      "step": 0,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 1352,
+     "context_tokens": 1385,
      "ok": true
     },
     {
@@ -81,7 +81,7 @@
      "step": 4,
      "tool": "run_tests",
      "calls": 1,
-     "context_tokens": 736,
+     "context_tokens": 737,
      "ok": true
     },
     {
@@ -102,7 +102,7 @@
      "step": 7,
      "tool": "search_text",
      "calls": 1,
-     "context_tokens": 1796,
+     "context_tokens": 1800,
      "ok": true
     },
     {
@@ -137,7 +137,7 @@
      "step": 13,
      "tool": "run_tests",
      "calls": 1,
-     "context_tokens": 736,
+     "context_tokens": 737,
      "ok": true
     },
     {
@@ -151,7 +151,7 @@
      "step": 15,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 1363,
+     "context_tokens": 1396,
      "ok": true
     }
    ]
@@ -159,20 +159,20 @@
   "provenant": {
    "mode": "provenant",
    "tool_calls": 21,
-   "context_tokens": 15778,
-   "reread_input_tokens": 195965,
+   "context_tokens": 15832,
+   "reread_input_tokens": 196555,
    "output_tokens": 421,
    "cache_hits": 3,
    "dedup_hits": 3,
    "task_success": true,
    "failures": [],
-   "wall_seconds": 55.31,
+   "wall_seconds": 56.19,
    "steps": [
     {
      "step": 0,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 1057,
+     "context_tokens": 1082,
      "ok": true
     },
     {
@@ -221,7 +221,7 @@
      "step": 7,
      "tool": "search_text",
      "calls": 1,
-     "context_tokens": 1154,
+     "context_tokens": 1158,
      "ok": true
     },
     {
@@ -270,7 +270,7 @@
      "step": 15,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 1064,
+     "context_tokens": 1089,
      "ok": true
     }
    ]
