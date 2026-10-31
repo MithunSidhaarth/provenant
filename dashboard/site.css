@@ -232,7 +232,7 @@ h3 { font-weight: 600; font-size: 18px; letter-spacing: -.015em; }
   .stat:nth-child(even) { padding-left: 14px; }
   .final { margin-top: 110px; padding: 100px 0 110px; }
 }
-@media (prefers-reduced-motion: reduce) { .hero-word.hit { animation: none; } html { scroll-behavior: auto; } .btn:hover { transform: none; } }
+
 
 /* loader (#boot paints before JS, the React loader replaces it) */
 .boot { position: fixed; inset: 0; z-index: 199; background: #050507; display: grid; place-items: center; }
@@ -280,4 +280,4 @@ h3 { font-weight: 600; font-size: 18px; letter-spacing: -.015em; }
 .band-row.ghost { color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,.12); padding-bottom: 50px; }
 .band-row.ghost em { color: transparent; }
 @media (max-width: 640px) { .band { margin-top: 80px; padding-top: 44px; } .band-row.ghost { padding-bottom: 30px; } }
-@media (prefers-reduced-motion: reduce) { .cur-ret { animation: none; } }
+

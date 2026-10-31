@@ -71,7 +71,6 @@ const FEED = [
 function Console() {
   const [n, setN] = useState(1);
   useEffect(() => {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { setN(FEED.length); return; }
     const t = setInterval(() => setN((k) => (k >= FEED.length + 3 ? 1 : k + 1)), 1100);
     return () => clearInterval(t);
   }, []);
@@ -109,7 +108,7 @@ function Shield({ onHit, pills = true, cy = 0.46, scale = 0.25, rate = 1 }) {
   const ref = React.useRef(null);
   useEffect(() => {
     const cv = ref.current, x = cv.getContext("2d");
-    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const still = false; // the shield is the product story; it animates for everyone (it pauses offscreen)
     let W = 0, H = 0, raf = 0, on = true, last = performance.now(), rot = 0, tPill = 20;
     const items = [], lines = [], hits = [], sparks = [], rings = [], flashes = [], mouse = { x: -1e4, y: -1e4 };
     const size = () => { const r = cv.getBoundingClientRect(), d = Math.min(window.devicePixelRatio || 1, 1.75); W = r.width; H = r.height;
@@ -442,7 +441,6 @@ function Loader({ onDone }) {
   const [p, setP] = useState(0), [gone, setGone] = useState(false);
   useEffect(() => {
     document.getElementById("boot")?.remove();
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { setGone(true); onDone(); return; }
     const t0 = performance.now(), D = 1500; let raf;
     const tick = (now) => { const k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 3); setP(e);
       if (k < 1) raf = requestAnimationFrame(tick); else setTimeout(() => { setGone(true); onDone(); }, 180); };
@@ -528,7 +526,7 @@ function Band({ flip }) {
 function Site() {
   const [ready, setReady] = useState(false);
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion="never">
       <Loader onDone={() => setReady(true)} />
       <Cursor />
       <ScrollBar />
