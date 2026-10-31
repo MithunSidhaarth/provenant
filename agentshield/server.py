@@ -10,6 +10,7 @@ import argparse
 import copy
 import json
 import os
+import sys
 import threading
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -417,7 +418,13 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--open", action="store_true", help="open the dashboard in the default browser")
     args = ap.parse_args(argv)
-    httpd = serve(args.host, args.port)
+    try:
+        httpd = serve(args.host, args.port)
+    except OSError as exc:
+        print(f"Provenant dashboard could not listen on {args.host}:{args.port} ({exc.strerror or exc}). "
+              f"Is it already running? Open http://{args.host}:{args.port}/ or pick another port with --port.",
+              file=sys.stderr)
+        raise SystemExit(1)
     url = f"http://{args.host}:{args.port}/"
     print(f"Provenant dashboard: {url}  (Ctrl+C to stop)")
     if args.open:

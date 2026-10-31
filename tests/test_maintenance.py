@@ -32,6 +32,24 @@ class MaintenanceTests(unittest.TestCase):
             self.assertEqual(args[-1], "provenant-agent-shield")
             self.assertIn("--upgrade", args)
 
+    def test_update_check_explains_missing_pypi_package(self):
+        result = MagicMock(returncode=1, stdout="", stderr="ERROR: No matching distribution found for provenant-agent-shield")
+        out = io.StringIO()
+        with patch("agentshield.maintenance.subprocess.run", return_value=result), redirect_stdout(out):
+            from agentshield.maintenance import update
+            self.assertEqual(update(["--check"]), 1)
+        self.assertIn("not published on PyPI", out.getvalue())
+        self.assertIn("install.ps1", out.getvalue())
+
+    def test_dashboard_port_in_use_is_a_clear_error(self):
+        from agentshield import server
+        err = io.StringIO()
+        with patch.object(server, "serve", side_effect=OSError(98, "Address already in use")), \
+                patch("sys.stderr", err), self.assertRaises(SystemExit) as cm:
+            server.main(["--port", "8767"])
+        self.assertEqual(cm.exception.code, 1)
+        self.assertIn("already running", err.getvalue())
+
     def test_update_check_does_not_install(self):
         result = MagicMock(returncode=0, stdout="provenant-agent-shield (0.10.0)", stderr="")
         with patch("agentshield.maintenance.subprocess.run", return_value=result) as run:

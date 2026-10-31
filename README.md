@@ -48,7 +48,7 @@ provenant approve      # walk through held calls (a person at a terminal only)
 
 **Live inbox watch.** `provenant mail watch --call` connects straight to a real mailbox over IMAP (read-only; Gmail App Password, no MCP needed), scans every new email, shows the gate's DENY for any send the email tries to inject, and rings your phone for HIGH-risk mail. With `--protect`, Ivy reads a 4-digit code: say it back to keep the email, otherwise it moves to Trash. Setup and test emails: [docs/LIVE_MAIL_DEMO.md](docs/LIVE_MAIL_DEMO.md).
 
-**New here?** [Quickstart](docs/QUICKSTART.md) · [Security model](docs/SECURITY_MODEL.md) · [Architecture](docs/ARCHITECTURE.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Changelog](CHANGELOG.md) · [Evaluation report](docs/eval/REPORT.md)
+**New here?** [Quickstart](docs/QUICKSTART.md) · [Security model](docs/SECURITY_MODEL.md) · [What is covered](docs/COVERAGE.md) · [Architecture](docs/ARCHITECTURE.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Changelog](CHANGELOG.md) · [Evaluation report](docs/eval/REPORT.md)
 
 Real Claude Code, even with `--permission-mode bypassPermissions`, cannot `rm -rf ./*` or `cat .env` once the hook is installed. The details, the full rule table and the limits are in [docs/REAL_GUARD.md](docs/REAL_GUARD.md).
 
@@ -155,7 +155,7 @@ docs/                ARCHITECTURE.md, THREAT_MODEL.md, DEMO_SCRIPT.md
 
 ## Tests
 
-`python3 -m unittest discover -s tests -t .` runs the full suite (235 tests at 0.10.2, about 20 seconds including a wheel build and install). `python3 evals/run_eval.py` regenerates the security report in `docs/eval/`. Highlights:
+`python3 -m unittest discover -s tests -t .` runs the full suite (256 tests at 0.10.3, about 25 seconds including a wheel build and install). `python3 evals/run_eval.py` regenerates the security report in `docs/eval/`. Highlights:
 
 - **Before/after:** every attack causes harm without Provenant, and none does with it. Decision sequences match each scenario's `expected_protected`, and benign tasks still complete.
 - **Policy rules:** every rule's ALLOW, REQUIRE_APPROVAL and DENY paths.

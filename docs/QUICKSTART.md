@@ -2,12 +2,12 @@
 
 Five minutes from nothing to an agent whose tool calls go through Provenant. Everything here runs locally. Nothing is sent to a server we run.
 
-## 1. Install (current release: 0.10.2)
+## 1. Install (current release: 0.10.3)
 
 You need Python 3.10 or newer.
 
 ```powershell
-# Windows (PowerShell): downloads the 0.10.2 wheel, checks its SHA-256, installs it for your user
+# Windows (PowerShell): downloads the 0.10.3 wheel, checks its SHA-256, installs it for your user
 irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex
 ```
 
@@ -16,14 +16,14 @@ irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1
 curl -fsSL https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.sh | sh
 ```
 
-The installers only ever fetch the current wheel (`dist/provenant_agent_shield-0.10.2-py3-none-any.whl`). A test (`tests/test_installer.py`) fails the build if any install path names an older version or if an older wheel is still published.
+The installers only ever fetch the current wheel (`dist/provenant_agent_shield-0.10.3-py3-none-any.whl`). A test (`tests/test_installer.py`) fails the build if any install path names an older version or if an older wheel is still published.
 
 From a clone you can skip installing: `python3 provenant.py <command>` (or `provenant.bat <command>` on Windows).
 
 ## 2. Check the engine on its own
 
 ```bash
-provenant --version      # provenant 0.10.2
+provenant --version      # provenant 0.10.3
 provenant verify         # safe self-test: a destructive command is blocked, a held call is held, the audit chain is intact
 provenant doctor         # environment checks (PATH, resources, state folder, policy)
 ```
@@ -42,6 +42,16 @@ provenant status            # installed / engine / configured / connected / veri
 - **Claude Code**: a PreToolUse / PostToolUse / UserPromptSubmit hook in `~/.claude/settings.json`.
 
 `status` reports a client as **connected** only after real audit traffic from it has been seen. Configured is not the same as working.
+
+| `status` line | What it proves |
+|---|---|
+| Installed | the package runs |
+| Engine ready | the policy loads and the audit chain verifies |
+| Configured | a client config or the Claude Code hook points at Provenant |
+| Connected | that client's tool calls have actually appeared in the audit log |
+| Verified | `provenant verify` blocked, held and recorded test calls against this policy |
+
+Only actions that pass through a wrapped MCP server or the Claude Code hook are protected. Remote (HTTP) MCP servers are skipped and listed as not proxied. See [COVERAGE.md](COVERAGE.md) for exactly what each boundary can see and stop.
 
 ## 4. Watch it work
 

@@ -9,7 +9,7 @@ const GH = "https://github.com/MithunSidhaarth/provenant";
 const INSTALL = {
   windows: "irm https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.ps1 | iex",
   mac: "curl -fsSL https://raw.githubusercontent.com/MithunSidhaarth/provenant/main/install.sh | sh",
-  pip: "pip install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.2-py3-none-any.whl",
+  pip: "pip install https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.3-py3-none-any.whl",
 };
 
 const up = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } } };

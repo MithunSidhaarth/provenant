@@ -10,7 +10,10 @@ MCP tools ...) and on every user prompt, passing a JSON event on stdin:
     PostToolUse       the tool's output is recorded as untrusted; injection indicators are reported back
                       to the model as context and make later side effects need a human
 
-Any error while deciding a PreToolUse event blocks the tool (fail closed).
+Any error while deciding a PreToolUse event blocks the tool (fail closed), and so does a decision that takes
+longer than PRE_DEADLINE_S. Not covered: if the hook command cannot start at all (Python or Provenant removed),
+Claude Code treats that as a non-blocking hook error and runs the tool; `provenant doctor` reports a hook
+that points at a missing program.
 Install with `provenant install claude-code` (writes the hooks into ~/.claude/settings.json).
 """
 from __future__ import annotations
@@ -60,6 +63,26 @@ def _pre(decision: str, reason: str) -> dict:
                                    "permissionDecisionReason": reason}}
 
 
+# Claude Code lets a tool run when its hook times out (the hook is configured with timeout 30), so the hook
+# answers "deny" itself before that if a decision is stuck, for example behind a held state lock.
+PRE_DEADLINE_S = 20.0
+
+
+def _deadline(seconds: float) -> None:
+    import os
+    import threading
+
+    def expire():
+        try:
+            sys.stdout.write(json.dumps(_pre("deny", f"Provenant could not decide within {seconds:g} s; failing closed.")) + "\n")
+            sys.stdout.flush()
+        finally:
+            os._exit(0)
+    t = threading.Timer(seconds, expire)
+    t.daemon = True
+    t.start()
+
+
 def main() -> int:
     try:
         sys.stdin.reconfigure(encoding="utf-8")
@@ -75,6 +98,8 @@ def main() -> int:
         # Unreadable input: block if it might be a tool call. Exit code 2 blocks in Claude Code.
         print("Provenant: unreadable hook input; failing closed", file=sys.stderr)
         return 2
+    if event.get("hook_event_name") == "PreToolUse":
+        _deadline(PRE_DEADLINE_S)
     try:
         out = handle(event)
     except Exception as exc:

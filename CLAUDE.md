@@ -4,7 +4,7 @@ This file is the single source of truth for any agent or person who picks up thi
 
 **Keep it current.** After every milestone, update the "Status", "Version history" and "Next steps" sections. Commit and push the update with the work.
 
-Last updated: 2026-10-30 23:30 UTC, after the final hardening pass (0.10.2, branch feat/live-guard-dashboard, PR #23).
+Last updated: 2026-10-31 04:15 UTC, after the 0.10.3 boundary hardening pass (branch claude/project-thread-if8nxm, PR off main, not merged). PR #23 (0.10.2) is merged.
 
 ## Product
 
@@ -66,18 +66,19 @@ Hard rules from the brief, which must never be broken:
 | `scripts/build_release.py`, `.github/workflows/` | v8: wheel + sdist + SHA256SUMS + CycloneDX SBOM + provenance; `--publish-site` copies to `dashboard/download/` (the site's Download button). CI and release workflows pin actions to SHAs; **neither has run on GitHub yet** |
 | `web/src/Product.jsx` | v8 site sections: how it works, phone approval (visualization), efficiency, features (tested/experimental/planned), download, trust, demo video (reads `dashboard/media/manifest.json`) |
 | `agentshield/resources.py` | finds dashboard/policy/scenarios/fixtures/evals in a checkout OR an installed wheel (data packages `provenant_*`); `state_dir()` = `~/.provenant` |
-| `presentation/`, `team/` | hackathon deck (pptx + pdf, `build_deck.js`, SPEAKER_NOTES.md); teammate scripts + briefing PDFs, presenter runbook, QA_BANK.md |
+| `presentation/`, `team/` | hackathon deck: 8 slides designed in `presentation/slides/deck.html`, rendered by `slides/render.js`, packed by `build_deck.js` (pptx; the PDF is the rendered PNGs); SPEAKER_NOTES.md. Teammate scripts, briefing PDFs (rebuild: `team/build_briefings.py` + `team/briefing_pdf.js`), presenter runbook, QA_BANK.md |
+| `docs/COVERAGE.md` | **capability matrix**: per boundary (MCP proxy, Claude Code hook, gated server, dry run, simulated world, mail) what is observed, blocked, held, inspected, known gaps, setup; proxy failure behaviour |
 | `docs/QUICKSTART.md`, `SECURITY_MODEL.md`, `TROUBLESHOOTING.md`, `DEMO_RUNBOOK.md`, `FINAL_READINESS_AUDIT.md`, `FINAL_TEST_REPORT.md`, `CHANGELOG.md` | new-user and judge docs (0.10.2) |
 | `policy/policy.json` | agent permissions, data classes, limits |
 | `scenarios/*.json` | 7 scenarios with `expected_protected` |
-| `tests/` | 169 unittest tests (`test_live.py` is v8; `test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py`, `test_cli.py` are v6) |
+| `tests/` | 257 unittest tests at 0.10.3 (`test_live.py` is v8; `test_guard.py`, `test_real_proxy.py` + `real_mcp_server.py`, `test_cli.py` are v6) |
 | `docs/` | ARCHITECTURE.md, THREAT_MODEL.md (T1 to T16), DEMO_SCRIPT.md (6 minutes), REAL_GUARD.md (v6 guide) |
 | `run.bat`, `demo.bat`, `test.bat`, `find_python.bat` | Windows launchers |
 
 ## How to run and test
 
 ```bash
-python3 -m unittest discover -s tests -t .     # 166 tests, about 7 s
+python3 -m unittest discover -s tests -t .     # 257 tests, about 25 s
 python3 evals/run_eval.py                      # v8 security eval (fails on any miss or false positive)
 python3 evals/token_bench.py                   # v8 token benchmark
 python3 provenant.py serve --workspace .       # v8 gateway MCP tool server (stdio)
@@ -112,6 +113,7 @@ python3 provenant.py log -f                    # v6: live ok/BLOCK/HOLD/TAINT fe
 | v8 | 110fd78, 740cc90, b6e74da | Live runtime: SQLite approvals + single-use call-bound grants, demo/live separation, phone-approval adapter (claude-call-me), netguard pinning, gateway MCP tool server with structured tools, audit anchoring + retention, privacy detail levels, policy simulator. Closed a notification-shaped `tools/call` proxy bypass and 18 guard gaps that the old red-team file hid. Eval suite + token benchmark. Release pipeline (SBOM, SHA256SUMS, provenance). Website: product sections, real Download, mobile layout fixes | 166 |
 | v8.1 | feat/guard-redteam2 | Guard red-team round 2: 100 new practical attacks in evals/attacks.json (cloud/infra & DB destructive, credential theft beyond dotfiles, regulated IDs, non-HTTP exfil, split-secret reassembly, code-arg classification). Found 41 gaps v8 allowed; all fixed. Attacks 225/225 contained, benign 53/53, unit 166/166. Policy guard-2026.10-4. docs/REDTEAM_ROUND2.md | 166 |
 | 0.10.2 | feat/live-guard-dashboard (PR #23) | Final hardening: wheel ships the dashboard + demo data (installed `provenant dashboard` crashed); mail settings in `~/.provenant/mail.json` + DPAPI (WinError 5 fix); `provenant mail demo [--call]`, `mail test`, `call-status`, stale Bolna agent recovery; demo records labelled and kept out of live console numbers (Demo scenarios panel); `--help` never runs a command; `check` takes a plain string; hosted `/` = site, `/console` = ops console; docs, deck, team pack | 235 |
+| 0.10.3 | claude/project-thread-if8nxm (PR, not merged) | Boundary hardening: agent may not run provenant rollback/uninstall/unwrap; MCP writes with no file path held; proxy survives malformed params, drops unsolicited responses, refuses unadvertised tools, answers in-flight calls when the server dies; secrets redacted in session state; Claude Code hook denies at 20 s before Claude Code's 30 s timeout fails open; clear `update`/dashboard-port errors. docs/COVERAGE.md. Deck, handouts, briefings updated. Eval 231/231, 53/53, 11/11 live | 257 |
 | v5 | 628e507 | Renamed to Provenant (user-facing). Brutalist dashboard. Procedural gaussian-splat particle field that reacts to DENY/ALLOW/approval. anime.js + Motion. Everything vendored offline. Motion/lite toggle and fps watchdog. Self-only CSP. Comparison runs on load. | 99 |
 
 Headline numbers (v4/v5):
@@ -127,6 +129,8 @@ Headline numbers (v8, measured at b6e74da, `docs/eval/`):
 Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes, so **GitHub has only `main`**. Packaged zips are in the project files under `agentshield/` (`provenant-demo-safe-v5.zip`).
 
 ## Status
+
+- **0.10.3 boundary hardening (2026-10-31, branch `claude/project-thread-if8nxm`, PR off main, NOT merged):** 9 confirmed bugs fixed (docs/FINAL_TEST_REPORT.md has the table), each with a regression test; 257 tests, eval 231/231 attacks, 53/53 benign, 11/11 live, policy p50 0.2 ms, proxy overhead p50 about 11 ms. Release 0.10.3 built (`dist/`, `dashboard/download/`, install.ps1 pin); only 0.10.3 is published, so after merge the hosted site's bundle must still reference 0.10.3 (the strings in `dashboard/start.js` were edited in place, not rebuilt). It supersedes PR #27 (a narrower proxy fix from another thread): merge one, not both. Not run: Windows, CI, real calls, real Gmail.
 
 - **Live inbox watch (2026-10-31, branch feat/live-guard-dashboard):** `provenant mail watch [--call]` reads a real mailbox over IMAP read-only (Gmail App Password, stored with DPAPI/0600), scans each new message, shows the gate decision for the email's injected send, and rings the phone for HIGH. `--protect`: Ivy reads a random 4-digit code; said back (user turns only) keeps the email, otherwise it moves to [Gmail]/Trash. 11 tests in tests/test_mail_watch.py with a fake IMAP server and simulated transcripts; 246 tests pass, run_eval green. **Never run against real Gmail or with a real call yet**: mithun rehearses with docs/LIVE_MAIL_DEMO.md.
 
@@ -164,6 +168,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 - The Windows launchers can't be tested in the cloud container.
 
 ## Next steps
+
+00000. mithun: review and merge the 0.10.3 PR (close PR #27, it is a subset). If the site-redesign branch rebuilds `dashboard/*.js` from `web/src`, it must include `web/src/onboarding.json` at 0.10.3 or the Download links break. Then on the laptop: `git pull`, `test.bat` (257), `provenant verify`.
 
 0000. On the laptop before the 11:00 IST freeze: `git pull` on feat/live-guard-dashboard, `test.bat` (235), `provenant mail setup` then `provenant mail test` (phone must ring), rehearse with team/TEAM_PRESENTER_RUNBOOK.md. mithun decides when to merge PR #23 (merge deploys the new Vercel routing).
 
