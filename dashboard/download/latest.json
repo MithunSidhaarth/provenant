@@ -1,11 +1,11 @@
 {
  "version": "0.10.3",
- "commit": "53bffe701da43ba30cb71e1a2cebd2353accb791",
+ "commit": "e34ca2ff37640e7d715f6238f9a86a098f06cda0",
  "wheel": "provenant_agent_shield-0.10.3-py3-none-any.whl",
  "sdist": "provenant_agent_shield-0.10.3.tar.gz",
  "size": {
-  "provenant_agent_shield-0.10.3-py3-none-any.whl": 730046,
-  "provenant_agent_shield-0.10.3.tar.gz": 753303
+  "provenant_agent_shield-0.10.3-py3-none-any.whl": 731384,
+  "provenant_agent_shield-0.10.3.tar.gz": 755405
  },
  "urls": {
   "wheel": "https://github.com/MithunSidhaarth/provenant/raw/main/dist/provenant_agent_shield-0.10.3-py3-none-any.whl",
@@ -13,7 +13,7 @@
   "sha256sums": "https://github.com/MithunSidhaarth/provenant/raw/main/dist/SHA256SUMS.txt"
  },
  "sha256": {
-  "provenant_agent_shield-0.10.3-py3-none-any.whl": "7c707c304dc74f230c059af8892d8ccd2d528481eb44e0d93a4b43debb19fab3",
-  "provenant_agent_shield-0.10.3.tar.gz": "da9cffb8d8e37b50be443667ffe180c138b789b64af62557b221a4444b71d20b"
+  "provenant_agent_shield-0.10.3-py3-none-any.whl": "1f3f6ccabb5831e848481ca8e187b78b4419074b7aaaf01f25012108dbb395e9",
+  "provenant_agent_shield-0.10.3.tar.gz": "d20c2e4d4fcecb65eb08abc5767dfec542d1711090bcdface99a6c4262251343"
  }
 }
