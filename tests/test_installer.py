@@ -79,7 +79,8 @@ class Source(unittest.TestCase):
     def test_new_users_are_only_offered_the_current_release(self):
         # Every install path a new user can copy names the current wheel, and only the current wheel is published.
         version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M).group(1)
-        for rel in ("dashboard/getting-started.html", "web/src/onboarding.json", "README.md", "docs/QUICKSTART.md"):
+        for rel in ("dashboard/getting-started.html", "web/src/onboarding.json", "web/src/Site.jsx", "dashboard/site.js",
+                    "dashboard/start.js", "README.md", "docs/QUICKSTART.md"):
             f = ROOT / rel
             if f.is_file():
                 for found in re.findall(r"provenant(?:_agent_shield)?-(\d+\.\d+\.\d+)-py3", f.read_text(encoding="utf-8")):
