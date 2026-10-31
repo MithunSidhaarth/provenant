@@ -111,6 +111,7 @@ class MCPProxy:
         self.inp = inp or sys.stdin
         self._lock = threading.Lock()
         self._pending: dict = {}             # client request id -> ("list" | "call", tool)
+        self._upstream_alive = True
         exe = shutil.which(upstream_cmd[0]) or upstream_cmd[0]    # resolves npx.cmd etc. on Windows
         self.proc = subprocess.Popen([exe] + upstream_cmd[1:], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=None, text=True, encoding="utf-8", bufsize=1)
@@ -134,8 +135,27 @@ class MCPProxy:
         return f"mcp__{self.name}__{tool}"
 
     # --- client -> server ----------------------------------------------------------------------
+    def _upstream_gone(self) -> None:
+        """The real server exited: answer every in-flight request so the agent never hangs, and never resend."""
+        with self._lock:
+            if not self._upstream_alive:
+                return
+            self._upstream_alive = False
+            pending, self._pending = self._pending, {}
+        code = self.proc.poll()
+        self.guard.audit.append("upstream_exit", self.session_id, {"server": self.name, "returncode": code,
+                                                                   "in_flight": len(pending)})
+        for key, kind in pending.items():
+            note = " Its outcome is unknown: the call was allowed and may have partly run." if kind[0] == "call" else ""
+            self._error(json.loads(key), -32000, f"Provenant: the '{self.name}' MCP server exited "
+                                                 f"(code {code}) before answering.{note}")
+
     def on_client(self, msg: dict) -> None:
         method, mid = msg.get("method"), msg.get("id")
+        if not self._upstream_alive:
+            if mid is not None and method is not None:
+                self._error(mid, -32000, f"Provenant: the '{self.name}' MCP server is not running; nothing was sent")
+            return
         if method is None:                       # a response to a server->client request
             self._send_upstream(msg)
             return
@@ -296,6 +316,8 @@ class MCPProxy:
                 for m in msg:
                     if isinstance(m, dict):
                         self.on_upstream(m)
+        self.proc.wait()
+        self._upstream_gone()
 
     def run(self) -> int:
         t = threading.Thread(target=self._pump_upstream, daemon=True)
@@ -314,8 +336,10 @@ class MCPProxy:
                     if isinstance(m, dict):
                         try:
                             self.on_client(m)
-                        except (BrokenPipeError, OSError):
-                            return 1
+                        except (BrokenPipeError, OSError, ValueError):     # upstream stdin closed under us
+                            self._upstream_gone()
+                            if m.get("id") is not None and m.get("method") is not None:
+                                self._error(m["id"], -32000, f"Provenant: the '{self.name}' MCP server is not running")
         finally:
             try:
                 self.proc.stdin.close()

@@ -36,6 +36,8 @@ def call(name, a):
         Path(a["path"]).write_text(a["content"], encoding="utf-8")
         return "ok"
     if name == "run_command":
+        if "crash-now" in a["command"] and os.environ.get("ALLOW_CRASH") == "1":
+            os._exit(3)                         # simulates a tool server dying mid-call
         r = subprocess.run(a["command"], shell=True, capture_output=True, text=True, timeout=20)
         return r.stdout + r.stderr
     if name == "send_email":
