@@ -144,3 +144,54 @@ class MailWatchTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProtectTests(unittest.TestCase):
+    REPORT = {"subject": "URGENT: verify", "sender_domain": "evil.example", "fingerprint": "f" * 64,
+              "reasons": [{"code": "urgency", "detail": "Uses urgency"}]}
+
+    def test_keep_decision_is_deterministic(self):
+        ok = {"status": "completed", "transcript": "assistant: say the code 4 8 2 1\nuser: four eight two one"}
+        self.assertTrue(mail.keep_decision(ok, "4821")["keep"])
+        self.assertFalse(mail.keep_decision({"status": "completed", "transcript": "assistant: code 4 8 2 1\nuser: ok bye"}, "4821")["keep"])
+        self.assertFalse(mail.keep_decision({"status": "no-answer"}, "4821")["keep"])
+        # Ivy saying the code herself never counts: only the person's turns are read
+        self.assertFalse(mail.keep_decision({"status": "completed", "transcript": "assistant: the code is 4821\nuser: what"}, "4821")["keep"])
+
+    def _run(self, execution, start=None):
+        conn, lines, events = FakeRW(), [], []
+        start = start or {"ok": True, "execution_id": "exec-12345678"}
+        with patch.object(mail, "send_phone_alert", return_value=start) as sent, \
+             patch.object(mail, "_wait_for_call", side_effect=lambda eid, sleep: execution(sent.call_args[0][0])):
+            mail._protect(self.REPORT, 7, lambda: conn, "[Gmail]/Trash", lambda s: None,
+                          lambda e, d: events.append(e), out=lines.append)
+        return conn, "\n".join(lines), events, sent
+
+    def test_code_said_keeps_the_email(self):
+        def said(task):
+            code = "".join(ch for ch in task.split("say the code ")[1].split(".")[0] if ch.isdigit())
+            return {"status": "completed", "transcript": f"assistant: ...\nuser: {code}"}
+        conn, out, events, sent = self._run(said)
+        self.assertEqual(conn.ops, []); self.assertIn("KEPT", out); self.assertEqual(events, ["mail_kept_by_phone"])
+        self.assertNotIn("http", sent.call_args[0][0])
+
+    def test_no_code_moves_to_trash(self):
+        conn, out, events, _ = self._run(lambda task: {"status": "completed", "transcript": "user: okay"})
+        self.assertEqual(conn.ops, [("MOVE", "7", '"[Gmail]/Trash"')])
+        self.assertIn("MOVED TO TRASH", out); self.assertEqual(events, ["mail_trashed_by_phone"])
+
+    def test_call_that_never_starts_leaves_the_email(self):
+        conn, out, events, _ = self._run(lambda task: {}, start={"ok": False, "error": "not configured"})
+        self.assertEqual(conn.ops, []); self.assertIn("email left where it is", out)
+
+
+class FakeRW:
+    def __init__(self):
+        self.ops = []
+
+    def uid(self, command, *args):
+        self.ops.append((command,) + args)
+        return "OK", [b""]
+
+    def logout(self):
+        pass

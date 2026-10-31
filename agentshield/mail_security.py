@@ -604,11 +604,11 @@ def _inbox_settings(args: list[str]) -> tuple[str, str, str] | None:
     return host, user, password
 
 
-def _imap_connect(host: str, user: str, password: str, folder: str = "INBOX"):
+def _imap_connect(host: str, user: str, password: str, folder: str = "INBOX", readonly: bool = True):
     import imaplib, ssl
     conn = imaplib.IMAP4_SSL(host, 993, ssl_context=ssl.create_default_context(), timeout=30)
     conn.login(user, password)
-    typ, _ = conn.select('"' + folder.replace('"', '') + '"', readonly=True)   # read-only: nothing marked read, moved or deleted
+    typ, _ = conn.select('"' + folder.replace('"', '') + '"', readonly=readonly)   # watching is read-only; only --protect opens a write handle
     if typ != "OK":
         raise RuntimeError(f"could not open folder {folder}")
     return conn
@@ -650,6 +650,90 @@ def _gate_story(g, sid: str, mail: dict[str, str], report: dict[str, Any], own: 
         print(f"        because {reason}")
 
 
+
+# ---------------------------------------------------------------- keep-or-trash by phone (--protect)
+
+_FINAL_CALL_STATES = {"completed", "failed", "error", "busy", "no-answer", "canceled", "cancelled", "stopped", "call-disconnected"}
+
+
+def _keep_task(report: dict[str, Any], code: str) -> str:
+    reasons = "; ".join(item["detail"] for item in report["reasons"])
+    spoken = " ".join(code)
+    return ("You are Ivy, calling on behalf of Provenant about an email security alert. "
+        f"Tell the recipient in concise English that an email was flagged as high risk. Sender domain: {report['sender_domain']}. "
+        f"Subject: {report['subject'] or '(no subject)'}. Signals: {reasons}. "
+        "Advise them not to click links, open attachments or share credentials. "
+        "Then say exactly: 'This email will be moved to Trash. If you want to keep it, say the code "
+        f"{spoken}.' Read the code digit by digit, then repeat it once. Wait for their answer. "
+        "If they say those four digits, say the email will be kept. Otherwise say it will be moved to Trash. "
+        "Do not read links or the message body aloud. Do not invent any other code. Keep the call under 60 seconds.")
+
+
+def keep_decision(execution: dict, code: str) -> dict:
+    """Deterministic: keep only if the call completed and the person spoke the exact code back."""
+    from .voice import user_turns, _digits
+    state = execution.get("status")
+    if state != "completed":
+        return {"keep": False, "reason": f"call ended as {state!r}; no code was spoken"}
+    turns = user_turns(execution.get("transcript"))
+    if any(code in _digits(t) for t in turns):
+        return {"keep": True, "reason": "you said the code on the call"}
+    if not turns:
+        return {"keep": False, "reason": "no words from you in the call transcript"}
+    return {"keep": False, "reason": "the code was not said back on the call"}
+
+
+def _wait_for_call(execution_id: str, sleep: Callable[[float], None], seconds: int = 180) -> dict:
+    key, waited, data = _user_env("BOLNA_API_KEY"), 0, {}
+    while waited < seconds:
+        try:
+            data = _request("GET", f"/executions/{execution_id}", key)
+        except RuntimeError:
+            data = {}
+        if data.get("status") in _FINAL_CALL_STATES:
+            return data
+        sleep(4); waited += 4
+    return data or {"status": "timeout"}
+
+
+def _trash(conn, uid: int, trash_folder: str) -> None:
+    box = '"' + trash_folder.replace('"', '') + '"'
+    typ, _ = conn.uid("MOVE", str(uid), box)
+    if typ == "OK":
+        return
+    typ, _ = conn.uid("COPY", str(uid), box)
+    if typ != "OK":
+        raise RuntimeError(f"could not copy the message to {trash_folder}")
+    conn.uid("STORE", str(uid), "+FLAGS", "(\\Deleted)")
+
+
+def _protect(report: dict[str, Any], uid: int, open_rw: Callable, trash_folder: str, sleep: Callable[[float], None],
+             audit: Callable[[str, dict], Any], out: Callable[[str], None] = print) -> None:
+    import secrets as _secrets
+    code = f"{_secrets.randbelow(10000):04d}"
+    try:
+        started = send_phone_alert(_keep_task(report, code))
+    except Exception as exc:
+        out(f"      call failed: {str(exc)[:200]}  (email left where it is)"); return
+    if not started.get("ok"):
+        out(f"      call not placed: {started.get('error')}  (email left where it is)"); return
+    out(f"      calling you (execution {started['execution_id']}). Say the code {code} on the call to keep this email.")
+    decision = keep_decision(_wait_for_call(started["execution_id"], sleep), code)
+    subject = report["subject"][:60]
+    if decision["keep"]:
+        audit("mail_kept_by_phone", {"fingerprint": report["fingerprint"], "reason": decision["reason"]})
+        out(f"      KEPT  \"{subject}\": {decision['reason']}"); return
+    try:
+        conn = open_rw()
+        try: _trash(conn, uid, trash_folder)
+        finally:
+            try: conn.logout()
+            except Exception: pass
+    except Exception as exc:
+        out(f"      could not move \"{subject}\" to Trash: {str(exc)[:160]}"); return
+    audit("mail_trashed_by_phone", {"fingerprint": report["fingerprint"], "reason": decision["reason"], "folder": trash_folder})
+    out(f"      MOVED TO TRASH  \"{subject}\": {decision['reason']} (recoverable from {trash_folder})")
+
 def watch(args: list[str] | None = None, connect: Callable | None = None, sleep: Callable[[float], None] | None = None,
           max_polls: int | None = None) -> int:
     """Watch a real inbox; scan each NEW message; ring the phone for HIGH risk (only with --call)."""
@@ -666,14 +750,19 @@ def watch(args: list[str] | None = None, connect: Callable | None = None, sleep:
         backlog = max(0, min(20, int(_flag(args, "--backlog") or 0)))
     except ValueError:
         print("  --interval, --max-calls and --backlog take numbers."); return 2
-    calling = "--call" in args
+    calling = "--call" in args or "--protect" in args
+    protect = "--protect" in args
+    trash_folder = _flag(args, "--trash-folder") or "[Gmail]/Trash"
     if calling:
         if not (_user_env("BOLNA_API_KEY") and _user_env("CALL_ME_PHONE")):
             print("  Phone alerts need 'provenant mail setup' first (or drop --call)."); return 2
-        if not _confirm(args, f"  Ring your phone for each HIGH-risk email (at most {max_calls} calls this run)? [y/N] "):
-            print("  Watching without calls."); calling = False
+        prompt = (f"  Ring your phone for each HIGH-risk email (at most {max_calls} calls this run)"
+                  + (f", and move it to {trash_folder} unless you say the code on the call" if protect else "") + "? [y/N] ")
+        if not _confirm(args, prompt):
+            print("  Watching without calls or changes."); calling = protect = False
     folder = _flag(args, "--folder") or "INBOX"
     connect = connect or (lambda h, u, p: _imap_connect(h, u, p, folder))
+    open_rw = lambda: _imap_connect(host, user, password, folder, readonly=False)
     try:
         conn = connect(host, user, password)
     except Exception as exc:
@@ -686,7 +775,7 @@ def watch(args: list[str] | None = None, connect: Callable | None = None, sleep:
     existing = _uids(conn, "ALL")
     last = existing[-1 - backlog] if len(existing) > backlog else 0
     shown = user[:2] + "***@" + user.split("@")[-1] if "@" in user else "***"
-    print(f"\n  PROVENANT MAIL WATCH  {shown} {folder} on {host}  (read-only, every {interval:g}s"
+    print(f"\n  PROVENANT MAIL WATCH  {shown} {folder} on {host}  ({'keep-or-trash by phone' if protect else 'read-only'}, every {interval:g}s"
           + (f", phone alerts ON, max {max_calls}" if calling else ", phone alerts off") + ")")
     print("  Waiting for new mail. Ctrl+C to stop.\n", flush=True)
     calls, polls, seen = 0, 0, set()
@@ -727,6 +816,13 @@ def watch(args: list[str] | None = None, connect: Callable | None = None, sleep:
                     _gate_story(g, sid, mail, report, user)
                     if calling and calls < max_calls:
                         calls += 1
+                        if protect:
+                            audit = lambda event, data: g.store.audit.append(event, sid, data)
+                            threading.Thread(target=_protect, args=(report, uid, open_rw, trash_folder, sleep, audit),
+                                             kwargs={"out": lambda m: print(m, flush=True)}, name="provenant-mail-protect",
+                                             daemon=True).start()
+                            print(flush=True)
+                            continue
                         print("      calling your phone (sender domain, subject and reasons only)...", flush=True)
                         try:
                             result = send_phone_alert(_alert_task(report))
@@ -772,4 +868,4 @@ def main(rest: list[str]) -> int:
         _set_user_env("PROVENANT_MAIL_CALLS_ENABLED", "1")
         print("  Phone alerts enabled for high-risk mail."); return 0
     print("  usage: provenant mail setup [--phone +NUMBER] [--agent-id ID] | status | test [--yes] |"
-          " demo [--call] [--yes] | watch [--call] [--setup] [--folder F] [--interval S] [--backlog N] | call-status ID | enable | disable"); return 2
+          " demo [--call] [--yes] | watch [--call] [--protect] [--setup] [--folder F] [--interval S] [--backlog N] | call-status ID | enable | disable"); return 2

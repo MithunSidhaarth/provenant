@@ -71,9 +71,23 @@ It prints `PROVENANT MAIL WATCH ... Waiting for new mail`, then a live `checked 
    Keep the "ignore previous instructions" wording: a version phrased "disregard all prior instructions" still scores HIGH but is not recognised as an AI injection, so no DENY line is shown (known detector gap).
 5. Also send a normal email ("Slides for tomorrow?"). It shows `LOW score 0` and no call. Show the judges both.
 
+## Keep-or-trash by phone (`--protect`)
+
+```powershell
+provenant.bat mail watch --protect --interval 5
+```
+
+For each HIGH-risk email Ivy calls, gives the warning, then says: "This email will be moved to Trash. If you want to keep it, say the code 4 8 2 1." The code is random per email and also shown in the terminal.
+
+- Say the four digits back: the terminal prints `KEPT`.
+- Say anything else, hang up, or don't answer: `MOVED TO TRASH` (Gmail Trash keeps it 30 days, so it is recoverable).
+- If the call cannot be placed at all, the email is left where it is.
+
+Only the person's side of the transcript counts (Ivy saying the code does not), checked with the same deterministic rules as phone approvals. Watching stays read-only; a separate write connection is opened only to move that one message. For a non-English Gmail, pass `--trash-folder` with your Trash folder name.
+
 ## On stage (replaces the `mail demo --call` step, about 60 seconds)
 
-1. Watcher already running on screen: `provenant.bat mail watch --call --yes --interval 5`.
+1. Watcher already running on screen: `provenant.bat mail watch --protect --yes --interval 5` (or `--call` for the alert without keep-or-trash).
 2. Say: "This is my real inbox. Kundan is going to send me a phishing email right now."
 3. The teammate sends the prepared email (keep it as a draft, ready to send).
 4. Point at the HIGH verdict and the DENY line, put the phone on speaker when it rings.
@@ -91,6 +105,6 @@ It prints `PROVENANT MAIL WATCH ... Waiting for new mail`, then a live `checked 
 
 ## Honest limits
 
-- Tested with a faked IMAP server in `tests/test_mail_watch.py` (new-mail detection, read-only fetch, gate decision, call limit, no body or links in the call). **Not yet run against real Gmail or a real call**: do the rehearsal above.
+- Tested with a faked IMAP server and simulated call transcripts in `tests/test_mail_watch.py` (new-mail detection, read-only fetch, gate decision, call limit, no body or links in the call, keep on code / trash otherwise / untouched if the call never starts). **Not yet run against real Gmail or a real call**: do the rehearsal above.
 - It polls every few seconds and re-opens the folder each time so Gmail shows newly arrived mail (IMAP IDLE push is not implemented).
 - The scanner is rule-based and advisory; it decides whether to alert you, not what the agent may do. The DENY comes from the policy gate.

@@ -128,7 +128,7 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 
 ## Status
 
-- **Live inbox watch (2026-10-31, branch feat/live-guard-dashboard):** `provenant mail watch [--call]` reads a real mailbox over IMAP read-only (Gmail App Password, stored with DPAPI/0600), scans each new message, shows the gate decision for the email's injected send, and rings the phone for HIGH. 7 tests in tests/test_mail_watch.py with a fake IMAP server; 242 tests pass, run_eval green. **Never run against real Gmail or with a real call yet**: mithun rehearses with docs/LIVE_MAIL_DEMO.md.
+- **Live inbox watch (2026-10-31, branch feat/live-guard-dashboard):** `provenant mail watch [--call]` reads a real mailbox over IMAP read-only (Gmail App Password, stored with DPAPI/0600), scans each new message, shows the gate decision for the email's injected send, and rings the phone for HIGH. `--protect`: Ivy reads a random 4-digit code; said back (user turns only) keeps the email, otherwise it moves to [Gmail]/Trash. 11 tests in tests/test_mail_watch.py with a fake IMAP server and simulated transcripts; 246 tests pass, run_eval green. **Never run against real Gmail or with a real call yet**: mithun rehearses with docs/LIVE_MAIL_DEMO.md.
 
 - **0.10.2 final hardening (branch `feat/live-guard-dashboard`, PR #23, NOT merged):** see docs/FINAL_READINESS_AUDIT.md and docs/FINAL_TEST_REPORT.md. Local `/` is the ops console (`dashboard/index.html` + `ops.js`/`ops.css`); the product site is `/site.html`. Demo: docs/DEMO_RUNBOOK.md. **A real Bolna call has still never been placed by us** (api.bolna.ai is blocked from the cloud): mithun runs `provenant mail setup`, `provenant mail test`, `provenant mail demo --call` on the laptop.
 
