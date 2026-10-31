@@ -128,6 +128,8 @@ Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes,
 
 ## Status
 
+- **Live inbox watch (2026-10-31, branch feat/live-guard-dashboard):** `provenant mail watch [--call]` reads a real mailbox over IMAP read-only (Gmail App Password, stored with DPAPI/0600), scans each new message, shows the gate decision for the email's injected send, and rings the phone for HIGH. 7 tests in tests/test_mail_watch.py with a fake IMAP server; 242 tests pass, run_eval green. **Never run against real Gmail or with a real call yet**: mithun rehearses with docs/LIVE_MAIL_DEMO.md.
+
 - **0.10.2 final hardening (branch `feat/live-guard-dashboard`, PR #23, NOT merged):** see docs/FINAL_READINESS_AUDIT.md and docs/FINAL_TEST_REPORT.md. Local `/` is the ops console (`dashboard/index.html` + `ops.js`/`ops.css`); the product site is `/site.html`. Demo: docs/DEMO_RUNBOOK.md. **A real Bolna call has still never been placed by us** (api.bolna.ai is blocked from the cloud): mithun runs `provenant mail setup`, `provenant mail test`, `provenant mail demo --call` on the laptop.
 
 - **0.9.1 (branch fix/windows-installer):** install.ps1 rewritten after the 0.9.0 Windows PowerShell 5.1 quoting failure (double quotes stripped from `python -c` arguments). Tests: tests/test_installer.py; real-Windows check is the `installer-windows` CI job, **not yet run**. Wheel pinned by SHA-256 inside install.ps1 (build_release.py rewrites it: rebuild the release last, after all code edits).

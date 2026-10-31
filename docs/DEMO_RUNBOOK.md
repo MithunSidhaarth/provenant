@@ -54,6 +54,10 @@ What it shows, in order:
 
 The call is the only part that leaves the laptop. It only happens with `--call`, only after `provenant mail setup`, and only after a yes at the prompt (or `--yes`).
 
+## Live inbox option (real email, real call)
+
+Instead of the built-in fake email you can show a real one arriving: `provenant.bat mail watch --call --yes --interval 5` on screen, a teammate sends the prepared phishing email, the terminal shows HIGH + DENY and the phone rings. Setup and the exact email text: [LIVE_MAIL_DEMO.md](LIVE_MAIL_DEMO.md). Rehearse it the night before; if it has not worked in rehearsal, use `mail demo --call` instead.
+
 ## Fallbacks
 
 | Failure | Do this |

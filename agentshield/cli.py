@@ -758,6 +758,7 @@ def _help() -> str:
         f"    {c('provenant model status|test')}optional model-assisted risk labels (off by default)",
         f"    {c('provenant mail setup|status|test')}scan MCP email results; configure Bolna phone alerts",
         f"    {c('provenant mail demo [--call]')}fake phishing email: scanner verdict, blocked send, optional alert call",
+        f"    {c('provenant mail watch [--call]')}watch a real inbox (IMAP, read-only); call your phone on HIGH-risk mail",
         f"    {c('provenant mail call-status ID')}follow a placed alert call (queued, ringing, completed, failed)",
         f"    {c('provenant mail enable|disable')}turn high-risk email phone alerts on or off",
         "",

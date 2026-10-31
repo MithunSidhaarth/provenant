@@ -199,6 +199,9 @@ _SETTING_KEYS = {"BOLNA_API_KEY": "bolna_api_key", "CALL_ME_PHONE": "phone", "PR
                  "PROVENANT_MAIL_BOLNA_AGENT_ID": "agent_id"}
 
 
+_SECRET_FIELDS = ("bolna_api_key", "imap_password")
+
+
 def _settings_path():
     from .resources import state_dir
     return state_dir("mail.json")
@@ -230,15 +233,16 @@ def _load_settings() -> dict:
         return {}
     if not isinstance(data, dict):
         return {}
-    secret = data.get("bolna_api_key")
-    if isinstance(secret, dict):
-        try:
-            if "dpapi" in secret:
-                data["bolna_api_key"] = _dpapi(base64.b64decode(secret["dpapi"]), protect=False).decode()
-            else:
-                data["bolna_api_key"] = str(secret.get("plain", ""))
-        except (OSError, ValueError, AttributeError, UnicodeError):
-            data["bolna_api_key"] = ""
+    for name in _SECRET_FIELDS:
+        secret = data.get(name)
+        if isinstance(secret, dict):
+            try:
+                if "dpapi" in secret:
+                    data[name] = _dpapi(base64.b64decode(secret["dpapi"]), protect=False).decode()
+                else:
+                    data[name] = str(secret.get("plain", ""))
+            except (OSError, ValueError, AttributeError, UnicodeError):
+                data[name] = ""
     return data
 
 
@@ -246,15 +250,17 @@ def _save_settings(data: dict) -> None:
     path = _settings_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     out = dict(data)
-    key = out.get("bolna_api_key")
-    if key:
+    for name in _SECRET_FIELDS:
+        key = out.get(name)
+        if not key:
+            continue
         stored: dict = {"plain": key}
         if sys.platform == "win32":
             try:
                 stored = {"dpapi": base64.b64encode(_dpapi(key.encode(), protect=True)).decode()}
             except (OSError, AttributeError, ValueError):
                 pass                                  # file stays in the user's private profile folder
-        out["bolna_api_key"] = stored
+        out[name] = stored
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(out, indent=1), encoding="utf-8")
     try:
@@ -544,12 +550,206 @@ def demo(args: list[str] | None = None) -> int:
     return _place("This alert is from a Provenant demonstration using a fake email. " + _alert_task(report))
 
 
+
+# ---------------------------------------------------------------- live inbox watch (IMAP, read-only)
+
+_TAGS = re.compile(r"<(script|style)\b.*?</\1>|<[^>]+>", re.I | re.S)
+
+
+def parse_raw_email(raw: bytes) -> dict[str, str]:
+    """RFC 822 bytes -> the scanner's mail dict. Text only: attachments are never opened or saved."""
+    import email
+    from email import policy
+    msg = email.message_from_bytes(raw, policy=policy.default)
+    plain, rich = [], []
+    for part in msg.walk():
+        if part.is_multipart() or part.get_content_disposition() == "attachment":
+            continue
+        ctype = part.get_content_type()
+        if ctype not in ("text/plain", "text/html"):
+            continue
+        try:
+            text = part.get_content()
+        except (LookupError, ValueError, AssertionError):
+            text = (part.get_payload(decode=True) or b"").decode("utf-8", "replace")
+        (plain if ctype == "text/plain" else rich).append(str(text))
+    body = " ".join(plain) or html.unescape(_TAGS.sub(" ", " ".join(rich)))
+    header = lambda name: str(msg.get(name, "") or "")
+    return {"id": header("Message-ID")[:300], "sender": header("From")[:500], "reply_to": header("Reply-To")[:500],
+            "subject": header("Subject")[:500], "body": body[:50000],
+            "headers": " ".join(f"{k}: {header(k)}" for k in ("Return-Path", "Authentication-Results") if header(k))[:4000]}
+
+
+def _inbox_settings(args: list[str]) -> tuple[str, str, str] | None:
+    data = _load_settings()
+    host = _flag(args, "--host") or data.get("imap_host") or "imap.gmail.com"
+    user = _flag(args, "--user") or os.environ.get("PROVENANT_IMAP_USER", "") or data.get("imap_user", "")
+    password = os.environ.get("PROVENANT_IMAP_PASSWORD", "") or ("" if "--setup" in args else data.get("imap_password", ""))
+    interactive = bool(sys.stdin and sys.stdin.isatty())
+    if not user or not password:
+        if not interactive:
+            print("  No inbox configured. Run 'provenant mail watch --setup' in a terminal."); return None
+        print("\n  Connect a mailbox (read-only). For Gmail use an App Password, not your normal password:")
+        print("  https://myaccount.google.com/apppasswords  (needs 2-Step Verification on the account)\n")
+        while not user:
+            user = input("  Email address: ").strip()
+        while not password:
+            password = getpass.getpass("  App password (hidden): ").replace(" ", "").strip()
+    if user != data.get("imap_user") or password != data.get("imap_password") or host != data.get("imap_host"):
+        data.update({"imap_host": host, "imap_user": user, "imap_password": password})
+        try:
+            _save_settings(data)
+        except OSError as exc:
+            print(f"  (could not save inbox settings: {exc}; they apply to this run only)")
+    return host, user, password
+
+
+def _imap_connect(host: str, user: str, password: str, folder: str = "INBOX"):
+    import imaplib, ssl
+    conn = imaplib.IMAP4_SSL(host, 993, ssl_context=ssl.create_default_context(), timeout=30)
+    conn.login(user, password)
+    typ, _ = conn.select('"' + folder.replace('"', '') + '"', readonly=True)   # read-only: nothing marked read, moved or deleted
+    if typ != "OK":
+        raise RuntimeError(f"could not open folder {folder}")
+    return conn
+
+
+def _uids(conn, query: str) -> list[int]:
+    typ, data = conn.uid("SEARCH", None, query)
+    if typ != "OK" or not data:
+        return []
+    return sorted(int(x) for x in (data[0] or b"").split() if x.isdigit())
+
+
+def _fetch(conn, uid: int) -> bytes:
+    typ, data = conn.uid("FETCH", str(uid), "(BODY.PEEK[])")
+    if typ != "OK":
+        return b""
+    for item in data or []:
+        if isinstance(item, tuple) and len(item) > 1 and isinstance(item[1], (bytes, bytearray)):
+            return bytes(item[1])[:5_000_000]
+    return b""
+
+
+def _gate_story(g, sid: str, mail: dict[str, str], report: dict[str, Any], own: str) -> None:
+    """What an AI agent reading this mail would be allowed to do next. Evaluated only; nothing is sent."""
+    g.ingest_output(sid, "read_email", json.dumps(mail), source="imap")
+    if not any(r["code"] == "prompt_injection" for r in report["reasons"]):
+        return
+    own = own.lower()
+    targets = [a for a in _EMAIL_RE.findall(mail.get("body", "")) if a.lower() != own]
+    if not targets:
+        return
+    from . import guard as guard_mod
+    call = guard_mod.GuardCall("send_email", {"to": targets[0], "subject": "(requested by the email)", "body": "(redacted)"},
+                               sid, os.getcwd(), "mail-watch")
+    v = g.check(call, hold=False, grant=False)
+    print(f"      the email tells an AI agent to send data to {targets[0]}")
+    print(f"      Provenant decision for send_email -> {targets[0]}: {v.decision.value}")
+    for reason in [r for r in v.reasons if "default to" not in r][:2]:
+        print(f"        because {reason}")
+
+
+def watch(args: list[str] | None = None, connect: Callable | None = None, sleep: Callable[[float], None] | None = None,
+          max_polls: int | None = None) -> int:
+    """Watch a real inbox; scan each NEW message; ring the phone for HIGH risk (only with --call)."""
+    import time
+    args = args or []
+    sleep = sleep or time.sleep
+    settings = _inbox_settings(args)
+    if not settings:
+        return 2
+    host, user, password = settings
+    try:
+        interval = max(5.0, float(_flag(args, "--interval") or 10))
+        max_calls = max(0, int(_flag(args, "--max-calls") or 3))
+        backlog = max(0, min(20, int(_flag(args, "--backlog") or 0)))
+    except ValueError:
+        print("  --interval, --max-calls and --backlog take numbers."); return 2
+    calling = "--call" in args
+    if calling:
+        if not (_user_env("BOLNA_API_KEY") and _user_env("CALL_ME_PHONE")):
+            print("  Phone alerts need 'provenant mail setup' first (or drop --call)."); return 2
+        if not _confirm(args, f"  Ring your phone for each HIGH-risk email (at most {max_calls} calls this run)? [y/N] "):
+            print("  Watching without calls."); calling = False
+    folder = _flag(args, "--folder") or "INBOX"
+    connect = connect or (lambda h, u, p: _imap_connect(h, u, p, folder))
+    try:
+        conn = connect(host, user, password)
+    except Exception as exc:
+        print(f"  Could not open the mailbox: {type(exc).__name__}: {str(exc)[:200]}")
+        print("  Gmail: use an App Password, and make sure IMAP is on (Settings > Forwarding and POP/IMAP).")
+        return 1
+    from . import guard as guard_mod
+    g = guard_mod.Guard()
+    sid = "mail-watch"
+    existing = _uids(conn, "ALL")
+    last = existing[-1 - backlog] if len(existing) > backlog else 0
+    shown = user[:2] + "***@" + user.split("@")[-1] if "@" in user else "***"
+    print(f"\n  PROVENANT MAIL WATCH  {shown} {folder} on {host}  (read-only, every {interval:g}s"
+          + (f", phone alerts ON, max {max_calls}" if calling else ", phone alerts off") + ")")
+    print("  Waiting for new mail. Ctrl+C to stop.\n", flush=True)
+    calls, polls, seen = 0, 0, set()
+    try:
+        while True:
+            try:
+                new = [u for u in _uids(conn, f"UID {last + 1}:*") if u > last]
+            except Exception as exc:
+                print(f"  (connection lost: {type(exc).__name__}; reconnecting)", flush=True)
+                sleep(interval)
+                try: conn = connect(host, user, password)
+                except Exception: pass
+                continue
+            for uid in new:
+                last = max(last, uid)
+                raw = _fetch(conn, uid)
+                if not raw:
+                    continue
+                mail = parse_raw_email(raw)
+                report = analyse_email(mail)
+                if report["fingerprint"] in seen:
+                    continue
+                seen.add(report["fingerprint"])
+                g.store.audit.append("mail_scan", sid, {"source": "imap", "fingerprint": report["fingerprint"],
+                    "risk_score": report["risk_score"], "verdict": report["verdict"], "sender_domain": report["sender_domain"],
+                    "subject": report["subject"], "reason_codes": [r["code"] for r in report["reasons"]]})
+                stamp = time.strftime("%H:%M:%S")
+                print(f"  {stamp}  {report['verdict'].upper():6} score {report['risk_score']:>2}  "
+                      f"{report['sender_domain']}  \"{report['subject'][:70]}\"", flush=True)
+                for r in report["reasons"]:
+                    print(f"      - {r['detail']}")
+                if report["verdict"] == "high":
+                    _gate_story(g, sid, mail, report, user)
+                    if calling and calls < max_calls:
+                        calls += 1
+                        print("      calling your phone (sender domain, subject and reasons only)...", flush=True)
+                        try:
+                            result = send_phone_alert(_alert_task(report))
+                            print(f"      call queued (execution {result.get('execution_id', '?')})" if result.get("ok")
+                                  else f"      call not placed: {result.get('error')}", flush=True)
+                        except Exception as exc:
+                            print(f"      call failed: {str(exc)[:200]}", flush=True)
+                    elif calling:
+                        print("      (call limit reached for this run)")
+                print(flush=True)
+            polls += 1
+            if max_polls is not None and polls >= max_polls:
+                break
+            sleep(interval)
+    except KeyboardInterrupt:
+        print("\n  Stopped.")
+    finally:
+        try: conn.logout()
+        except Exception: pass
+    return 0
+
 def main(rest: list[str]) -> int:
     sub, args = (rest[0] if rest else "status"), rest[1:]
     if sub == "setup": return setup(args)
     if sub == "status": return status()
     if sub == "test": return test_call(args)
     if sub == "demo": return demo(args)
+    if sub == "watch": return watch(args)
     if sub == "call-status":
         if not args:
             print("  usage: provenant mail call-status EXECUTION_ID"); return 2
@@ -565,4 +765,4 @@ def main(rest: list[str]) -> int:
         _set_user_env("PROVENANT_MAIL_CALLS_ENABLED", "1")
         print("  Phone alerts enabled for high-risk mail."); return 0
     print("  usage: provenant mail setup [--phone +NUMBER] [--agent-id ID] | status | test [--yes] |"
-          " demo [--call] [--yes] | call-status ID | enable | disable"); return 2
+          " demo [--call] [--yes] | watch [--call] [--setup] [--folder F] [--interval S] [--backlog N] | call-status ID | enable | disable"); return 2
