@@ -23,6 +23,10 @@
     $("stat-approvals").textContent = fmt(s.approval_requests);
     $("stat-outcomes").textContent = fmt(s.approval_outcomes);
     $("stat-grants").textContent = fmt(s.execution_grants_redeemed);
+    $("stat-mail-scanned").textContent = fmt(s.mail_scanned);
+    $("stat-mail-flagged").textContent = fmt(s.mail_flagged);
+    $("stat-mail-calls").textContent = fmt(s.mail_calls);
+    $("stat-mail-trashed").textContent = fmt(s.mail_trashed);
     $("last-event").textContent = s.last_event_at ? time(s.last_event_at) : "No live events";
     $("live-count").textContent = fmt(s.audit_entries) + " observed events";
     const hosted = !!state.status?.hosted;
@@ -37,6 +41,17 @@
     $("policy-error").textContent = state.status?.policy_error ? "Policy load issue: " + state.status.policy_error : "";
     $("last-refresh").textContent = state.lastUpdated ? "Updated " + time(state.lastUpdated) : "Waiting for first poll";
   }
+  // Inbox-watch records in the activity stream: readable titles instead of raw event names. Never shows mail bodies.
+  function mailEvent(e) {
+    const d = e.data || {};
+    if (e.event === "mail_verdict") return {title: "Mail " + (d.level === "low" ? "scanned" : "flagged") + ": " + (d.subject || "(no subject)"), badge: d.level === "high" ? ["deny","HIGH"] : d.level === "medium" ? ["hold","SUSPICIOUS"] : ["allow","CLEAN"], meta: (d.from || "") + " · score " + fmt(d.score) + ((d.signals || []).length ? " · " + d.signals.slice(0,2).map(x => x.reason).join(" · ") : "")};
+    if (e.event === "mail_phone_alert") return {title: "Phone alert call", badge: ["hold","CALL"], meta: "status " + (d.status || "?")};
+    if (e.event === "mail_trashed_by_phone") return {title: "Mail moved to Trash", badge: ["deny","TRASHED"], meta: d.reason || ""};
+    if (e.event === "mail_kept_by_phone") return {title: "Mail kept by phone code", badge: ["allow","KEPT"], meta: d.reason || ""};
+    if (e.event === "mail_watch_started" || e.event === "mail_watch_stopped") return {title: "Inbox watch " + (e.event.endsWith("started") ? "started" : "stopped"), badge: ["neutral","WATCH"], meta: d.account || ""};
+    if (e.event === "tool_result" && d.source === "mail-watch") return {title: "Flagged mail fed to Guard (summary only)", badge: ["neutral","TAINT"], meta: (d.injection_indicators || []).length ? fmt(d.injection_indicators.length) + " injection indicators" : ""};
+    return null;
+  }
   function renderFeed() {
     const q = state.search.trim().toLowerCase();
     const items = state.entries.filter(e => {
@@ -45,10 +60,11 @@
       return filterMatch && (!q || JSON.stringify(e).toLowerCase().includes(q));
     });
     $("feed").innerHTML = items.length ? items.slice().reverse().slice(0,120).map(e => {
-      const d = e.event === "policy_decision" ? decision(e.data?.decision) : ["neutral", String(e.event || "event").replaceAll("_"," ").toUpperCase()];
+      const m = mailEvent(e);
+      const d = m ? m.badge : e.event === "policy_decision" ? decision(e.data?.decision) : ["neutral", String(e.event || "event").replaceAll("_"," ").toUpperCase()];
       const source = e.data?.source || "source not recorded";
-      const tool = e.data?.tool || e.event?.replaceAll("_"," ") || "audit event";
-      const reasons = Array.isArray(e.data?.reasons) ? e.data.reasons.join(" · ") : "";
+      const tool = m ? m.title : e.data?.tool || e.event?.replaceAll("_"," ") || "audit event";
+      const reasons = m ? m.meta : Array.isArray(e.data?.reasons) ? e.data.reasons.join(" · ") : "";
       const sid = e.session_id ? "session " + e.session_id : "";
       return '<article class="event"><time class="event-time">'+escapeHtml(time(e.ts))+'</time><div><div class="event-title">'+escapeHtml(tool)+'</div><div class="event-meta">'+escapeHtml(source)+(sid ? " · "+escapeHtml(sid) : "")+(reasons ? "<br>"+escapeHtml(reasons) : "")+'</div></div><span class="decision '+d[0]+'">'+escapeHtml(d[1])+'</span></article>';
     }).join("") : '<div class="empty"><strong>'+(state.entries.length ? "No matching events" : "No live activity observed yet")+'</strong>'+(state.entries.length ? "Try another filter or search term." : "Start a protected MCP or Claude Code session. Demo runs and untagged legacy records are intentionally excluded.")+'</div>';
@@ -141,7 +157,7 @@
     $("inbox-feed").innerHTML = flagged.length ? flagged.slice(0,60).map(m => {
       const t = tone(m.level); const reasons = (m.signals || []).slice(0,3).map(x => x.reason).join(" · ");
       const c = m.call; const callLine = c ? '<div class="mail-call'+(["started","completed","calling"].includes(c.status) ? " ok" : "")+'">Phone: '+escapeHtml(c.status)+(c.detail ? " · "+escapeHtml(c.detail) : "")+'</div>'+(c.outcome ? '<div class="mail-call'+(String(c.outcome).startsWith("kept") ? " ok" : "")+'">'+escapeHtml(c.outcome)+'</div>' : "") : "";
-      return '<article class="event"><time class="event-time">'+escapeHtml(time(m.ts))+'</time><div><div class="event-title">'+escapeHtml(m.subject || "(no subject)")+'</div><div class="event-meta">'+escapeHtml(m.from)+' · score '+fmt(m.score)+'</div>'+(reasons ? '<div class="mail-reasons">'+escapeHtml(reasons)+'</div>' : "")+callLine+'</div><span class="decision '+t[0]+'">'+t[1]+'</span></article>';
+      return '<article class="event"><time class="event-time">'+escapeHtml(time(m.ts))+'</time><div><div class="event-title">'+escapeHtml(m.subject || "(no subject)")+'</div><div class="event-meta">'+escapeHtml(m.from)+' · score '+fmt(m.score)+'</div>'+(reasons ? '<div class="mail-reasons">'+escapeHtml(reasons)+'</div>' : "")+callLine+(m.gate && m.gate.decision ? '<div class="mail-call'+(m.gate.decision === "ALLOW" ? "" : " ok")+'">If an agent obeyed it: '+escapeHtml(m.gate.tool+" → "+m.gate.to)+' = '+escapeHtml(({DENY:"BLOCKED",REQUIRE_APPROVAL:"HELD"})[m.gate.decision] || m.gate.decision)+'</div>' : "")+'</div><span class="decision '+t[0]+'">'+t[1]+'</span></article>';
     }).join("") : '<div class="empty"><strong>'+(d.state === "not_configured" ? "Connect a mailbox once" : "Nothing suspicious yet")+'</strong>'+(d.state === "not_configured" ? "Run <code>provenant mail watch --setup</code> in a terminal (Gmail: use an App Password), then reload this page." : "New mail is checked every few seconds. Flagged mail appears here.")+'</div>';
   }
   async function pollInbox() {
