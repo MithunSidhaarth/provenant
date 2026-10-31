@@ -23,7 +23,7 @@ try:
     from importlib.metadata import version as _pkg_version
     VERSION = _pkg_version("provenant-agent-shield")
 except Exception:
-    VERSION = "0.10.2"
+    VERSION = "0.10.3"
 
 CLIENT_LABELS = {"claude-desktop": "Claude Desktop", "cursor": "Cursor", "windsurf": "Windsurf",
                  "antigravity": "Antigravity",
