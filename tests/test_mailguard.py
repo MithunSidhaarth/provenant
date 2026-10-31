@@ -169,7 +169,22 @@ class BolnaTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {"BOLNA_API_KEY": "ENVKEY", "CALL_ME_PHONE": "+14155550100"}):
             bolna.run_call("x", opener=self.opener, sleep=lambda s: None)
             saved = json.loads(bolna.config_path().read_text())
-        self.assertEqual(saved, {"agent_id": "agent-1"})
+        self.assertEqual(saved, {"agent_id": "agent-1", "agent_version": bolna.AGENT_VERSION})
+
+    def test_old_or_claude_call_me_agent_is_not_reused(self):
+        bolna.save({"api_key": "k", "phone": "+919876543210", "agent_id": "old-claude-agent"})
+        with mock.patch.dict(os.environ, {"BOLNA_AGENT_ID": "call-me-agent"}):
+            bolna.run_call("x", opener=self.opener, sleep=lambda s: None)
+        sent = [c for c in self.calls if c[1] == "/call"][0]
+        self.assertEqual(sent[2]["agent_id"], "agent-1")
+        self.assertEqual(json.loads(bolna.config_path().read_text())["agent_version"], bolna.AGENT_VERSION)
+
+    def test_voice_says_provenant_not_claude(self):
+        body = bolna.agent_body()["agent_config"]
+        self.assertIn("Provenant", body["agent_welcome_message"])
+        self.assertNotIn("Claude", body["agent_welcome_message"])
+        self.assertIn("Provenant", bolna.PERSONA)
+        self.assertNotIn("I call for your Claude agent", bolna.PERSONA)
 
     @unittest.skipIf(os.name == "nt", "POSIX permissions")
     def test_config_file_is_private(self):
