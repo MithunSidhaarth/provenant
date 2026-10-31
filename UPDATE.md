@@ -38,3 +38,8 @@ If `provenant` is not found: `py -m provenant ...` / `python3 -m provenant ...`.
 
 ## 0.9.2 installer follow-up (hidden prompt)
 - Real Windows run: step 5 looked hung. Cause: `& $cmd setup` ran inside `Pv-Main`, whose output is captured (`@(Pv-Main)[-1]`), so setup's text and its "Apply these changes? [Y/n]" prompt were swallowed while it waited for input. The installer now runs only `setup --dry-run` (no stdin, 30 s limit) and tells the user to run `provenant setup` themselves. Guarded by a static test (no bare native command in `Pv-Main`).
+
+## 0.10.3: boundary hardening (2026-10-31)
+- Fixed: agents could switch Provenant off (`provenant rollback/uninstall/unwrap`); MCP write/delete tools with no file path were allowed; one malformed MCP message crashed the proxy; unsolicited server responses and unadvertised tools were not refused; a dying MCP server hung the agent; raw secrets were kept in session state; the Claude Code hook failed open on timeout.
+- New: docs/COVERAGE.md (what each boundary observes, blocks, holds and misses). No new dependencies, no per-product integrations.
+- Tests: 257/257 (2 skipped), eval 231/231 attacks, 53/53 benign, 11/11 live checks. Details: docs/FINAL_TEST_REPORT.md.

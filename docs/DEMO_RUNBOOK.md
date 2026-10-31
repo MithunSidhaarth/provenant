@@ -7,7 +7,7 @@ Who does what: P1 opens (problem and use case), P2 explains the architecture, P3
 ```powershell
 cd D:\AUTO\provenant
 git pull
-test.bat                                   # expect: OK, 235 tests
+test.bat                                   # expect: OK, 257 tests
 provenant --version                        # expect: provenant 0.10.2
 provenant verify                           # expect: Enforcement verified
 provenant mail setup                       # API key + your phone (+91...). Trial account: verify the number in Bolna first
@@ -35,7 +35,7 @@ Close Slack, email and notifications. Set the phone to ring loudly, not silent.
 | 3:40 | P3 | Console tab, **Demo scenarios** panel | The run appears, labelled DEMO, and is not counted as live |
 | 4:00 | P3 | Terminal: `provenant mail demo --call --yes` | Phone rings on stage. Put it on speaker. Ivy says it is a Provenant demo alert about a fake email |
 | 4:45 | P3 | Terminal: `provenant check Bash "rm -rf ~"` | Real-tool guard: the same engine that sits in front of Claude Code says DENY, with reasons (a dry run: nothing runs or is logged) |
-| 5:15 | P3 | Eval slide / `docs/eval/REPORT.md` | 225/225 attacks contained, 53/53 benign allowed, numbers regenerated from code |
+| 5:15 | P3 | Eval slide / `docs/eval/REPORT.md` | 231/231 attacks contained, 53/53 benign allowed, numbers regenerated from code |
 | 5:45 | P3 | Limitations slide | Say them before the judges ask |
 | 6:15 | P3 | Close | Ask |
 
