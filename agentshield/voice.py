@@ -141,9 +141,12 @@ def find_callme_script() -> Path | None:
 
 def run_callme(task: str, timeout_sec: int = 300, script: Path | None = None) -> dict:
     """Run the user's claude-call-me call.ps1 and parse its final JSON object. Errors become a failed result."""
+    from . import bolna
+    if script is None and bolna.configured():                  # built in: needs only the Bolna key + your number
+        return bolna.run_call(task, timeout_sec)
     script = script or find_callme_script()
     if script is None:
-        return {"status": "not_configured", "error": "claude-call-me is not installed (set PROVENANT_CALLME_SCRIPT)"}
+        return {"status": "not_configured", "error": "phone calls are not set up: run `provenant phone setup`"}
     shell = shutil.which("powershell") or shutil.which("pwsh")
     if not shell:
         return {"status": "not_configured", "error": "PowerShell is not available"}

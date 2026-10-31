@@ -1,9 +1,9 @@
 {
- "generated_utc": "2026-10-31 03:55 UTC",
+ "generated_utc": "2026-10-31 05:14 UTC",
  "environment": {
   "python": "3.13.18",
   "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39",
-  "commit": "6678c6c",
+  "commit": "52c5213",
   "policy_version": "guard-2026.10-4",
   "cpu_count": 4
  },
@@ -119,9 +119,9 @@
    "passed": 32
   },
   "latency_ms": {
-   "p50": 0.199,
-   "p95": 0.83,
-   "max": 4.348,
+   "p50": 0.206,
+   "p95": 0.884,
+   "max": 4.564,
    "samples": 1580
   }
  },
@@ -187,30 +187,30 @@
   "total": 11,
   "timing_ms": {
    "direct": {
-    "p50": 0.13,
-    "p95": 0.16,
-    "mean": 0.13,
+    "p50": 0.11,
+    "p95": 0.17,
+    "mean": 0.12,
     "n": 50
    },
    "proxied": {
-    "p50": 11.08,
-    "p95": 14.82,
-    "mean": 11.41,
+    "p50": 14.93,
+    "p95": 21.54,
+    "mean": 15.72,
     "n": 50
    },
-   "overhead_ms_p50": 10.95
+   "overhead_ms_p50": 14.82
   }
  },
  "unit_tests": {
-  "ran": 257,
+  "ran": 291,
   "failures": 0,
   "errors": 0,
-  "seconds": 24.9,
+  "seconds": 32.8,
   "by_area": [
    {
     "area": "simulated world (policy engine, fuzzer, scenarios, server)",
-    "tests": 179,
-    "passed": 179
+    "tests": 213,
+    "passed": 213
    },
    {
     "area": "audit hash chain",
@@ -266,9 +266,9 @@
   "failed": []
  },
  "resources": {
-  "peak_rss_mb": 45.1,
-  "cpu_seconds": 3.28,
-  "wall_seconds": 26.6
+  "peak_rss_mb": 46.3,
+  "cpu_seconds": 4.99,
+  "wall_seconds": 34.9
  },
  "token_benchmark": {
   "workload": "15-step scripted repository investigation (evals/token_bench.py)",

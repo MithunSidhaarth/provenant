@@ -252,6 +252,18 @@ class App:
         except ValueError:
             return {"available": False, "error": "docs/guard_redteam.json is not valid JSON"}
 
+    def mail_watch(self, action: str | None) -> dict:
+        """Live inbox watch for the ops console. Never on the hosted demo: there is no local mailbox there."""
+        if HOSTED:
+            return {"hosted": True, "running": False, "state": "unavailable", "mails": []}
+        from . import mailwatch
+        w = mailwatch.shared()
+        if action == "start":
+            return w.start()
+        if action == "stop":
+            return w.stop()
+        return w.status()
+
     def policy(self) -> dict:
         tools = [{"name": t.name, "description": t.description, "permission": t.permission,
                   "side_effect": t.side_effect, "high_impact": t.high_impact, "untrusted_output": t.untrusted_output,
@@ -310,6 +322,8 @@ def make_handler(app: App):
                 f = DASHBOARD / STATIC[u.path]
                 return self._send(200, f.read_bytes(), CTYPES[f.suffix])
             q = parse_qs(u.query)
+            if u.path == "/api/mail/watch":          # outside app.lock: the watcher has its own lock
+                return self._send(200, app.mail_watch(None))
             with app.lock:
                 if u.path == "/api/scenarios":
                     return self._send(200, app.scenarios())
@@ -357,6 +371,16 @@ def make_handler(app: App):
                 body = self._body()
             except (ValueError, json.JSONDecodeError) as exc:
                 return self._err(400, f"bad request: {exc}")
+            if u.path == "/api/mail/watch":
+                # A custom header cannot be sent cross-site without a CORS preflight, which this server never grants.
+                if self.headers.get("X-Provenant-Dashboard") != "1":
+                    return self._err(403, "mail watch is controlled from the dashboard")
+                if body.get("action") not in ("start", "stop"):
+                    return self._err(400, "'action' must be start or stop")
+                try:
+                    return self._send(200, app.mail_watch(body["action"]))
+                except Exception as exc:
+                    return self._err(500, f"internal error: {type(exc).__name__}")
             with app.lock:
                 try:
                     if u.path == "/api/run":

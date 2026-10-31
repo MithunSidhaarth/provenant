@@ -910,6 +910,11 @@ class Guard:
             if f["label"] not in seen:
                 seen.add(f["label"])
                 flags.append({**f, "source": tool})
+        verdicts = self._screen_mail(tool, output)
+        for v in verdicts:
+            if v["level"] == "high":
+                flags.append({"label": "suspicious_mail", "source": tool, "match": v["from"][:60],
+                              "snippet": f"high-risk mail ({v['score']}): " + "; ".join(x["reason"] for x in v["signals"][:2])[:160]})
         s = self.store.load_session(sid)
         s["untrusted_texts"] += [redact_secrets(v[:20000]) for v in vs]     # kept for destination taint, never secrets
         s["injection_flags"] += flags
@@ -917,7 +922,25 @@ class Guard:
         self.audit.append("tool_result", sid, {"tool": tool, "trust": "untrusted", "chars": len(text),
                                                "mode": self.mode, "source": source or ("claude-code" if sid.startswith("cc:") else "mcp"),
                                                "injection_indicators": flags})
+        for v in verdicts:
+            self.audit.append("mail_verdict", sid, {"tool": tool, **v})
+        if verdicts:
+            try:
+                from .mailscan import maybe_alert
+                maybe_alert(verdicts)
+            except Exception:
+                pass                       # an alert problem never changes what the agent was allowed to read
         return flags
+
+    def _screen_mail(self, tool: str, output: Any) -> list[dict]:
+        from .mailscan import analyze_output, looks_like_mail_tool
+        if not looks_like_mail_tool(tool):
+            return []
+        try:
+            return analyze_output(output)
+        except Exception as exc:          # fail visible: record that screening broke, do not hide it
+            self.audit.append("mail_scan_error", "-", {"tool": tool, "error": type(exc).__name__})
+            return []
 
 
 def _audit_result(result: PolicyResult) -> dict:

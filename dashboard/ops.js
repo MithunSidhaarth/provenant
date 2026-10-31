@@ -120,6 +120,44 @@
   $("refresh").addEventListener("click", () => poll());
   poll(); setInterval(poll, 2500);
 
+  // Inbox watch: the console asks the local server to start watching as soon as it opens.
+  const inbox = { data: null, wanted: true };
+  async function mailWatch(action) {
+    const r = await fetch("/api/mail/watch", {method:"POST", cache:"no-store", headers:{"Content-Type":"application/json","X-Provenant-Dashboard":"1"}, body:JSON.stringify({action})});
+    let data; try { data = await r.json(); } catch { data = {}; } if (!r.ok) throw new Error(data.error || "HTTP " + r.status); return data;
+  }
+  function renderInbox() {
+    const d = inbox.data || {};
+    const label = {watching:"WATCHING",connecting:"CONNECTING",reconnecting:"RECONNECTING",stopped:"STOPPED",not_configured:"NOT SET UP",error:"ERROR",unavailable:"LOCAL ONLY"}[d.state] || "—";
+    $("inbox-tag").textContent = label;
+    $("inbox-title").textContent = d.hosted ? "Inbox watch runs only in the local console" : d.state === "not_configured" ? "No mailbox connected" : d.account ? "Watching " + d.account + " · INBOX" : "Inbox watch stopped";
+    $("inbox-desc").textContent = d.error ? d.error : d.last_check ? "Last checked " + time(d.last_check) + " · every " + fmt(d.interval) + " s · read-only" : "IMAP, read-only · nothing is marked read, moved or deleted";
+    $("inbox-counts").textContent = fmt(d.scanned) + " scanned · " + fmt(d.flagged) + " flagged · " + fmt(d.calls) + " calls";
+    $("inbox-toggle").textContent = d.running ? "Stop watching" : "Start watching";
+    $("inbox-toggle").hidden = !!d.hosted;
+    $("inbox-phone").textContent = d.phone_ready ? "calls you for " + String(d.alert_level || "high").toUpperCase() + " risk mail (max 5 an hour)" : "not set up. Run provenant phone setup (or provenant mail setup) to get calls";
+    const flagged = (Array.isArray(d.mails) ? d.mails : []).filter(m => m.level !== "low");
+    const tone = (l) => l === "high" ? ["deny","HIGH"] : ["hold","SUSPICIOUS"];
+    $("inbox-feed").innerHTML = flagged.length ? flagged.slice(0,60).map(m => {
+      const t = tone(m.level); const reasons = (m.signals || []).slice(0,3).map(x => x.reason).join(" · ");
+      const c = m.call; const callLine = c ? '<div class="mail-call'+(["started","completed","calling"].includes(c.status) ? " ok" : "")+'">Phone: '+escapeHtml(c.status)+(c.detail ? " · "+escapeHtml(c.detail) : "")+'</div>' : "";
+      return '<article class="event"><time class="event-time">'+escapeHtml(time(m.ts))+'</time><div><div class="event-title">'+escapeHtml(m.subject || "(no subject)")+'</div><div class="event-meta">'+escapeHtml(m.from)+' · score '+fmt(m.score)+'</div>'+(reasons ? '<div class="mail-reasons">'+escapeHtml(reasons)+'</div>' : "")+callLine+'</div><span class="decision '+t[0]+'">'+t[1]+'</span></article>';
+    }).join("") : '<div class="empty"><strong>'+(d.state === "not_configured" ? "Connect a mailbox once" : "Nothing suspicious yet")+'</strong>'+(d.state === "not_configured" ? "Run <code>provenant mail watch --setup</code> in a terminal (Gmail: use an App Password), then reload this page." : "New mail is checked every few seconds. Flagged mail appears here.")+'</div>';
+  }
+  async function pollInbox() {
+    try {
+      inbox.data = await get("/api/mail/watch");
+      if (inbox.wanted && !inbox.data.running && !inbox.data.hosted && !["not_configured"].includes(inbox.data.state) && !inbox.started) { inbox.started = true; inbox.data = await mailWatch("start"); }
+    } catch (err) { inbox.data = {state:"error", error:"Could not reach the inbox watcher: " + err.message}; }
+    renderInbox();
+  }
+  $("inbox-toggle").addEventListener("click", async () => {
+    try { const stop = !!inbox.data?.running; inbox.wanted = !stop; inbox.data = await mailWatch(stop ? "stop" : "start"); } catch (err) { inbox.data = {...(inbox.data || {}), error: err.message}; }
+    renderInbox();
+  });
+  pollInbox(); setInterval(pollInbox, 3000);
+
+
   // Make sidebar navigation explicit: scroll to the section and keep the active item in sync.
   const navItems = Array.from(document.querySelectorAll(".nav-item[href^='#']"));
   function activateSection(hash, shouldScroll = false) {
