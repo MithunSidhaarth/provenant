@@ -1,9 +1,9 @@
 {
  "artifact_version": "0.10.3",
  "source": "https://github.com/MithunSidhaarth/provenant",
- "commit": "e34ca2ff37640e7d715f6238f9a86a098f06cda0",
+ "commit": "6ef348fa1025a44953ed0d0d295ab1111e79d328",
  "working_tree_modified": false,
- "built_at_utc": "2026-10-31T05:29:51Z",
+ "built_at_utc": "2026-10-31T05:41:20Z",
  "builder": {
   "python": "3.13.17",
   "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.43",
@@ -11,7 +11,7 @@
   "script": "scripts/build_release.py"
  },
  "artifacts": {
-  "provenant_agent_shield-0.10.3-py3-none-any.whl": "1f3f6ccabb5831e848481ca8e187b78b4419074b7aaaf01f25012108dbb395e9",
-  "provenant_agent_shield-0.10.3.tar.gz": "d20c2e4d4fcecb65eb08abc5767dfec542d1711090bcdface99a6c4262251343"
+  "provenant_agent_shield-0.10.3-py3-none-any.whl": "92c93fddd814e873e4ed6adc49f97d16b5fcaa7dde05abf25e9a23d9ec74ed15",
+  "provenant_agent_shield-0.10.3.tar.gz": "5c4c0a402a7229a63098ff2819831753e74648eebb6529a5d1977c682a9ae808"
  }
 }
