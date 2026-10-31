@@ -40,6 +40,10 @@
       "dest": "/dashboard/getting-started.html"
     },
     {
+      "src": "/audit/?",
+      "dest": "/dashboard/audit.html"
+    },
+    {
       "src": "/",
       "dest": "/dashboard/site.html"
     },
