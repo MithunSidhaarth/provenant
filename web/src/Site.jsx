@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { motion, MotionConfig, AnimatePresence } from "motion/react";
+import { motion, MotionConfig, AnimatePresence, useScroll, useTransform, useSpring } from "motion/react";
 
 // The public product page. One calm scroll: what it is, how it decides, proof, install, limits.
 // Every number here comes from `python evals/run_eval.py` and the unit suite at the release commit.
@@ -13,9 +13,10 @@ const INSTALL = {
 };
 
 const up = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } } };
+const wipe = { hidden: { opacity: 0, y: 40, clipPath: "inset(0 0 100% 0)" }, show: { opacity: 1, y: 0, clipPath: "inset(0 0 -20% 0)", transition: { duration: 0.9, ease: [0.16, 1, 0.3, 1] } } };
 const Reveal = ({ as = "div", className, children, delay = 0 }) => {
   const C = motion[as];
-  return <C className={className} variants={up} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }}
+  return <C className={className} variants={as === "h2" ? wipe : up} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-80px" }}
             transition={{ delay }}>{children}</C>;
 };
 
@@ -113,7 +114,7 @@ function Shield({ onHit, pills = true, cy = 0.46, scale = 0.25, rate = 1 }) {
     const items = [], lines = [], hits = [], sparks = [], rings = [], mouse = { x: -1e4, y: -1e4 };
     const size = () => { const r = cv.getBoundingClientRect(), d = Math.min(window.devicePixelRatio || 1, 1.75); W = r.width; H = r.height;
       cv.width = W * d; cv.height = H * d; x.setTransform(d, 0, 0, d, 0, 0); x.fillStyle = "#07070a"; x.fillRect(0, 0, W, H); };
-    const burst = (px, py, dir, n, spd) => { for (let i = 0; i < n; i++) { const a = dir + (Math.random() - 0.5) * 1.9, v = Math.random() * spd; sparks.push({ x: px, y: py, vx: Math.cos(a) * v, vy: Math.sin(a) * v, l: 1 }); } };
+    const burst = (px, py, dir, n, spd, c = RED, spread = 1.9) => { for (let i = 0; i < n; i++) { const a = dir + (Math.random() - 0.5) * spread, v = (0.35 + Math.random() * 0.65) * spd; sparks.push({ x: px, y: py, vx: Math.cos(a) * v, vy: Math.sin(a) * v, l: 1, c, s: 1.4 + Math.random() * 1.6 }); } };
     const pill = (label, px, py, a) => {
       x.font = "500 13px GeistMono, ui-monospace, monospace"; const w = x.measureText(label).width + 20;
       x.globalAlpha = a; x.fillStyle = "rgba(10,10,15,.92)"; x.strokeStyle = rgba(RED, 0.7); x.lineWidth = 1;
@@ -125,12 +126,22 @@ function Shield({ onHit, pills = true, cy = 0.46, scale = 0.25, rate = 1 }) {
       x.fillStyle = "rgba(7,7,10,.34)"; x.fillRect(0, 0, W, H);
       const g = x.createRadialGradient(cx, cyy, 0, cx, cyy, R * 2.3); g.addColorStop(0, rgba(VIO, 0.12 + hits.length * 0.04)); g.addColorStop(1, rgba(VIO, 0)); x.fillStyle = g; x.fillRect(0, 0, W, H);
       rot += 0.004 * dt;
-      if (Math.random() < 0.5 * rate * dt) lines.push({ a: Math.random() * 7, d: Math.max(W, H) * 0.75, v: 6 + Math.random() * 6, red: Math.random() < 0.45 });
-      x.lineWidth = 1.2;
-      for (let i = lines.length - 1; i >= 0; i--) { const l = lines[i]; l.d -= l.v * dt;
-        if (l.d < R + 6) { if (l.red) burst(cx + Math.cos(l.a) * R, cyy + Math.sin(l.a) * R, l.a, 6, 3); lines.splice(i, 1); continue; }
-        x.strokeStyle = l.red ? rgba(RED, 0.55) : rgba(WHT, 0.16); x.beginPath();
-        x.moveTo(cx + Math.cos(l.a) * l.d, cyy + Math.sin(l.a) * l.d); x.lineTo(cx + Math.cos(l.a) * (l.d + 60), cyy + Math.sin(l.a) * (l.d + 60)); x.stroke(); }
+      // stars: fall toward the shield, speed up, and splash on impact
+      if (Math.random() < 1.1 * rate * dt) lines.push({ a: Math.random() * 7, d: Math.max(W, H) * (0.6 + Math.random() * 0.25), v: 2 + Math.random() * 3, red: Math.random() < 0.35 });
+      for (let i = lines.length - 1; i >= 0; i--) { const l = lines[i]; l.v += 0.12 * dt; l.d -= l.v * dt;
+        const c = l.red ? RED : "214,210,255";
+        if (l.d < R + 2) {
+          const hx = cx + Math.cos(l.a) * R, hy = cyy + Math.sin(l.a) * R;
+          burst(hx, hy, l.a, l.red ? 16 : 11, 2.2 + l.v * 0.18, c, 2.6);
+          rings.push({ x: hx, y: hy, r: 2, l: 0.7, c, a: l.a, flat: true });
+          if (l.red) hits.push({ x: hx, y: hy, l: 0.35 });
+          lines.splice(i, 1); continue;
+        }
+        const hx = cx + Math.cos(l.a) * l.d, hy = cyy + Math.sin(l.a) * l.d, tail = 18 + l.v * 7;
+        const tg = x.createLinearGradient(hx, hy, cx + Math.cos(l.a) * (l.d + tail), cyy + Math.sin(l.a) * (l.d + tail));
+        tg.addColorStop(0, rgba(c, 0.85)); tg.addColorStop(1, rgba(c, 0));
+        x.strokeStyle = tg; x.lineWidth = 1.6; x.beginPath(); x.moveTo(hx, hy); x.lineTo(cx + Math.cos(l.a) * (l.d + tail), cyy + Math.sin(l.a) * (l.d + tail)); x.stroke();
+        x.fillStyle = rgba(l.red ? RED : WHT, 1); x.fillRect(hx - 1.2, hy - 1.2, 2.4, 2.4); }
       // sphere, dented where it was hit and nudged away from the cursor
       const ct = Math.cos(0.35), st = Math.sin(0.35), cr = Math.cos(rot), sr = Math.sin(rot);
       for (const p of FIB) {
@@ -147,13 +158,14 @@ function Shield({ onHit, pills = true, cy = 0.46, scale = 0.25, rate = 1 }) {
       if (pills && tPill > 34 / rate) { tPill = 0; items.push({ a: Math.random() * 7, d: far, v: 2.6 + Math.random(), label: pick(ATK) }); }
       for (let i = items.length - 1; i >= 0; i--) { const p = items[i]; p.d -= p.v * dt;
         const px = cx + Math.cos(p.a) * p.d, py = cyy + Math.sin(p.a) * p.d;
-        if (p.d < R + 14) { burst(px, py, p.a, 40, 5); rings.push({ x: px, y: py, r: 4, l: 1 }); hits.push({ x: px, y: py, l: 1 }); onHit?.(px, py - 10, W, H); items.splice(i, 1); continue; }
+        if (p.d < R + 14) { burst(px, py, p.a, 46, 6); rings.push({ x: px, y: py, r: 4, l: 1 }); hits.push({ x: px, y: py, l: 1 }); onHit?.(px, py - 10, W, H); items.splice(i, 1); continue; }
         pill(p.label, px, py, Math.min(1, (far - p.d) / 80)); }
       for (let i = hits.length - 1; i >= 0; i--) { hits[i].l -= 0.03 * dt; if (hits[i].l <= 0) hits.splice(i, 1); }
       for (let i = sparks.length - 1; i >= 0; i--) { const s = sparks[i]; s.x += s.vx * dt; s.y += s.vy * dt; s.vx *= 0.97; s.vy *= 0.97; s.l -= 0.022 * dt;
-        if (s.l <= 0) { sparks.splice(i, 1); continue; } x.fillStyle = rgba(RED, s.l); x.fillRect(s.x, s.y, 2.2, 2.2); }
+        if (s.l <= 0) { sparks.splice(i, 1); continue; } x.fillStyle = rgba(s.c, s.l); x.fillRect(s.x, s.y, s.s, s.s); }
       for (let i = rings.length - 1; i >= 0; i--) { const r = rings[i]; r.r += 3.4 * dt; r.l -= 0.02 * dt;
-        if (r.l <= 0) { rings.splice(i, 1); continue; } x.strokeStyle = rgba(RED, r.l * 0.8); x.lineWidth = 1.4; x.beginPath(); x.arc(r.x, r.y, r.r, 0, 7); x.stroke(); }
+        if (r.l <= 0) { rings.splice(i, 1); continue; } x.strokeStyle = rgba(r.c || RED, r.l * 0.8); x.lineWidth = 1.4; x.beginPath();
+        if (r.flat) x.ellipse(r.x, r.y, r.r * 0.35, r.r, r.a, 0, 7); else x.arc(r.x, r.y, r.r, 0, 7); x.stroke(); }
     };
     const loop = (now) => { raf = requestAnimationFrame(loop); const dt = Math.min(3, (now - last) / 16.67); last = now; if (on) frame(dt); };
     size();
@@ -168,8 +180,12 @@ function Shield({ onHit, pills = true, cy = 0.46, scale = 0.25, rate = 1 }) {
   return <canvas ref={ref} className="shield" aria-hidden="true" />;
 }
 
-function Hero() {
+function Hero({ ready }) {
   const stamp = React.useRef(null), word = React.useRef(null), last = React.useRef(0);
+  const { scrollY } = useScroll();
+  const wy = useTransform(scrollY, [0, 700], [0, -220]), ws = useTransform(scrollY, [0, 700], [1, 1.35]), wo = useTransform(scrollY, [0, 520], [1, 0]);
+  const sy = useTransform(scrollY, [0, 900], [0, 260]), so = useTransform(scrollY, [0, 800], [1, 0.25]);
+  const go = (d) => (ready ? { opacity: 1, y: 0, transition: { delay: d, duration: 0.9, ease: [0.16, 1, 0.3, 1] } } : { opacity: 0, y: 30 });
   const onHit = (px, py, W) => {
     const w = word.current; if (w) { w.classList.remove("hit"); void w.offsetWidth; w.classList.add("hit"); }
     const now = performance.now(), s = stamp.current; if (!s || now - last.current < 1400) return; last.current = now;
@@ -178,15 +194,20 @@ function Hero() {
   return (
     <section className="hero" id="top">
       <div className="stage">
-        <Shield onHit={onHit} />
-        <div ref={word} className="hero-word" aria-hidden="true">PROVENANT</div>
+        <motion.div className="shield-wrap" style={{ y: sy, opacity: so }}><Shield onHit={onHit} /></motion.div>
+        <motion.div className="hero-word-wrap" style={{ y: wy, scale: ws, opacity: wo }}>
+          <motion.div initial={{ opacity: 0, scale: 1.25, filter: "blur(18px)" }} animate={ready ? { opacity: 1, scale: 1, filter: "blur(0px)" } : {}}
+                      transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}>
+            <div ref={word} className="hero-word" aria-hidden="true">PROVENANT</div>
+          </motion.div>
+        </motion.div>
         <div ref={stamp} className="hero-stamp" aria-hidden="true">DENIED</div>
         <div className="wrap hero-foot">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={go(0.35)}>
             <div className="kicker"><span className="kdot" />Open source · local-first · MCP and Claude Code</div>
             <h1>The firewall between<br />AI agents and their tools.</h1>
           </motion.div>
-          <motion.div className="foot-r" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.8 }}>
+          <motion.div className="foot-r" initial={{ opacity: 0, y: 30 }} animate={go(0.5)}>
             <p>Injected instructions can fool the model. Every tool call still hits deterministic policy before it runs.</p>
             <div className="hero-cta">
               <a className="btn" href="#install">Install in one line</a>
@@ -409,11 +430,103 @@ function Footer() {
   );
 }
 
+
+// ---------------------------------------------------------------- loader, cursor, scroll chrome
+const GLYPHS = "!<>-_/[]{}=+*^?#01ALLOWDENY";
+function Loader({ onDone }) {
+  const [p, setP] = useState(0), [gone, setGone] = useState(false);
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { setGone(true); onDone(); return; }
+    const t0 = performance.now(), D = 1500; let raf;
+    const tick = (now) => { const k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 3); setP(e);
+      if (k < 1) raf = requestAnimationFrame(tick); else setTimeout(() => { setGone(true); onDone(); }, 180); };
+    raf = requestAnimationFrame(tick); return () => cancelAnimationFrame(raf);
+  }, []);
+  const word = "PROVENANT", settled = Math.floor(p * (word.length + 2)) - 1;
+  const txt = [...word].map((c, i) => (i < settled ? c : GLYPHS[(Math.random() * GLYPHS.length) | 0])).join("");
+  return (
+    <AnimatePresence>
+      {!gone && (
+        <motion.div className="loader" aria-hidden="true" exit={{ opacity: 1 }} transition={{ duration: 0.9 }}>
+          <motion.div className="ld-half top" exit={{ y: "-100%" }} transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }} />
+          <motion.div className="ld-half bot" exit={{ y: "100%" }} transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }} />
+          <motion.div className="ld-inner" exit={{ opacity: 0, scale: 1.08, filter: "blur(10px)" }} transition={{ duration: 0.45 }}>
+            <div className="ld-word">{txt}</div>
+            <div className="ld-bar"><i style={{ transform: `scaleX(${p})` }} /></div>
+            <div className="ld-meta"><span>policy engine</span><span>{p < 1 ? "arming the gate" : "gate armed"}</span></div>
+          </motion.div>
+          <motion.div className="ld-count" exit={{ opacity: 0, y: 30 }} transition={{ duration: 0.4 }}>{String(Math.round(p * 100)).padStart(3, "0")}</motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function Cursor() {
+  const dot = useRef(null), ring = useRef(null), label = useRef(null);
+  useEffect(() => {
+    if (!window.matchMedia?.("(pointer: fine)").matches) return;
+    document.documentElement.classList.add("has-cur");
+    let mx = innerWidth / 2, my = innerHeight / 2, rx = mx, ry = my, raf;
+    const move = (e) => { mx = e.clientX; my = e.clientY; dot.current.style.transform = `translate(${mx}px,${my}px)`; };
+    const over = (e) => {
+      const t = e.target.closest?.("a, button, .cmd, [role=tab]");
+      ring.current.classList.toggle("hov", !!t);
+      label.current.textContent = t ? (t.matches(".cmd") ? "COPY" : "ALLOW") : "";
+    };
+    const down = () => { ring.current.classList.add("down"); label.current.textContent = ring.current.classList.contains("hov") ? "GRANT" : "DENY"; };
+    const up = () => { ring.current.classList.remove("down"); if (!ring.current.classList.contains("hov")) label.current.textContent = ""; };
+    const leave = () => { ring.current.style.opacity = 0; dot.current.style.opacity = 0; };
+    const enter = () => { ring.current.style.opacity = 1; dot.current.style.opacity = 1; };
+    const loop = () => { rx += (mx - rx) * 0.16; ry += (my - ry) * 0.16; ring.current.style.transform = `translate(${rx}px,${ry}px)`; raf = requestAnimationFrame(loop); };
+    loop();
+    window.addEventListener("pointermove", move, { passive: true }); window.addEventListener("pointerover", over);
+    window.addEventListener("pointerdown", down); window.addEventListener("pointerup", up);
+    document.addEventListener("mouseleave", leave); document.addEventListener("mouseenter", enter);
+    return () => { cancelAnimationFrame(raf); document.documentElement.classList.remove("has-cur");
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerover", over);
+      window.removeEventListener("pointerdown", down); window.removeEventListener("pointerup", up);
+      document.removeEventListener("mouseleave", leave); document.removeEventListener("mouseenter", enter); };
+  }, []);
+  return (
+    <>
+      <div ref={ring} className="cur-ring" aria-hidden="true"><div className="cur-ret"><i /><i /><i /><i /></div><span ref={label} className="cur-label" /></div>
+      <div ref={dot} className="cur-dot" aria-hidden="true" />
+    </>
+  );
+}
+
+function ScrollBar() {
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, { stiffness: 140, damping: 30 });
+  return <motion.div className="scrollbar" style={{ scaleX }} aria-hidden="true" />;
+}
+
+// A band of verdicts that slides with the scroll, one row each way.
+function Band({ flip }) {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const a = useTransform(scrollYProgress, [0, 1], flip ? ["-30%", "0%"] : ["0%", "-30%"]);
+  const b = useTransform(scrollYProgress, [0, 1], flip ? ["0%", "-30%"] : ["-30%", "0%"]);
+  const row = (k) => Array.from({ length: 6 }, (_, i) => (
+    <span key={k + i}><em className="allow">ALLOW</em>·<em className="deny">DENY</em>·<em className="hold">REQUIRE APPROVAL</em>·</span>));
+  return (
+    <div ref={ref} className="band" aria-hidden="true">
+      <motion.div className="band-row" style={{ x: a }}>{row("a")}</motion.div>
+      <motion.div className="band-row ghost" style={{ x: b }}>{row("b")}</motion.div>
+    </div>
+  );
+}
+
 function Site() {
+  const [ready, setReady] = useState(false);
   return (
     <MotionConfig reducedMotion="user">
+      <Loader onDone={() => setReady(true)} />
+      <Cursor />
+      <ScrollBar />
       <Nav />
-      <main><Hero /><How /><Features /><Proof /><Install /><Video /><Limits /><Final /></main>
+      <main><Hero ready={ready} /><Band /><How /><Features /><Band flip /><Proof /><Install /><Video /><Limits /><Final /></main>
       <Footer />
     </MotionConfig>
   );
