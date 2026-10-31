@@ -130,6 +130,24 @@ class RealProxy(unittest.TestCase):
             r = self.rpc("resources/read", {"uri": uri})
             self.assertTrue(r["result"]["content"][0]["text"].startswith("DENY"), (uri, r))
 
+    def test_malformed_params_are_refused_without_killing_the_proxy(self):
+        self.rpc("tools/list")
+        for method, params in (("tools/call", ["run_command", {"command": "echo pwned > p.txt"}]),
+                               ("resources/read", "file:///etc/passwd"), ("prompts/get", [1]), ("initialize", [1])):
+            self.n += 1
+            self.p.stdin.write(json.dumps({"jsonrpc": "2.0", "id": self.n, "method": method, "params": params}) + "\n")
+            self.p.stdin.flush()
+            self.assertEqual(json.loads(self.p.stdout.readline())["error"]["code"], -32602, method)
+        self.assertIn("result", self.rpc("initialize", {"clientInfo": "not-an-object"}))
+        self.assertFalse((self.ws / "p.txt").exists())
+        self.assertEqual(self.call("run_command", command="echo still-alive")[1].strip(), "still-alive")
+
+    def test_tool_never_advertised_is_refused(self):
+        self.rpc("tools/list")
+        r, text = self.call("write_hidden", path=str(self.ws / "h.txt"), content="x")   # not in tools/list
+        self.assertTrue(r["isError"])
+        self.assertIn("never advertised", text)
+
     def test_audit_chain_is_intact(self):
         self.rpc("tools/list")
         self.call("run_command", command="echo a")

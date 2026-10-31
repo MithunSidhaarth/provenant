@@ -4,7 +4,7 @@ This file is the single source of truth for any agent or person who picks up thi
 
 **Keep it current.** After every milestone, update the "Status", "Version history" and "Next steps" sections. Commit and push the update with the work.
 
-Last updated: 2026-10-30 23:30 UTC, after the final hardening pass (0.10.2, branch feat/live-guard-dashboard, PR #23).
+Last updated: 2026-10-31 04:00 UTC, after the site + MCP proxy recheck (branch claude/project-thread-opz3xg). PR #23 is merged to main and production runs main 000588c.
 
 ## Product
 
@@ -127,6 +127,8 @@ Headline numbers (v8, measured at b6e74da, `docs/eval/`):
 Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes, so **GitHub has only `main`**. Packaged zips are in the project files under `agentshield/` (`provenant-demo-safe-v5.zip`).
 
 ## Status
+
+- **Recheck 2026-10-31 (branch `claude/project-thread-opz3xg`, PR off main, NOT merged):** production (https://provenant-indol.vercel.app, deployment of main 000588c) answers every GET API route with 200 and Vercel shows no runtime errors in 7 days (checked via the Vercel connector; the cloud proxy blocks the domain directly). Local browser walk of `/site.html`, `/` (console, hosted and local with real audit data) and `/getting-started` at 1440 and 390: zero console errors, no failed requests, no horizontal overflow, every button clicked. Hosted POST routes return 400/403/404 on malformed bodies, never 500. `provenant serve` handles malformed input. Adversarial proxy run against a fake server that logs everything it receives (25 cases): no denied call reached the server. **Two proxy bugs fixed:** (1) a `tools/call`, `resources/read`, `prompts/get` or `initialize` whose `params` is not an object raised AttributeError and killed the whole proxy; now -32602, and any unexpected error in either direction is answered with -32603 instead of crashing; (2) a call to a tool the server never advertised in `tools/list` skipped manifest review and was forwarded (`delete_everything` with no args was ALLOWED); now refused. 248 tests pass, run_eval green (225/225, 53/53, 9/9). Not fixed here: `/mnt/project-files/handoff/proxy-crash-fix.patch` (answer in-flight calls when the upstream server dies) is still unapplied; Guard classifies `delete_*` tools with no path argument as ALLOW (policy question for the hardening thread).
 
 - **Live inbox watch (2026-10-31, branch feat/live-guard-dashboard):** `provenant mail watch [--call]` reads a real mailbox over IMAP read-only (Gmail App Password, stored with DPAPI/0600), scans each new message, shows the gate decision for the email's injected send, and rings the phone for HIGH. `--protect`: Ivy reads a random 4-digit code; said back (user turns only) keeps the email, otherwise it moves to [Gmail]/Trash. 11 tests in tests/test_mail_watch.py with a fake IMAP server and simulated transcripts; 246 tests pass, run_eval green. **Never run against real Gmail or with a real call yet**: mithun rehearses with docs/LIVE_MAIL_DEMO.md.
 

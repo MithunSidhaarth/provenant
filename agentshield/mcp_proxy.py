@@ -150,11 +150,18 @@ class MCPProxy:
             if method.startswith("notifications/"):
                 self._send_upstream(msg)
             return
+        if msg.get("params") is not None and not isinstance(msg["params"], dict):
+            # MCP params are always an object; anything else would crash the gate further down
+            self.guard.audit.append("protocol_refused", self.session_id,
+                                    {"method": method[:80], "reason": "params is not an object"})
+            self._error(mid, -32602, "invalid params: MCP params must be an object")
+            return
         if method == "initialize":
             p = msg.get("params") or {}
+            info = p.get("clientInfo") if isinstance(p.get("clientInfo"), dict) else {}
             self.guard.audit.append("mcp_initialize", self.session_id,
                                     {"protocolVersion": str(p.get("protocolVersion"))[:40],
-                                     "client": str((p.get("clientInfo") or {}).get("name"))[:80]})
+                                     "client": str(info.get("name"))[:80]})
         if method == "tools/list":
             self._pending[_key(mid)] = ("list", None)
         elif method == "tools/call":
@@ -211,6 +218,12 @@ class MCPProxy:
             if name in self.pins.withheld:
                 reason = self.pins.withheld[name]
                 self.guard.audit.append("manifest_refused", self.session_id, {"tool": name, "reason": reason})
+                self._refuse(mid, "DENY: Provenant blocked this call. " + reason, "DENY")
+                return False
+            if name not in self.pins.pins:
+                # never advertised by tools/list, so its definition was never reviewed or pinned
+                reason = "tool was never advertised by the server's tools/list, so its definition was not reviewed"
+                self.guard.audit.append("manifest_refused", self.session_id, {"tool": name[:200], "reason": reason})
                 self._refuse(mid, "DENY: Provenant blocked this call. " + reason, "DENY")
                 return False
             call = GuardCall(self._qualified(name), args if args is not None else {}, self.session_id,
@@ -290,12 +303,17 @@ class MCPProxy:
                 msg = json.loads(line)
             except ValueError:
                 continue                    # servers must not print non-protocol text on stdout
-            if isinstance(msg, dict):
-                self.on_upstream(msg)
-            elif isinstance(msg, list):     # JSON-RPC batch
-                for m in msg:
-                    if isinstance(m, dict):
+            for m in (msg if isinstance(msg, list) else [msg]):     # a list is a JSON-RPC batch
+                if isinstance(m, dict):
+                    try:
                         self.on_upstream(m)
+                    except (BrokenPipeError, OSError):
+                        return
+                    except Exception as exc:    # never forward a message we failed to review
+                        self.guard.audit.append("proxy_error", self.session_id,
+                                                {"direction": "server", "error": type(exc).__name__})
+                        if m.get("id") is not None and "method" not in m:
+                            self._error(m["id"], -32603, "Provenant: could not review the server's reply; withheld")
 
     def run(self) -> int:
         t = threading.Thread(target=self._pump_upstream, daemon=True)
@@ -316,6 +334,12 @@ class MCPProxy:
                             self.on_client(m)
                         except (BrokenPipeError, OSError):
                             return 1
+                        except Exception as exc:    # a malformed message must not take the proxy down
+                            self.guard.audit.append("proxy_error", self.session_id,
+                                                    {"direction": "client", "error": type(exc).__name__})
+                            if m.get("id") is not None:
+                                self._error(m["id"], -32603, "Provenant: could not evaluate this message; "
+                                                             "nothing was sent (failing closed)")
         finally:
             try:
                 self.proc.stdin.close()
