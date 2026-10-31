@@ -113,7 +113,7 @@ function Shield({ onHit, pills = true, cy = 0.46, scale = 0.25, rate = 1 }) {
     const items = [], lines = [], hits = [], sparks = [], rings = [], flashes = [], mouse = { x: -1e4, y: -1e4 };
     const size = () => { const r = cv.getBoundingClientRect(), d = Math.min(window.devicePixelRatio || 1, 1.75); W = r.width; H = r.height;
       cv.width = W * d; cv.height = H * d; x.setTransform(d, 0, 0, d, 0, 0); x.fillStyle = "#07070a"; x.fillRect(0, 0, W, H); };
-    const burst = (px, py, dir, n, spd, c = RED, spread = 1.9) => { for (let i = 0; i < n; i++) { const a = dir + (Math.random() - 0.5) * spread, v = (0.35 + Math.random() * 0.65) * spd; sparks.push({ x: px, y: py, vx: Math.cos(a) * v, vy: Math.sin(a) * v, l: 1, c, s: 1.6 + Math.random() * 2 }); } };
+    const burst = (px, py, dir, n, spd, c = RED, spread = 1.9) => { for (let i = 0; i < n; i++) { const a = dir + (Math.random() - 0.5) * spread, v = (0.35 + Math.random() * 0.65) * spd; sparks.push({ x: px, y: py, vx: Math.cos(a) * v, vy: Math.sin(a) * v, l: 0.9, c, s: 1 + Math.random() * 1.2 }); } };
     const pill = (label, px, py, a) => {
       x.font = "500 13px GeistMono, ui-monospace, monospace"; const w = x.measureText(label).width + 20;
       x.globalAlpha = a; x.fillStyle = "rgba(10,10,15,.92)"; x.strokeStyle = rgba(RED, 0.7); x.lineWidth = 1;
@@ -123,52 +123,51 @@ function Shield({ onHit, pills = true, cy = 0.46, scale = 0.25, rate = 1 }) {
     const frame = (dt) => {
       const small = W < 760, cx = W / 2, cyy = H * (small && pills ? cy - 0.1 : cy), R = small ? W * scale * 1.45 : Math.min(W, H) * scale, far = Math.max(W, H) * 0.62;
       x.fillStyle = "rgba(7,7,10,.34)"; x.fillRect(0, 0, W, H);
-      const g = x.createRadialGradient(cx, cyy, 0, cx, cyy, R * 2.3); g.addColorStop(0, rgba(VIO, 0.12 + hits.length * 0.04)); g.addColorStop(1, rgba(VIO, 0)); x.fillStyle = g; x.fillRect(0, 0, W, H);
+      const g = x.createRadialGradient(cx, cyy, 0, cx, cyy, R * 2.3); g.addColorStop(0, rgba(VIO, 0.09)); g.addColorStop(1, rgba(VIO, 0)); x.fillStyle = g; x.fillRect(0, 0, W, H);
       rot += 0.004 * dt;
       // stars: fall toward the shield, speed up, and splash on impact
-      if (Math.random() < 0.9 * rate * dt) lines.push({ a: Math.random() * 7, d: Math.max(W, H) * (0.55 + Math.random() * 0.2), v: 3 + Math.random() * 3, red: Math.random() < 0.35 });
+      if (Math.random() < 0.55 * rate * dt) lines.push({ a: Math.random() * 7, d: Math.max(W, H) * (0.55 + Math.random() * 0.2), v: 3 + Math.random() * 3, red: false });
       for (let i = lines.length - 1; i >= 0; i--) { const l = lines[i]; l.v += 0.12 * dt; l.d -= l.v * dt;
-        const c = l.red ? RED : "214,210,255";
+        const c = WHT;
         if (l.d < R + 2) {
           const hx = cx + Math.cos(l.a) * R, hy = cyy + Math.sin(l.a) * R;
-          burst(hx, hy, l.a, l.red ? 34 : 24, 3 + l.v * 0.3, c, 2.4);
-          burst(hx, hy, l.a, 8, 1.2, WHT, 1.2);
-          rings.push({ x: hx, y: hy, r: 3, l: 1, c, a: l.a, flat: true });
-          flashes.push({ x: hx, y: hy, l: 1, c });
+          burst(hx, hy, l.a, 7, 1.1 + l.v * 0.06, c, 2.2);
+          rings.push({ x: hx, y: hy, r: 2, l: 0.45, c, a: l.a, flat: true, slow: true });
+          flashes.push({ x: hx, y: hy, l: 0.5, c });
           if (l.red) hits.push({ x: hx, y: hy, l: 0.35 });
           lines.splice(i, 1); continue;
         }
-        const hx = cx + Math.cos(l.a) * l.d, hy = cyy + Math.sin(l.a) * l.d, tail = 30 + l.v * 9;
+        const hx = cx + Math.cos(l.a) * l.d, hy = cyy + Math.sin(l.a) * l.d, tail = 24 + l.v * 6;
         const tg = x.createLinearGradient(hx, hy, cx + Math.cos(l.a) * (l.d + tail), cyy + Math.sin(l.a) * (l.d + tail));
-        tg.addColorStop(0, rgba(c, 0.85)); tg.addColorStop(1, rgba(c, 0));
-        x.strokeStyle = tg; x.lineWidth = 2; x.beginPath(); x.moveTo(hx, hy); x.lineTo(cx + Math.cos(l.a) * (l.d + tail), cyy + Math.sin(l.a) * (l.d + tail)); x.stroke();
-        x.fillStyle = rgba(l.red ? RED : WHT, 1); x.beginPath(); x.arc(hx, hy, 2.2, 0, 7); x.fill(); }
+        tg.addColorStop(0, rgba(c, 0.55)); tg.addColorStop(1, rgba(c, 0));
+        x.strokeStyle = tg; x.lineWidth = 1.2; x.beginPath(); x.moveTo(hx, hy); x.lineTo(cx + Math.cos(l.a) * (l.d + tail), cyy + Math.sin(l.a) * (l.d + tail)); x.stroke();
+        x.fillStyle = rgba(WHT, 0.9); x.beginPath(); x.arc(hx, hy, 1.4, 0, 7); x.fill(); }
       // sphere, dented where it was hit and nudged away from the cursor
       const ct = Math.cos(0.35), st = Math.sin(0.35), cr = Math.cos(rot), sr = Math.sin(rot);
       for (const p of FIB) {
         const X = p[0] * cr - p[2] * sr, Z = p[0] * sr + p[2] * cr, Y2 = p[1] * ct - Z * st, Z2 = p[1] * st + Z * ct;
         if (Z2 < -0.15) continue;
         let sx = cx + X * R, sy = cyy + Y2 * R, push = 0;
-        for (const h of hits) { const d = Math.hypot(sx - h.x, sy - h.y); if (d < 120) push += (1 - d / 120) * 26 * h.l; }
+        for (const h of hits) { const d = Math.hypot(sx - h.x, sy - h.y); if (d < 90) push += (1 - d / 90) * 12 * h.l; }
         const dm = Math.hypot(sx - mouse.x, sy - mouse.y); if (dm < 90) push += (1 - dm / 90) * 14;
         if (push) { sx += X * push; sy += Y2 * push; }
         const k = (Z2 + 1) / 2, s = 1.1 + k * 1.2;
-        x.fillStyle = push > 2 ? rgba(RED, 0.5 + k * 0.5) : rgba("196,192,255", 0.1 + k * 0.8); x.fillRect(sx, sy, s, s);
+        x.fillStyle = push > 2 ? rgba(WHT, 0.4 + k * 0.6) : rgba("196,192,255", 0.1 + k * 0.75); x.fillRect(sx, sy, s, s);
       }
       tPill += dt;
       if (pills && tPill > 34 / rate) { tPill = 0; items.push({ a: Math.random() * 7, d: far, v: 2.6 + Math.random(), label: pick(ATK) }); }
       for (let i = items.length - 1; i >= 0; i--) { const p = items[i]; p.d -= p.v * dt;
         const px = cx + Math.cos(p.a) * p.d, py = cyy + Math.sin(p.a) * p.d;
-        if (p.d < R + 14) { burst(px, py, p.a, 46, 6); rings.push({ x: px, y: py, r: 4, l: 1 }); hits.push({ x: px, y: py, l: 1 }); onHit?.(px, py - 10, W, H); items.splice(i, 1); continue; }
+        if (p.d < R + 14) { burst(px, py, p.a, 12, 2, WHT, 2); rings.push({ x: px, y: py, r: 3, l: 0.6, c: WHT }); hits.push({ x: px, y: py, l: 0.6 }); onHit?.(px, py - 10, W, H); items.splice(i, 1); continue; }
         pill(p.label, px, py, Math.min(1, (far - p.d) / 80)); }
       for (let i = hits.length - 1; i >= 0; i--) { hits[i].l -= 0.03 * dt; if (hits[i].l <= 0) hits.splice(i, 1); }
-      for (let i = flashes.length - 1; i >= 0; i--) { const f = flashes[i]; f.l -= 0.05 * dt; if (f.l <= 0) { flashes.splice(i, 1); continue; }
-        const fg = x.createRadialGradient(f.x, f.y, 0, f.x, f.y, 34); fg.addColorStop(0, rgba("255,255,255", f.l)); fg.addColorStop(0.3, rgba(f.c, f.l * 0.7)); fg.addColorStop(1, rgba(f.c, 0));
-        x.fillStyle = fg; x.fillRect(f.x - 34, f.y - 34, 68, 68); }
-      for (let i = sparks.length - 1; i >= 0; i--) { const s = sparks[i]; s.x += s.vx * dt; s.y += s.vy * dt; s.vx *= 0.955; s.vy *= 0.955; s.l -= 0.016 * dt;
+      for (let i = flashes.length - 1; i >= 0; i--) { const f = flashes[i]; f.l -= 0.06 * dt; if (f.l <= 0) { flashes.splice(i, 1); continue; }
+        const fg = x.createRadialGradient(f.x, f.y, 0, f.x, f.y, 12); fg.addColorStop(0, rgba(WHT, f.l)); fg.addColorStop(1, rgba(WHT, 0));
+        x.fillStyle = fg; x.fillRect(f.x - 12, f.y - 12, 24, 24); }
+      for (let i = sparks.length - 1; i >= 0; i--) { const s = sparks[i]; s.x += s.vx * dt; s.y += s.vy * dt; s.vx *= 0.92; s.vy *= 0.92; s.l -= 0.03 * dt;
         if (s.l <= 0) { sparks.splice(i, 1); continue; } x.fillStyle = rgba(s.c, s.l); x.fillRect(s.x, s.y, s.s, s.s); }
-      for (let i = rings.length - 1; i >= 0; i--) { const r = rings[i]; r.r += 2.6 * dt; r.l -= 0.022 * dt;
-        if (r.l <= 0) { rings.splice(i, 1); continue; } x.strokeStyle = rgba(r.c || RED, r.l * 0.9); x.lineWidth = 1.8; x.beginPath();
+      for (let i = rings.length - 1; i >= 0; i--) { const r = rings[i]; r.r += (r.slow ? 0.8 : 1.8) * dt; r.l -= 0.03 * dt;
+        if (r.l <= 0) { rings.splice(i, 1); continue; } x.strokeStyle = rgba(r.c || WHT, r.l * 0.5); x.lineWidth = 1; x.beginPath();
         if (r.flat) x.ellipse(r.x, r.y, r.r * 0.35, r.r, r.a, 0, 7); else x.arc(r.x, r.y, r.r, 0, 7); x.stroke(); }
     };
     const loop = (now) => { raf = requestAnimationFrame(loop); const dt = Math.min(3, (now - last) / 16.67); last = now; if (on) frame(dt); };
@@ -190,8 +189,8 @@ function Hero({ ready }) {
   const wy = useTransform(scrollY, [0, 700], [0, -220]), ws = useTransform(scrollY, [0, 700], [1, 1.35]), wo = useTransform(scrollY, [0, 520], [1, 0]);
   const sy = useTransform(scrollY, [0, 900], [0, 260]), so = useTransform(scrollY, [0, 800], [1, 0.25]);
   const go = (d) => (ready ? { opacity: 1, y: 0, transition: { delay: d, duration: 0.9, ease: [0.16, 1, 0.3, 1] } } : { opacity: 0, y: 30 });
-  const onHit = (px, py, W) => {
-    const w = word.current; if (w) { w.classList.remove("hit"); void w.offsetWidth; w.classList.add("hit"); }
+  const onHit = (px, py, W, H) => {
+    py = Math.max(90, Math.min(py, H * (W < 760 ? 0.5 : 0.58)));
     const now = performance.now(), s = stamp.current; if (!s || now - last.current < 1400) return; last.current = now;
     s.style.left = Math.max(100, Math.min(W - 100, px)) + "px"; s.style.top = py + "px"; s.classList.remove("go"); void s.offsetWidth; s.classList.add("go");
   };
