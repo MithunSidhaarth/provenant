@@ -255,7 +255,7 @@ function Features() {
           </Reveal>
           <Reveal className="tile">
             <h3>Fewer tokens</h3>
-            <p>The gated tool server returns outlines and trimmed output: tool-result tokens fell 72% on our benchmark.</p>
+            <p>When the agent uses Provenant's own tool server, long files come back as outlines and test runs as failures only: tool-result tokens fell 73% on our 15-step benchmark, recounted with a real tokenizer. The guard hook alone does not shrink output.</p>
           </Reveal>
           <Reveal className="tile wide">
             <h3>Runs on your machine</h3>

@@ -1,18 +1,18 @@
 {
- "generated_utc": "2026-10-30 17:53 UTC",
- "commit": "b6e74da",
+ "generated_utc": "2026-10-31 05:56 UTC",
+ "commit": "7af08f7",
  "summary": {
   "workload": "15-step scripted repository investigation (evals/token_bench.py)",
   "token_estimate": "ceil(chars/4)",
   "context_tokens": {
-   "baseline": 52432,
-   "provenant": 14541,
-   "change_pct": -72.3
+   "baseline": 59779,
+   "provenant": 15832,
+   "change_pct": -73.5
   },
   "reread_input_tokens": {
-   "baseline": 420465,
-   "provenant": 184888,
-   "change_pct": -56.0
+   "baseline": 478854,
+   "provenant": 196555,
+   "change_pct": -59.0
   },
   "output_tokens": {
    "baseline": 259,
@@ -31,8 +31,8 @@
    "provenant": true
   },
   "wall_seconds": {
-   "baseline": 13.96,
-   "provenant": 14.32
+   "baseline": 53.99,
+   "provenant": 56.19
   },
   "policy_llm_calls": 0
  },
@@ -40,27 +40,27 @@
   "baseline": {
    "mode": "baseline",
    "tool_calls": 15,
-   "context_tokens": 52432,
-   "reread_input_tokens": 420465,
+   "context_tokens": 59779,
+   "reread_input_tokens": 478854,
    "output_tokens": 259,
    "cache_hits": 0,
    "dedup_hits": 0,
    "task_success": true,
    "failures": [],
-   "wall_seconds": 13.96,
+   "wall_seconds": 53.99,
    "steps": [
     {
      "step": 0,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 707,
+     "context_tokens": 1385,
      "ok": true
     },
     {
      "step": 1,
      "tool": "read_file",
      "calls": 1,
-     "context_tokens": 12030,
+     "context_tokens": 13396,
      "ok": true
     },
     {
@@ -81,7 +81,7 @@
      "step": 4,
      "tool": "run_tests",
      "calls": 1,
-     "context_tokens": 184,
+     "context_tokens": 737,
      "ok": true
     },
     {
@@ -95,21 +95,21 @@
      "step": 6,
      "tool": "read_file",
      "calls": 1,
-     "context_tokens": 12030,
+     "context_tokens": 13396,
      "ok": true
     },
     {
      "step": 7,
      "tool": "search_text",
      "calls": 1,
-     "context_tokens": 1262,
+     "context_tokens": 1800,
      "ok": true
     },
     {
      "step": 8,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 137,
+     "context_tokens": 187,
      "ok": true
     },
     {
@@ -123,7 +123,7 @@
      "step": 10,
      "tool": "read_file",
      "calls": 1,
-     "context_tokens": 5373,
+     "context_tokens": 5572,
      "ok": true
     },
     {
@@ -137,21 +137,21 @@
      "step": 13,
      "tool": "run_tests",
      "calls": 1,
-     "context_tokens": 184,
+     "context_tokens": 737,
      "ok": true
     },
     {
      "step": 14,
      "tool": "read_file",
      "calls": 1,
-     "context_tokens": 12030,
+     "context_tokens": 13396,
      "ok": true
     },
     {
      "step": 15,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 718,
+     "context_tokens": 1396,
      "ok": true
     }
    ]
@@ -159,34 +159,34 @@
   "provenant": {
    "mode": "provenant",
    "tool_calls": 21,
-   "context_tokens": 14541,
-   "reread_input_tokens": 184888,
+   "context_tokens": 15832,
+   "reread_input_tokens": 196555,
    "output_tokens": 421,
    "cache_hits": 3,
    "dedup_hits": 3,
    "task_success": true,
    "failures": [],
-   "wall_seconds": 14.32,
+   "wall_seconds": 56.19,
    "steps": [
     {
      "step": 0,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 670,
+     "context_tokens": 1082,
      "ok": true
     },
     {
      "step": 1,
      "tool": "read_file",
      "calls": 3,
-     "context_tokens": 3211,
+     "context_tokens": 3282,
      "ok": true
     },
     {
      "step": 2,
      "tool": "search_text",
      "calls": 1,
-     "context_tokens": 164,
+     "context_tokens": 163,
      "ok": true
     },
     {
@@ -200,7 +200,7 @@
      "step": 4,
      "tool": "run_tests",
      "calls": 1,
-     "context_tokens": 26,
+     "context_tokens": 29,
      "ok": true
     },
     {
@@ -214,21 +214,21 @@
      "step": 6,
      "tool": "read_file",
      "calls": 3,
-     "context_tokens": 1656,
+     "context_tokens": 1789,
      "ok": true
     },
     {
      "step": 7,
      "tool": "search_text",
      "calls": 1,
-     "context_tokens": 1262,
+     "context_tokens": 1158,
      "ok": true
     },
     {
      "step": 8,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 140,
+     "context_tokens": 187,
      "ok": true
     },
     {
@@ -242,7 +242,7 @@
      "step": 10,
      "tool": "read_file",
      "calls": 1,
-     "context_tokens": 1111,
+     "context_tokens": 1082,
      "ok": true
     },
     {
@@ -256,21 +256,21 @@
      "step": 13,
      "tool": "run_tests",
      "calls": 1,
-     "context_tokens": 26,
+     "context_tokens": 29,
      "ok": true
     },
     {
      "step": 14,
      "tool": "read_file",
      "calls": 3,
-     "context_tokens": 1061,
+     "context_tokens": 1414,
      "ok": true
     },
     {
      "step": 15,
      "tool": "list_directory",
      "calls": 1,
-     "context_tokens": 686,
+     "context_tokens": 1089,
      "ok": true
     }
    ]

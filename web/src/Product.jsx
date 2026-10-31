@@ -176,7 +176,7 @@ export function Efficiency() {
               <Bar label="Cumulative input tokens (no prompt cache)" a={s.reread_input_tokens.baseline} b={s.reread_input_tokens.provenant} />
               <Bar label="Tool calls" a={s.tool_calls.baseline} b={s.tool_calls.provenant} />
               <p className="muted small">{s.workload}. Task success: baseline {String(s.task_success.baseline)}, Provenant {String(s.task_success.provenant)}.
-                Tokens are estimated as characters ÷ 4. Provenant makes more, smaller calls (targeted reads), which adds round trips. Other workloads will save more, less or nothing.</p>
+                Tokens are estimated as characters ÷ 4; a recount with real BPE tokenizers gives the same 73% (docs/TOKENS.md). This applies to tools Provenant runs itself (provenant serve), not to tools behind the guard hook. Provenant makes more, smaller calls (targeted reads), which adds round trips. Other workloads will save more, less or nothing.</p>
             </>
           ) : <p className="muted">Benchmark results are not available on this deployment.</p>}
         </Reveal>
@@ -188,6 +188,7 @@ export function Efficiency() {
             <li><b>Test output</b> failures, tracebacks and the summary; progress lines dropped</li>
             <li><b>Safe cache</b> read-only tools only, keyed by tool, args, session, mode, policy version and file freshness</li>
             <li><b>Dedup</b> an unchanged re-read returns a reference to the earlier result</li>
+            <li><b>Compact search and listings</b> each file or folder path is printed once, not on every line</li>
           </ul>
           <Cmd>python evals/token_bench.py</Cmd>
         </Reveal>

@@ -125,7 +125,7 @@ Headline numbers (v4/v5):
 Headline numbers (v8, measured at b6e74da, `docs/eval/`):
 - Attacks 128/128 contained (110 DENY, 18 REQUIRE_APPROVAL); benign 35/35 allowed; scenarios 32/32; live proxy checks 9/9; tests 166/166.
 - Policy decision p50 about 0.15 ms; proxy overhead p50 about 14 ms.
-- Token benchmark (one scripted workload, tokens estimated as chars/4): tool-result context tokens -72%, cumulative input -56%, tool calls 15 to 21, task success 15/15 in both runs.
+- Token benchmark (one scripted workload, provenant serve only; see docs/TOKENS.md): tool-result tokens -73% and cumulative input -59%, recounted with real BPE tokenizers (evals/count_tokens.mjs) as well as chars/4; tool calls 15 to 21, task success in both runs. Guard hook / proxy alone do not shrink output. Not yet checked against the Claude API count_tokens endpoint.
 
 Tags `demo-safe-v1` to `v5` exist locally, but the git proxy refuses tag pushes, so **GitHub has only `main`**. Packaged zips are in the project files under `agentshield/` (`provenant-demo-safe-v5.zip`).
 

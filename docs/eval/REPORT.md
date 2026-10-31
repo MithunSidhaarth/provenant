@@ -1,6 +1,6 @@
 # Provenant security evaluation
 
-Generated 2026-10-31 05:36 UTC by `python evals/run_eval.py` at commit `be5be73`, policy `guard-2026.10-4`, Python 3.13.18 on Linux-6.18.44-fc-v185-x86_64-with-glibc2.39.
+Generated 2026-10-31 05:57 UTC by `python evals/run_eval.py` at commit `7af08f7`, policy `guard-2026.10-4`, Python 3.13.18 on Linux-6.18.44-fc-v185-x86_64-with-glibc2.39.
 
 Passing these cases is evidence of coverage for the cases listed, not proof that no bypass exists.
 
@@ -9,7 +9,7 @@ Passing these cases is evidence of coverage for the cases listed, not proof that
 - Attacks (negative controls): **231/231 contained** (never ALLOW); 231/231 got exactly the expected decision. Decisions: {'DENY': 171, 'REQUIRE_APPROVAL': 60}.
 - Legitimate actions (positive controls): **53/53** decided as expected; no false positives.
 - Saved policy scenarios: 32/32.
-- Decision latency (no model call): p50 0.204 ms, p95 0.853 ms, max 4.712 ms over 1580 evaluations.
+- Decision latency (no model call): p50 0.184 ms, p95 0.74 ms, max 4.276 ms over 1580 evaluations.
 
 | Category | Attacks | Contained |
 |---|---|---|
@@ -48,11 +48,11 @@ Passing these cases is evidence of coverage for the cases listed, not proof that
 | risky call is held for a human, nothing runs | pass |
 | audit chain verifies after the run | pass |
 
-Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.16 ms, through Provenant p50 18.1 ms (p95 24.33 ms). Overhead p50 ≈ 17.94 ms per call, which includes the SQLite writes and audit appends.
+Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.08 ms, through Provenant p50 13.54 ms (p95 16.59 ms). Overhead p50 ≈ 13.46 ms per call, which includes the SQLite writes and audit appends.
 
 ## Unit and integration tests
 
-300/300 passed in 33.8 s.
+301/301 passed in 26.1 s.
 
 | Area | Tests | Passed |
 |---|---|---|
@@ -65,12 +65,12 @@ Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.
 | phone approval validation | 6 | 6 |
 | policy simulator and lint | 2 | 2 |
 | audit privacy and redaction | 2 | 2 |
-| gateway tool server, cache/dedup, MCP lifecycle | 7 | 7 |
+| gateway tool server, cache/dedup, MCP lifecycle | 8 | 8 |
 | real MCP proxy and Claude Code hook (subprocesses) | 19 | 19 |
 
 ## Resources
 
-Peak RSS 46.6 MB, CPU 4.78 s, wall 36.1 s for the whole evaluation.
+Peak RSS 46.7 MB, CPU 3.68 s, wall 28.0 s for the whole evaluation.
 
 ## Token efficiency
 

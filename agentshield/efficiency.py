@@ -4,8 +4,9 @@ Three mechanisms, all deterministic and all AFTER authorization (the policy chec
 or not, so a cache can never outlive a permission change or an expired grant):
 
 * compression  shrinks tool output to what an agent needs: test runs keep the summary and the failure
-               blocks; directory listings skip vendored and generated folders; long files keep head and
-               tail with a marker. Errors are never compressed away. `full: true` returns everything.
+               blocks; directory listings skip vendored and generated folders and print each folder's
+               path once (an indented tree); search matches are grouped under their file; long files keep
+               head and tail with a marker. Errors are never compressed away. `full: true` returns everything.
 * caching      read-only tools only (read_file, list_directory, search_text). The key includes the tool,
                arguments, session, mode, policy version and a freshness token (size + mtime of every path
                involved), so an edited file or a policy change is a miss. Writes, sends, shell and network
@@ -119,7 +120,7 @@ class Efficiency:
         if not self.enabled or full or len(text) <= self.max_file_chars:
             return text
         lines = text.splitlines()
-        outline = [f"{i + 1:>6}: {ln.strip()[:120]}" for i, ln in enumerate(lines) if _DEF.match(ln)][:300]
+        outline = [f"{i + 1}: {ln.strip()[:120]}" for i, ln in enumerate(lines) if _DEF.match(ln)][:300]
         head = "\n".join(lines[:40])
         if not outline:
             tail = text[-self.max_file_chars // 3:]
@@ -151,6 +152,38 @@ class Efficiency:
         if not self.enabled or full or len(entries) <= self.max_listing_entries:
             return entries
         return entries[: self.max_listing_entries] + [f"[provenant] … {len(entries) - self.max_listing_entries} more entries"]
+
+    def tree(self, entries: list[str], full: bool) -> list[str]:
+        """`a/b/c.py  12B` lines → an indented tree, so a deep folder's path is printed once, not on every entry."""
+        if not self.enabled or full:
+            return entries
+        out = []
+        for e in entries:
+            if e.startswith("[provenant]"):
+                out.append(e)
+                continue
+            name, _, rest = e.partition("  ")
+            trail = "/" if name.endswith("/") else ""
+            parts = name.rstrip("/").split("/")
+            out.append("  " * (len(parts) - 1) + parts[-1] + trail + ("  " + rest if rest else ""))
+        return out
+
+    def search(self, lines: list[str], full: bool) -> list[str]:
+        """`path:line: text` matches → the path once, then `  line: text` for each match in that file."""
+        if not self.enabled or full:
+            return lines
+        out, last = [], None
+        for ln in lines:
+            path, sep, rest = ln.partition(":")
+            if not sep or ln.startswith("[provenant]"):
+                out.append(ln)
+                last = None
+                continue
+            if path != last:
+                out.append(path)
+                last = path
+            out.append("  " + rest)
+        return out
 
     def skip_dir(self, name: str, full: bool) -> bool:
         return self.enabled and not full and name in SKIP_DIRS

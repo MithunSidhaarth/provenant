@@ -310,7 +310,7 @@ function Tokens({ t }) {
       <div className="wrap">
         <Reveal className="kicker">Token benchmark</Reveal>
         <Reveal as="h2">Fewer tokens, <span className="mute">a few more calls.</span></Reveal>
-        <Reveal as="p" className="sub">One scripted workload ({t.workload}), tokens estimated as {t.token_estimate}. Both runs finished the task.</Reveal>
+        <Reveal as="p" className="sub">One scripted workload ({t.workload}) on Provenant's own tool server (provenant serve), tokens estimated as {t.token_estimate}; a recount with real BPE tokenizers gives the same 73% (docs/TOKENS.md). The guard hook alone does not shrink tool output. Both runs finished the task.</Reveal>
         <Reveal className="au-card">
           <table className="au-table">
             <thead><tr><th>Measure</th><th>Without</th><th>With Provenant</th><th>Change</th></tr></thead>
