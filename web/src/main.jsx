@@ -3,7 +3,8 @@ import { createRoot } from "react-dom/client";
 import { motion, useScroll, useSpring, MotionConfig } from "motion/react";
 import { api } from "./api.js";
 import { ToastHost, useToast } from "./ui.jsx";
-import { Intro, Hero } from "./Hero.jsx";
+import { Hero } from "./Hero.jsx";
+import { Loader, Marquee, Statement } from "./Scroll.jsx";
 import { Guard } from "./Guard.jsx";
 import { Lab, Playground, Approvals, Evidence, Audit, Policy } from "./Sim.jsx";
 import { HowItWorks, PhoneApproval, Efficiency, Features, Download, Trust, FinalCTA, DemoVideo } from "./Product.jsx";
@@ -92,10 +93,12 @@ function App() {
 
   return (
     <>
-      {!ready && <Intro onDone={done} />}
+      <Loader onReveal={done} />
       <Nav chain={chain} pending={pending} onReset={reset} />
       <main>
         <Hero ready={ready} scenarios={scenarios} onRun={refresh} />
+        <Marquee />
+        <Statement />
         <DemoVideo />
         <HowItWorks />
         <Guard />

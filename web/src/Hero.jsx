@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Arena } from "./Arena.jsx";
+import { useHeroParallax } from "./Scroll.jsx";
 import { api, reduced } from "./api.js";
 import { ErrorNote } from "./ui.jsx";
 
@@ -71,12 +72,13 @@ export function Hero({ ready, scenarios, onRun }) {
 
   useEffect(() => { if (scenarios.length) run(sid); }, [scenarios.length, sid, run]);
 
+  const parallax = useHeroParallax();
   const cur = scenarios.find((s) => s.id === sid);
   const play = ready && !!data;
   return (
     <header className="hero" id="top">
       <div className="hero-grid" aria-hidden="true" />
-      <div className="hero-copy">
+      <motion.div className="hero-copy" style={parallax}>
         <motion.div className="eyebrow" initial={{ opacity: 0 }} animate={ready ? { opacity: 1 } : {}} transition={{ delay: 0.5 }}>
           Model-independent policy enforcement for AI agents · MCP · Claude Code
         </motion.div>
@@ -95,7 +97,7 @@ export function Hero({ ready, scenarios, onRun }) {
           <span><b>1</b> Install</span><span><b>2</b> <code>provenant setup</code> connects Claude Code, Claude Desktop, Cursor or Windsurf</span>
           <span><b>3</b> <code>provenant verify</code> proves a forbidden action is blocked on your machine</span>
         </motion.div>
-      </div>
+      </motion.div>
 
       <motion.div className="scenario-bar" role="tablist" aria-label="Attack scenario"
         initial={{ opacity: 0, y: 10 }} animate={ready ? { opacity: 1, y: 0 } : {}} transition={{ delay: 0.85 }}>

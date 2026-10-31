@@ -26,7 +26,8 @@ from .guard import CATEGORY_ORDER, DEFAULT_GUARD_POLICY, GuardCall, GuardPolicy
 from .models import Decision
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_SCENARIOS = ROOT / "evals" / "policy_scenarios.json"
+from .resources import path as _resource
+DEFAULT_SCENARIOS = _resource("evals") / "policy_scenarios.json"
 
 
 def _session() -> dict:

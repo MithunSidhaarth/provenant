@@ -280,6 +280,9 @@ def main() -> int:
     for name in ("results.json", "REPORT.md", "token_benchmark.json", "TOKEN_BENCHMARK.md"):
         if (OUT / name).exists():
             (site / name).write_bytes((OUT / name).read_bytes())
+    redteam = ROOT / "docs" / "guard_redteam.json"   # the installed dashboard has no docs/ folder
+    if redteam.exists():
+        (site / "guard_redteam.json").write_bytes(redteam.read_bytes())
     ok = (c["attacks"]["contained"] == c["attacks"]["total"] and not c["benign"]["false_positives"]
           and lv["passed"] == lv["total"] and not st["failed"])
     print(json.dumps({"attacks_contained": f"{c['attacks']['contained']}/{c['attacks']['total']}",

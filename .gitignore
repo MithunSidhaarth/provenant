@@ -4,3 +4,4 @@ data/
 .env
 *.jsonl
 web/node_modules/
+build/

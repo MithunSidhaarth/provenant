@@ -76,6 +76,18 @@ class Source(unittest.TestCase):
         self.assertEqual(json.loads((ROOT / "web/src/onboarding.json").read_text())["version"], version)
         self.assertEqual(json.loads((ROOT / "dashboard/download/latest.json").read_text())["version"], version)
 
+    def test_new_users_are_only_offered_the_current_release(self):
+        # Every install path a new user can copy names the current wheel, and only the current wheel is published.
+        version = re.search(r'^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(), re.M).group(1)
+        for rel in ("dashboard/getting-started.html", "web/src/onboarding.json", "README.md", "docs/QUICKSTART.md"):
+            f = ROOT / rel
+            if f.is_file():
+                for found in re.findall(r"provenant(?:_agent_shield)?-(\d+\.\d+\.\d+)-py3", f.read_text(encoding="utf-8")):
+                    self.assertEqual(found, version, rel)
+        for d in ("dist", "dashboard/download"):
+            wheels = {w.name for w in (ROOT / d).glob("*.whl")}
+            self.assertEqual(wheels, {f"provenant_agent_shield-{version}-py3-none-any.whl"}, d)
+
     def test_pinned_checksum_matches_the_published_wheel(self):
         version = re.search(r"\$PvVersion = '([^']+)'", PS1).group(1)
         wheel = ROOT / "dist" / f"provenant_agent_shield-{version}-py3-none-any.whl"

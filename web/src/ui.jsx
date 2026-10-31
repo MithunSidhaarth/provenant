@@ -30,12 +30,16 @@ export function ToastHost({ children }) {
   );
 }
 
+const TITLE = { hide: { clipPath: "inset(0 0 100% 0)", y: 36 }, show: { clipPath: "inset(0 0 -12% 0)", y: 0 } };
+
 export function Section({ id, kicker, title, lede, children, className = "" }) {
   return (
     <section id={id} className={`section ${className}`} data-section={id}>
       <Reveal className="section-head">
         {kicker && <div className="kicker"><span className="kicker-dot" />{kicker}</div>}
-        <h2 className="section-title">{title}</h2>
+        <motion.div initial="hide" whileInView="show" viewport={{ once: true, margin: "-60px" }}>
+          <motion.h2 className="section-title" variants={TITLE} transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}>{title}</motion.h2>
+        </motion.div>
         {lede && <p className="lede">{lede}</p>}
       </Reveal>
       {children}

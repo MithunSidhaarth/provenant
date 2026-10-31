@@ -1,0 +1,117 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Provenant tech stack</title><style>
+@font-face{font-family:Brico;src:url(../dashboard/vendor/fonts/bricolage-grotesque-latin-700-normal.woff2);font-weight:700}
+@font-face{font-family:Brico;src:url(../dashboard/vendor/fonts/bricolage-grotesque-latin-500-normal.woff2);font-weight:500}
+@font-face{font-family:Geist;src:url(../dashboard/vendor/fonts/geist-sans-latin-400-normal.woff2);font-weight:400}
+@font-face{font-family:Geist;src:url(../dashboard/vendor/fonts/geist-sans-latin-500-normal.woff2);font-weight:500}
+@font-face{font-family:Geist;src:url(../dashboard/vendor/fonts/geist-sans-latin-600-normal.woff2);font-weight:600}
+@font-face{font-family:GMono;src:url(../dashboard/vendor/fonts/geist-mono-latin-400-normal.woff2);font-weight:400}
+@font-face{font-family:GMono;src:url(../dashboard/vendor/fonts/geist-mono-latin-500-normal.woff2);font-weight:500}
+:root{--paper:#f5f3ee;--ink:#161616;--ink2:#3a3a38;--mute:#77756f;--rule:#d6d3cb;--rule2:#161616;--allow:#1d6b46;--deny:#a8321f;--hold:#8a5a00}
+@page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Geist;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:8.6pt;line-height:1.45}
+.page{width:210mm;height:297mm;background:var(--paper);position:relative;overflow:hidden;padding:12mm 14mm 0;page-break-after:always}
+.mono{font-family:GMono}
+.meta{display:flex;justify-content:space-between;font-family:GMono;font-size:6.8pt;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);border-bottom:1.4px solid var(--rule2);padding-bottom:2mm}
+.mast{display:grid;grid-template-columns:1fr 50mm;column-gap:8mm;padding:5mm 0 4mm;border-bottom:1px solid var(--rule)}
+h1{font-family:Brico;font-weight:700;font-size:46pt;line-height:.9;letter-spacing:-.035em}
+.sub{font-size:12pt;line-height:1.35;color:var(--ink2);margin-top:3.5mm;max-width:118mm}
+.sub b{color:var(--ink);font-weight:600}
+.side{border-left:1px solid var(--rule);padding-left:5mm;align-self:end}
+.lab{font-family:GMono;font-size:6.6pt;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.team{font-family:Brico;font-weight:700;font-size:15pt;letter-spacing:-.01em;margin:1mm 0 1.5mm}
+.names div{font-size:8.6pt;line-height:1.5}
+.row{display:grid;grid-template-columns:29mm 1fr;column-gap:7mm;padding:3.2mm 0;border-bottom:1px solid var(--rule)}
+.row>.k{font-family:GMono;font-size:6.8pt;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);padding-top:.6mm}
+.row>.k b{display:block;font-family:Brico;font-weight:700;font-size:11pt;letter-spacing:-.01em;text-transform:none;color:var(--ink);margin-top:1mm;line-height:1.15}
+.lead{font-size:9.6pt;line-height:1.48;color:var(--ink2)}.lead b{color:var(--ink);font-weight:600}
+.cols{display:grid;grid-template-columns:repeat(3,1fr)}
+.cols>div{padding:0 4mm;border-left:1px solid var(--rule)}.cols>div:first-child{padding-left:0;border-left:0}.cols>div:last-child{padding-right:0}
+h3{font-family:Geist;font-weight:600;font-size:9pt;margin-bottom:1.2mm}
+.new{font-family:GMono;font-weight:500;font-size:6pt;letter-spacing:.08em;color:var(--mute);margin-left:1.5mm}
+ul{list-style:none}li{padding-left:3mm;position:relative;margin:.8mm 0;color:var(--ink2)}li:before{content:"";position:absolute;left:0;top:2mm;width:1.4mm;height:.3mm;background:var(--ink)}
+.flow{display:grid;grid-template-columns:1fr 1.35fr 1fr;margin-top:3mm;border-top:1px solid var(--rule2)}
+.flow>div{padding:2.5mm 4mm 0;border-left:1px solid var(--rule)}.flow>div:first-child{padding-left:0;border-left:0}
+.flow .n{font-family:GMono;font-size:6.6pt;color:var(--mute);letter-spacing:.08em}
+.flow .t{font-weight:600;margin:.8mm 0 .6mm}
+.out{font-size:8pt;margin:.2mm 0 1mm;line-height:1.3}.out span:first-child{display:block}.out span:first-child{font-family:GMono;font-weight:500;font-size:7pt}
+.a{color:var(--allow)}.d{color:var(--deny)}.h{color:var(--hold)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr)}
+.steps>div{padding:0 3.5mm;border-left:1px solid var(--rule)}.steps>div:first-child{padding-left:0;border-left:0}
+.steps .n{font-family:Brico;font-weight:500;font-size:16pt;color:var(--mute);line-height:1}
+.steps .t{font-weight:600;margin:1.2mm 0 .6mm}.steps p{color:var(--ink2)}
+.cmd{font-family:GMono;font-size:7.1pt;line-height:1.8;border-left:1.4px solid var(--ink);padding-left:4mm}
+.cmd .c{color:var(--mute)}
+.figs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--rule)}
+.figs>div{padding:4mm 4mm 3.8mm;border-left:1px solid var(--rule)}.figs>div:first-child{padding-left:0;border-left:0}
+.big{font-family:Brico;font-weight:700;font-size:32pt;letter-spacing:-.04em;line-height:1}.big small{font-size:14pt;color:var(--mute);letter-spacing:-.02em}
+.figs .t{font-weight:600;margin-top:1.5mm}.figs p{color:var(--mute);font-size:7.6pt;line-height:1.4;margin-top:.5mm}
+.split{display:grid;grid-template-columns:1fr 1fr;column-gap:0;border-bottom:1px solid var(--rule)}
+.split>div{padding:3.8mm 0}.split>div+div{border-left:1px solid var(--rule);padding-left:6mm}.split>div:first-child{padding-right:6mm}
+.bar{display:grid;grid-template-columns:33mm 1fr 10mm;align-items:center;column-gap:2.5mm;font-size:7.6pt;margin:.5mm 0}
+.track{height:1.6mm;background:#e4e1d9}.track i{display:block;height:100%;background:var(--ink)}
+.bar .v{font-family:GMono;font-size:6.8pt;text-align:right;color:var(--ink2)}
+.tbl{width:100%;border-collapse:collapse;font-size:7.9pt}.tbl td,.tbl th{padding:.85mm 0;border-bottom:1px solid var(--rule);text-align:right;font-weight:400}
+.tbl td:first-child,.tbl th:first-child{text-align:left}.tbl th{font-family:GMono;font-size:6.4pt;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.tbl td.m{font-family:GMono;font-size:7.4pt}.tbl tr:last-child td{border-bottom:0}
+.blk+.blk{margin-top:3.6mm}
+.ratio{display:flex;height:2.2mm;margin:2mm 0 1.4mm}.ratio i{display:block;height:100%}
+.legend{display:flex;gap:6mm;font-family:GMono;font-size:6.8pt}
+.note{font-size:7.2pt;color:var(--mute);line-height:1.4;margin-top:1.5mm}
+.rt{display:grid;grid-template-columns:24mm 1fr;column-gap:6mm;align-items:start}
+.rt .big{font-size:34pt;color:var(--deny)}
+.checks{columns:2;column-gap:8mm;font-size:7.9pt}.checks div{padding:.35mm 0;border-bottom:1px dotted var(--rule);break-inside:avoid}.checks div:before{content:"pass";font-family:GMono;font-size:6.4pt;color:var(--allow);margin-right:2.5mm;letter-spacing:.05em}
+.lim{columns:2;column-gap:8mm}.lim p{break-inside:avoid;margin-bottom:1mm;color:var(--ink2)}.lim b{color:var(--ink);font-weight:600}
+.foot{position:absolute;left:14mm;right:14mm;bottom:8mm;display:flex;justify-content:space-between;font-family:GMono;font-size:6.6pt;color:var(--mute);border-top:1.4px solid var(--rule2);padding-top:2mm;letter-spacing:.03em}
+
+.stk{display:block}
+.it{display:grid;grid-template-columns:44mm 1fr;column-gap:4mm;padding:1.05mm 0;border-bottom:1px dotted var(--rule);font-size:8pt;line-height:1.38}
+.it b{font-weight:600;color:var(--ink)}.it span{color:var(--ink2)}
+.it .v{font-family:GMono;font-size:6.4pt;color:var(--mute);margin-left:1mm;font-weight:400}
+.pill{display:inline-block;font-family:GMono;font-size:6.2pt;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--ink);padding:.3mm 1.4mm;margin-left:1.5mm;vertical-align:1px}
+.pill.m{border-color:var(--mute);color:var(--mute)}
+.layers{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--rule2);margin-top:3mm}
+.layers>div{padding:2.4mm 3.5mm 0;border-left:1px solid var(--rule)}.layers>div:first-child{padding-left:0;border-left:0}
+.layers .n{font-family:GMono;font-size:6.4pt;color:var(--mute);letter-spacing:.08em}.layers .t{font-weight:600;margin:.6mm 0 .4mm}.layers p{color:var(--ink2);font-size:7.8pt;line-height:1.38}
+</style></head><body><section class="page">
+ <div class="meta"><span>PARALLAX 2026 · AgentShield track</span><span>Tech stack · v0.10.2</span></div>
+ <div class="mast"><div><h1>Tech stack</h1>
+  <p class="sub">Provenant's core runs on <b>the Python standard library alone: zero runtime dependencies</b>, nothing to pip-install beyond the wheel, and no model in the decision path.</p></div>
+  <div class="side"><div class="lab">At a glance</div><div class="team">Python 3.10+</div>
+   <div class="names"><div>35 modules · ~7,900 lines</div><div>0 runtime deps · 235 tests</div></div></div></div>
+
+ <div class="row"><div class="k">00<b>Layers</b></div><div>
+  <p class="lead">Four layers, one rule: <b>every path to a real tool goes through the same deterministic check</b>, and the security core never imports anything outside the standard library.</p>
+  <div class="layers">
+   <div><div class="n">L1 · ENTRY</div><div class="t">Agents</div><p>MCP clients via stdio proxy, Claude Code via hooks, our gated MCP tool server</p></div>
+   <div><div class="n">L2 · DECIDE</div><div class="t">Policy core</div><p>Guard + PolicyEngine in plain Python. ALLOW / DENY / REQUIRE_APPROVAL, fail closed</p></div>
+   <div><div class="n">L3 · STATE</div><div class="t">Proof</div><p>SQLite grants and approvals, HMAC hash-chained audit log, pinned manifests</p></div>
+   <div><div class="n">L4 · SURFACE</div><div class="t">People</div><p>CLI, local ops console, product site, phone alert for risky email</p></div>
+  </div></div></div>
+
+ <div class="row"><div class="k">01<b>Core engine</b></div><div><div class="stk"><div class="it"><b>Python<span class=v>3.10–3.13</span></b><span>Language for the whole security core and CLI. Packaged with setuptools; <span class=mono>dependencies = []</span></span></div><div class="it"><b>re · unicodedata</b><span>Shell, path, secret and PII pattern rules; Unicode normalisation</span></div><div class="it"><b>codecs · base64 · binascii</b><span>Canonicalise obfuscated text: base64, hex, zero-width, tag chars, homoglyphs</span></div><div class="it"><b>hashlib · hmac · secrets</b><span>Single-use call-bound grants, audit chain, manifest pins, approval codes</span></div><div class="it"><b>sqlite3</b><span>Authorization state: WAL mode, BEGIN IMMEDIATE, conditional updates</span></div><div class="it"><b>socket · ssl · ipaddress</b><span>Netguard: decimal/hex/octal/IPv6-mapped IPs, resolve-then-pin, redirect checks</span></div><div class="it"><b>subprocess · shlex</b><span>Launch the real MCP server behind the proxy; tokenise shell commands</span></div><div class="it"><b>http.server · urllib</b><span>Local HTTP API + dashboard host on 127.0.0.1:8765</span></div><div class="it"><b>argparse · threading</b><span><span class=mono>provenant</span> CLI; cross-process lock on the shared audit chain</span></div><div class="it"><b>ctypes (Windows)</b><span>DPAPI encryption for mail/phone settings; 0600 files elsewhere</span></div></div></div></div>
+
+ <div class="row"><div class="k">02<b>Integrations</b></div><div><div class="stk"><div class="it"><b>Model Context Protocol</b><span>JSON-RPC 2.0 over stdio. Proxy gates <span class=mono>tools/call</span>; HMAC-pinned tool definitions refuse rug pulls</span></div><div class="it"><b>Claude Code hooks</b><span>PreToolUse, PostToolUse, UserPromptSubmit. DENY blocks, approval becomes Claude's own ask</span></div><div class="it"><b>MCP clients</b><span>Claude Desktop, Cursor, VS Code: <span class=mono>provenant setup</span> wraps their configs with backup + rollback</span></div><div class="it"><b>Gated tool server</b><span><span class=mono>provenant serve</span>: read_file, list_directory, search_text, run_tests, write_file, http_get</span></div><div class="it"><b>Bolna voice API</b><span>Outbound alert call for a high-risk email; placed only with <span class=mono>--call</span> and a yes</span></div><div class="it"><b>Anthropic Claude API</b><span>Optional live agent mode (<span class=mono>claude-opus-5-5</span>). Tested only with a fake client</span></div></div></div></div>
+
+ <div class="row" style="border-bottom:0"><div class="k">Why<b>No deps</b></div><div><p class="lead">A firewall's own supply chain is attack surface. Keeping the core on the standard library means <b>nothing third-party sits in the decision path</b>, installs are offline-friendly, and every line that decides ALLOW or DENY is ours to audit.</p></div></div>
+ <div class="foot"><span>Provenant · Team Parivartan · github.com/MithunSidhaarth/provenant</span><span>Tech stack · 1/2</span></div>
+</section><section class="page">
+ <div class="meta"><span>PARALLAX 2026 · AgentShield track</span><span>Tech stack · v0.10.2</span></div>
+
+ <div class="row"><div class="k">03<b>Frontend</b></div><div><p class="lead" style="margin-bottom:2mm">Product site, onboarding wizard and ops console. <b>Built once with esbuild and committed</b>, so the server needs no Node at runtime.</p><div class="stk"><div class="it"><b>React<span class=v>18.3.1</span></b><span>UI for site, console and <span class=mono>/getting-started</span></span></div><div class="it"><b>Motion<span class=v>11.11.17</span></b><span>Section reveals, layout transitions, DENY stamps</span></div><div class="it"><b>anime.js<span class=v>3.2.2</span></b><span>Page loader, two-lane attack replay, scroll marquee</span></div><div class="it"><b>esbuild<span class=v>0.23.1</span></b><span>Bundles <span class=mono>web/src</span> to <span class=mono>dashboard/app.js</span></span></div><div class="it"><b>Fonts (OFL, vendored)</b><span>Bricolage Grotesque, Geist, Geist Mono. Served locally, no CDN</span></div><div class="it"><b>Plain HTML/CSS/JS</b><span>Ops console (<span class=mono>ops.js</span>, <span class=mono>ops.css</span>): zero framework</span></div></div></div></div>
+
+ <div class="row"><div class="k">04<b>Delivery</b></div><div><div class="stk"><div class="it"><b>Vercel</b><span>Hosted demo: static <span class=mono>dashboard/</span> + the stdlib server as a <span class=mono>@vercel/python</span> function</span></div><div class="it"><b>Wheel + sdist</b><span>setuptools build; installs with pip or pipx; dashboard ships inside the wheel</span></div><div class="it"><b>One-line installers</b><span><span class=mono>install.sh</span> and <span class=mono>install.ps1</span>, wheel pinned by SHA-256</span></div><div class="it"><b>Supply chain</b><span>SHA256SUMS, CycloneDX SBOM, build provenance attestation</span></div><div class="it"><b>GitHub Actions</b><span>CI on Ubuntu, Windows, macOS × Python 3.10 / 3.13; actions pinned to SHAs <span class='pill m'>not yet run</span></span></div><div class="it"><b>Windows launchers</b><span><span class=mono>run.bat</span>, <span class=mono>test.bat</span>, <span class=mono>find_python.bat</span> (Store + python.org installs)</span></div></div></div></div>
+
+ <div class="row"><div class="k">05<b>Security primitives</b></div><div><table class="tbl"><tr><th>Primitive</th><th style="text-align:left;padding-left:4mm">Built with</th><th>Guarantees</th></tr>
+  <tr><td>Execution grant</td><td class="m" style="text-align:left;padding-left:4mm">HMAC-SHA256 + SQLite</td><td>runs once, only for that exact call</td></tr>
+  <tr><td>Audit log</td><td class="m" style="text-align:left;padding-left:4mm">SHA-256 chain + HMAC</td><td>any edit detected; head anchored externally</td></tr>
+  <tr><td>Tool manifests</td><td class="m" style="text-align:left;padding-left:4mm">HMAC pin on first use</td><td>changed definitions withheld</td></tr>
+  <tr><td>Approvals</td><td class="m" style="text-align:left;padding-left:4mm">TTL + fingerprint + TTY</td><td>human-only, expire, single use</td></tr>
+  <tr><td>Browser surface</td><td class="m" style="text-align:left;padding-left:4mm">self-only CSP, Host check</td><td>no third-party scripts or origins</td></tr></table></div></div>
+ <div class="row"><div class="k">06<b>Testing &amp; evaluation</b></div><div><div class="stk"><div class="it"><b>unittest</b><span>235 tests incl. a real local MCP server, clean-venv wheel install, packaging, CLI</span></div><div class="it"><b>evals/run_eval.py</b><span>225 attacks across 18 categories, 53 benign actions, 32 scenarios, 9 live proxy checks</span></div><div class="it"><b>Self red-team</b><span>Round 2: 100 new attacks written to break v8; 41 gaps found and fixed</span></div><div class="it"><b>evals/token_bench.py</b><span>Tool-result tokens 52,432 → 14,541 (−72%), one scripted workload</span></div><div class="it"><b>Playwright + Chromium</b><span>Browser walkthroughs at 1440 / 820 / 390 px: zero console errors</span></div><div class="it"><b>Fuzzer</b><span>90 mutation variants (6 seeds × 15 classes) plus false-positive corpus</span></div></div></div></div>
+
+ <div class="row"><div class="k">07<b>Optional model</b></div><div><p class="lead" style="margin-bottom:2mm">An advisory classifier exists but is <b>off by default, escalate-only, and not trained</b>. It can make a decision stricter; it can never allow anything.</p><div class="stk"><div class="it"><b>Training workflow</b><span>PyTorch, Transformers, PEFT (LoRA), TRL, datasets, bitsandbytes, accelerate</span></div><div class="it"><b>Status</b><span>Scripts and config in <span class=mono>model/</span>; no model trained or hosted <span class='pill m'>planned</span></span></div></div></div></div>
+
+ <div class="row"><div class="k">08<b>Launch kit</b></div><div><div class="stk"><div class="it"><b>Deck</b><span>HTML slides rendered by Playwright, packaged with pptxgenjs</span></div><div class="it"><b>Video</b><span>three.js scenes rendered with Bun, ffmpeg mux, ElevenLabs voiceover</span></div></div></div></div>
+
+ <div class="foot"><span>Provenant · Team Parivartan · github.com/MithunSidhaarth/provenant</span><span>Tech stack · 2/2</span></div>
+</section></body></html>

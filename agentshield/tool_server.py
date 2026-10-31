@@ -333,11 +333,8 @@ def _err(mid, code, message):
 
 
 def _version() -> str:
-    try:
-        from importlib.metadata import version
-        return version("provenant")
-    except Exception:
-        return "dev"
+    from .cli import VERSION          # the distribution is "provenant-agent-shield", not "provenant"
+    return VERSION
 
 
 def main(argv: list[str] | None = None) -> int:

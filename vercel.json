@@ -10,7 +10,9 @@
           "policy/**",
           "scenarios/**",
           "fixtures/**",
-          "docs/guard_redteam.json"
+          "docs/guard_redteam.json",
+          "evals/policy_scenarios.json",
+          "dashboard/eval/**"
         ],
         "maxDuration": 30
       }
@@ -39,6 +41,10 @@
     },
     {
       "src": "/",
+      "dest": "/dashboard/site.html"
+    },
+    {
+      "src": "/console/?",
       "dest": "/dashboard/index.html"
     },
     {

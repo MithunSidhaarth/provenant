@@ -23,7 +23,8 @@ from .runner import Shield, Run
 from .sandbox import ROOT
 from .tools import TOOLS
 
-DASHBOARD = ROOT / "dashboard"
+from .resources import path as _resource, state_dir
+DASHBOARD = _resource("dashboard")
 CTYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
           ".css": "text/css; charset=utf-8", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8",
           ".json": "application/json; charset=utf-8", ".md": "text/markdown; charset=utf-8", ".whl": "application/zip",
@@ -181,9 +182,14 @@ class App:
         # is also a real user-supplied task, not a simulation. Never infer "live" from
         # an absent mode/source field: legacy and demo records remain excluded.
         live_sources = {"mcp", "claude-code", "claude-code prompt", "proxy --task"}
+        def is_demo(e: dict) -> bool:
+            d = e.get("data", {})
+            return d.get("demo") is True or d.get("source") == "demo" or d.get("mode") == "demo" or e.get("session_id") == "mail-demo"
         live_entries = [e for e in entries
                         if e.get("data", {}).get("mode") == "live"
-                        and e.get("data", {}).get("source") in live_sources]
+                        and e.get("data", {}).get("source") in live_sources and not is_demo(e)]
+        # Demonstration records (e.g. `provenant mail demo`) are returned separately, labelled, never counted as live.
+        demo_entries = [e for e in entries if is_demo(e)]
         keep = ("seq", "ts", "event", "session_id", "data", "hash")
         decisions = [e for e in live_entries if e.get("event") == "policy_decision"]
         decision_names = [e.get("data", {}).get("decision") for e in decisions]
@@ -207,7 +213,8 @@ class App:
         }
         return {"entries": [_mask({k: e.get(k) for k in keep}, 600)
                             for e in live_entries if e["seq"] > after][-300:],
-                "total": len(live_entries), "cursor": entries[-1]["seq"] if entries else after, "stats": stats}
+                "total": len(live_entries), "cursor": entries[-1]["seq"] if entries else after, "stats": stats,
+                "demo": [_mask({k: e.get(k) for k in keep}, 600) for e in demo_entries][-40:]}
 
     def guard_pending(self) -> list[dict]:
         if HOSTED:
@@ -235,6 +242,8 @@ class App:
 
     def guard_redteam(self) -> dict:
         f = ROOT / "docs" / "guard_redteam.json"
+        if not f.is_file():
+            f = DASHBOARD / "eval" / "guard_redteam.json"
         if not f.exists():
             return {"available": False}
         try:
@@ -391,7 +400,11 @@ def make_handler(app: App):
     return Handler
 
 
-def serve(host: str = "127.0.0.1", port: int = 8765, audit_dir: Path | None = ROOT / "data") -> ThreadingHTTPServer:
+def serve(host: str = "127.0.0.1", port: int = 8765, audit_dir: Path | None = None) -> ThreadingHTTPServer:
+    if audit_dir is None:
+        repo_data = ROOT / "data"
+        in_checkout = (ROOT / "pyproject.toml").is_file() and repo_data.is_dir() and os.access(repo_data, os.W_OK)
+        audit_dir = repo_data if in_checkout else state_dir("demo-audit")
     app = App(audit_dir)
     httpd = ThreadingHTTPServer((host, port), make_handler(app))
     httpd.app = app
