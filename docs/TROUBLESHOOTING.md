@@ -8,7 +8,7 @@ Start with `provenant doctor`. It checks the command on PATH, the bundled resour
 
 **Python is a Microsoft Store install and `python` opens the Store.** Use `py -3`, or the full path `%LOCALAPPDATA%\Microsoft\WindowsApps\python3.11.exe`. The `.bat` launchers probe both.
 
-**The download is an HTML page, not a wheel.** You followed an old link. Use the one-line installer or the Download button on the site; both fetch `provenant_agent_shield-0.10.2-py3-none-any.whl` and check its SHA-256.
+**The download is an HTML page, not a wheel.** You followed an old link. Use the one-line installer or the Download button on the site; both fetch `provenant_agent_shield-0.10.3-py3-none-any.whl` and check its SHA-256.
 
 **`provenant dashboard` fails with `FileNotFoundError ... dashboard/index.html`.** You have a 0.10.1 or earlier wheel, which did not include the dashboard files. Install 0.10.2 (the one-line installer, or `provenant update` once it is on PyPI).
 

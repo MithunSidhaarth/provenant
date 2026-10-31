@@ -139,6 +139,14 @@ class GuardPolicyTests(unittest.TestCase):
         self.assertDecisions(ALLOW, [("Bash", {"command": c}) for c in [
             "provenant status", "provenant log -n 5", "provenant verify"]])
 
+    def test_writes_with_no_file_path_need_a_human(self):
+        self.assertDecisions(APPROVE, [("mcp__github__delete_repository", {"owner": "a", "repo": "b"}),
+                                       ("mcp__db__delete_records", {"table": "users"}),
+                                       ("mcp__crm__remove_contact", {"id": 7})])
+        self.assertDecisions(ALLOW, [("mcp__fs__delete_file", {"path": f"{WS}/old.txt"}),
+                                     ("Write", {"file_path": f"{WS}/a.txt", "content": "x"}),
+                                     ("TodoWrite", {"todos": []})])
+
     def test_session_state_never_keeps_raw_secrets(self):
         key = "sk_live_" + "7" * 24
         self.guard.ingest_output("sec", "WebFetch", f"config dump: STRIPE={key} contact ops@corp.example")

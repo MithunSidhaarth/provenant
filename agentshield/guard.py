@@ -515,6 +515,11 @@ class GuardPolicy:
         default = self.config.get("category_defaults", {}).get(cat)
         if default:
             return [Finding("category_default", Decision(default), f"'{cat}' tools default to {default}")]
+        if cat == "write" and not self._path_args(call):
+            # Workspace confinement only works on file paths. delete_repository(owner, repo) or
+            # remove_user(id) changes something no path rule can see, so a human confirms it.
+            return [Finding("non_file_write", APPROVE,
+                            f"{call.tool} changes or deletes something that is not a file path in the workspace")]
         if cat == "unknown":
             dec = Decision(self.config["unknown_tool"])
             return [Finding("unknown_tool", dec, f"{call.tool} is not classified by the policy; unclassified tools get {dec.value}")]
