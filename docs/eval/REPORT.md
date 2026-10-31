@@ -1,6 +1,6 @@
 # Provenant security evaluation
 
-Generated 2026-10-31 05:28 UTC by `python evals/run_eval.py` at commit `ff3123b`, policy `guard-2026.10-4`, Python 3.13.18 on Linux-6.18.44-fc-v185-x86_64-with-glibc2.39.
+Generated 2026-10-31 05:36 UTC by `python evals/run_eval.py` at commit `be5be73`, policy `guard-2026.10-4`, Python 3.13.18 on Linux-6.18.44-fc-v185-x86_64-with-glibc2.39.
 
 Passing these cases is evidence of coverage for the cases listed, not proof that no bypass exists.
 
@@ -9,7 +9,7 @@ Passing these cases is evidence of coverage for the cases listed, not proof that
 - Attacks (negative controls): **231/231 contained** (never ALLOW); 231/231 got exactly the expected decision. Decisions: {'DENY': 171, 'REQUIRE_APPROVAL': 60}.
 - Legitimate actions (positive controls): **53/53** decided as expected; no false positives.
 - Saved policy scenarios: 32/32.
-- Decision latency (no model call): p50 0.297 ms, p95 1.085 ms, max 4.872 ms over 1580 evaluations.
+- Decision latency (no model call): p50 0.204 ms, p95 0.853 ms, max 4.712 ms over 1580 evaluations.
 
 | Category | Attacks | Contained |
 |---|---|---|
@@ -48,15 +48,15 @@ Passing these cases is evidence of coverage for the cases listed, not proof that
 | risky call is held for a human, nothing runs | pass |
 | audit chain verifies after the run | pass |
 
-Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.12 ms, through Provenant p50 21.8 ms (p95 37.71 ms). Overhead p50 ≈ 21.68 ms per call, which includes the SQLite writes and audit appends.
+Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.16 ms, through Provenant p50 18.1 ms (p95 24.33 ms). Overhead p50 ≈ 17.94 ms per call, which includes the SQLite writes and audit appends.
 
 ## Unit and integration tests
 
-298/298 passed in 34.6 s.
+300/300 passed in 33.8 s.
 
 | Area | Tests | Passed |
 |---|---|---|
-| simulated world (policy engine, fuzzer, scenarios, server) | 220 | 220 |
+| simulated world (policy engine, fuzzer, scenarios, server) | 222 | 222 |
 | audit hash chain | 9 | 9 |
 | real-tool policy rules | 16 | 16 |
 | authorization state, grants, concurrency, fail-closed | 9 | 9 |
@@ -70,7 +70,7 @@ Per-call latency, same `read_file` call, 50 samples after warm-up: direct p50 0.
 
 ## Resources
 
-Peak RSS 46.5 MB, CPU 4.32 s, wall 37.5 s for the whole evaluation.
+Peak RSS 46.6 MB, CPU 4.78 s, wall 36.1 s for the whole evaluation.
 
 ## Token efficiency
 

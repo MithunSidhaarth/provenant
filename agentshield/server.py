@@ -182,7 +182,7 @@ class App:
         # prompt source label is intentionally distinct in the audit schema; proxy --task
         # is also a real user-supplied task, not a simulation. Never infer "live" from
         # an absent mode/source field: legacy and demo records remain excluded.
-        live_sources = {"mcp", "claude-code", "claude-code prompt", "proxy --task"}
+        live_sources = {"mcp", "claude-code", "claude-code prompt", "proxy --task", "mail-watch"}
         def is_demo(e: dict) -> bool:
             d = e.get("data", {})
             return d.get("demo") is True or d.get("source") == "demo" or d.get("mode") == "demo" or e.get("session_id") == "mail-demo"
@@ -211,6 +211,11 @@ class App:
             "approval_outcomes": sum(e.get("event") in ("approval_granted", "approval_rejected") for e in live_entries),
             "execution_grants_redeemed": sum(e.get("event") == "grant_redeemed" for e in live_entries),
             "last_event_at": live_entries[-1].get("ts") if live_entries else None,
+            "mail_scanned": sum(e.get("event") == "mail_verdict" for e in live_entries),
+            "mail_flagged": sum(e.get("event") == "mail_verdict" and e.get("data", {}).get("level") in ("medium", "high")
+                                for e in live_entries),
+            "mail_calls": sum(e.get("event") == "mail_phone_alert" for e in live_entries),
+            "mail_trashed": sum(e.get("event") == "mail_trashed_by_phone" for e in live_entries),
         }
         return {"entries": [_mask({k: e.get(k) for k in keep}, 600)
                             for e in live_entries if e["seq"] > after][-300:],

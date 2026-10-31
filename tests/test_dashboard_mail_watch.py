@@ -204,6 +204,41 @@ class KeepOrTrashTests(unittest.TestCase):
         self.assertTrue(call["outcome"].startswith("moved to Trash"), call)
 
 
+class LiveConsoleTests(unittest.TestCase):
+    def test_events_are_stamped_live_and_gate_runs_on_injection(self):
+        imap = FakeImap({})
+        imap.pending = {1: {1: PHISH}}
+        h = Harness(imap, polls=2)
+        seen = []
+        h.w._gate = lambda v, target: seen.append(target) or {"tool": "send_email", "to": target, "decision": "DENY"}
+        st = h.run()
+        self.assertEqual(seen, ["collect@login-check.example"])
+        self.assertEqual(st["mails"][0]["gate"]["decision"], "DENY")
+        for ev, sid, data in h.audit:
+            self.assertEqual((sid, data["source"], data["mode"]), ("mail-watch", "mail-watch", "live"))
+
+    def test_real_guard_blocks_the_injected_send_and_console_counts_it(self):
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {"PROVENANT_HOME": home}):
+            from agentshield import guard as guard_mod
+            store = guard_mod.Store()
+            imap = FakeImap({})
+            imap.pending = {1: {1: PHISH}}
+            h = Harness(imap, polls=2, ready=False)
+            h.w._audit = lambda ev, sid, data: store.audit.append(ev, sid, data)
+            h.w._gate = mailwatch.guard_gate
+            st = h.run()
+            self.assertEqual(st["mails"][0]["gate"]["decision"], "DENY")
+            app = server.App(__import__("pathlib").Path(home) / "demo")
+            stats = app.guard_log(0)["stats"]
+            self.assertEqual(stats["mail_scanned"], 1)
+            self.assertEqual(stats["mail_flagged"], 1)
+            self.assertGreaterEqual(stats["tool_requests_observed"], 1)
+            self.assertGreaterEqual(stats["blocked"], 1)
+            self.assertGreaterEqual(stats["live_sessions"], 1)
+            blob = json.dumps(store.audit.snapshot()).lower()
+            self.assertNotIn("bit.ly", blob)                 # the body never reaches the audit chain
+
+
 class MailWatchApiTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

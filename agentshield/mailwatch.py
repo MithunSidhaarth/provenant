@@ -18,6 +18,7 @@ Nothing here decides whether an agent's tool call runs.
 from __future__ import annotations
 
 import collections
+import os
 import secrets
 import threading
 import time
@@ -45,15 +46,36 @@ def _attachment_names(raw: bytes) -> list[str]:
     return names[:20]
 
 
-def scan_raw(raw: bytes) -> dict:
-    """RFC 822 bytes -> mailscan verdict. The body is used for scoring and then dropped."""
+def scan_raw(raw: bytes, own: str = "") -> dict:
+    """RFC 822 bytes -> mailscan verdict. The body is used for scoring and then dropped; only addresses the mail asks
+    an agent to contact are kept (``targets``), so Guard can show what it would do with them."""
     m = ms.parse_raw_email(raw)
     auth = m.get("headers", "")
     verdict = mailscan.score_mail({"id": m.get("id", ""), "from": m.get("sender", ""), "subject": m.get("subject", ""),
                                    "reply_to": m.get("reply_to", ""), "auth": auth, "body": m.get("body", ""),
                                    "attachments": _attachment_names(raw)})
     verdict["fingerprint"] = ms.mail_fingerprint(m)
+    sender = ms._EMAIL_RE.search(m.get("sender", ""))
+    skip = {own.lower(), sender.group(0).lower() if sender else ""}
+    targets = [a for a in ms._EMAIL_RE.findall(m.get("body", "")) if a.lower() not in skip]
+    verdict["targets"] = list(dict.fromkeys(targets))[:3]
     return verdict
+
+
+def guard_gate(v: dict, target: str) -> dict:
+    """What Provenant would decide if an AI agent that read this mail tried to send data where the mail asks.
+    Evaluated only (no hold, no grant, nothing is sent). Only a one-line summary is ingested, never the body."""
+    from . import guard as guard_mod
+    g = guard_mod.Guard()
+    labels = ", ".join(s["code"] for s in v["signals"][:4])
+    g.ingest_output(SESSION, "read_email", f"An email from {v['from'][:80]} asks the AI agent to send data to {target}. "
+                    f"Signals: {labels}. Injection: " + ("ignore previous instructions" if any(
+                        s["code"] == "prompt_injection" for s in v["signals"]) else "none"), source="mail-watch")
+    verdict = g.check(guard_mod.GuardCall("send_email", {"to": target, "subject": "(requested by the email)",
+                                                         "body": "(redacted)"}, SESSION, os.getcwd(), "mail-watch"),
+                      hold=False, grant=False)
+    return {"tool": "send_email", "to": target, "decision": verdict.decision.value,
+            "reasons": [r for r in verdict.reasons if "default to" not in r][:2]}
 
 
 def alert_task(v: dict) -> str:
@@ -141,8 +163,11 @@ class MailWatcher:
                  caller: Callable[[str], dict] = default_caller, ready: Callable[[], bool] = phone_ready,
                  level: Callable[[], str] = alert_level, interval: float = 15.0, max_calls_per_hour: int = 5,
                  sleep: Callable[[float], None] | None = None, protect: bool = True,
-                 open_rw: Callable | None = None, trash_folder: str = "[Gmail]/Trash") -> None:
+                 open_rw: Callable | None = None, trash_folder: str = "[Gmail]/Trash",
+                 gate: Callable[[dict, str], dict] | None = None) -> None:
         self._audit = audit
+        self._gate = gate
+        self._own = ""
         self.protect, self.trash_folder, self._open_rw = protect, trash_folder, open_rw
         self._connect = connect or (lambda h, u, p: ms._imap_connect(h, u, p, "INBOX"))
         self._credentials, self._caller, self._ready, self._level = credentials, caller, ready, level
@@ -202,6 +227,7 @@ class MailWatcher:
 
     def _run(self, creds: tuple[str, str, str]) -> None:
         host, user, password = creds
+        self._own = user
         if self._open_rw is None:
             self._open_rw = lambda: ms._imap_connect(host, user, password, "INBOX", readonly=False)
         conn, last = None, None
@@ -242,7 +268,7 @@ class MailWatcher:
             self.state.update(running=False, state="stopped" if self._stop.is_set() else "error")
 
     def _handle(self, raw: bytes, uid: int | None = None) -> None:
-        v = scan_raw(raw)
+        v = scan_raw(raw, self._own)
         if v["fingerprint"] in self._seen:
             return
         self._seen.add(v["fingerprint"])
@@ -251,10 +277,15 @@ class MailWatcher:
         if flagged:
             self.state["flagged"] += 1
         row = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "from": v["from"], "subject": v["subject"], "score": v["score"],
-               "level": v["level"], "signals": v["signals"], "fingerprint": v["fingerprint"], "call": None}
+               "level": v["level"], "signals": v["signals"], "fingerprint": v["fingerprint"], "call": None, "gate": None}
         self._log("mail_verdict", {"source": "imap-watch", "id": v["id"], "from": v["from"], "subject": v["subject"],
                                    "score": v["score"], "level": v["level"], "signals": v["signals"],
                                    "fingerprint": v["fingerprint"]})
+        if self._gate and flagged and v.get("targets") and any(s["code"] == "prompt_injection" for s in v["signals"]):
+            try:
+                row["gate"] = self._gate(v, v["targets"][0])
+            except Exception as exc:
+                row["gate"] = {"error": type(exc).__name__}
         if _RANK[v["level"]] >= _RANK[self._level()]:
             row["call"] = self._maybe_call(v, uid)
         self.mails.append(row)
@@ -311,7 +342,7 @@ class MailWatcher:
     def _log(self, event: str, data: dict) -> None:
         if self._audit:
             try:
-                self._audit(event, SESSION, data)
+                self._audit(event, SESSION, {**data, "source": "mail-watch", "mode": "live"})
             except Exception:
                 pass
 
@@ -327,5 +358,5 @@ def shared() -> MailWatcher:
         if _WATCHER is None:
             from . import guard as guard_mod
             store = guard_mod.Store()
-            _WATCHER = MailWatcher(audit=lambda ev, sid, data: store.audit.append(ev, sid, data))
+            _WATCHER = MailWatcher(audit=lambda ev, sid, data: store.audit.append(ev, sid, data), gate=guard_gate)
         return _WATCHER
