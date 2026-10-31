@@ -53,6 +53,15 @@ def load(home: Path | None = None) -> dict:
         cfg["phone"] = os.environ["CALL_ME_PHONE"]
     if os.environ.get("BOLNA_AGENT_ID") and not cfg.get("agent_id"):
         cfg["agent_id"] = os.environ["BOLNA_AGENT_ID"]
+    if home is None and not (cfg.get("api_key") and cfg.get("phone")):
+        try:                                           # also accept what `provenant mail setup` saved (mail.json, DPAPI)
+            from .mail_security import _load_settings
+            mail = _load_settings()
+            if mail.get("bolna_api_key") and mail.get("phone"):
+                cfg.setdefault("api_key", mail["bolna_api_key"])
+                cfg.setdefault("phone", mail["phone"])
+        except Exception:
+            pass
     return cfg
 
 

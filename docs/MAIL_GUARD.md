@@ -34,3 +34,10 @@ claude-call-me script is only a fallback. Bolna logic is ported from https://git
 - Tested with fake mails and a fake Bolna client. **No real Bolna call has been placed by this code yet.** The Bolna
   request shapes are copied from the claude-call-me script, which has worked for you.
 - Cost: Bolna bills per minute; alerts are capped (once per mail, high only by default).
+
+## Live inbox watch from the dashboard
+`provenant dashboard` opens the local console, which starts watching INBOX over IMAP (read-only) right away. Each new
+message is scored with `mailscan.score_mail`; medium and high results are listed in "Inbox watch", and results at the
+phone alert level (`provenant phone alerts level medium|high`, default high) place a Bolna call (5 an hour at most).
+Connect the mailbox once with `provenant mail watch --setup`. The dashboard never asks for the password. Stop it with
+the "Stop watching" button; it also stops when the dashboard process exits.

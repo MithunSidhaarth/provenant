@@ -16,6 +16,7 @@
 <nav aria-label="Dashboard sections">
 <a class="nav-item active" href="#overview"><span class="nav-icon">◫</span>Overview</a>
 <a class="nav-item" href="#activity"><span class="nav-icon">⌁</span>Live activity</a>
+<a class="nav-item" href="#inbox"><span class="nav-icon">✉</span>Inbox watch</a>
 <a class="nav-item" href="#clients"><span class="nav-icon">⌘</span>Connected clients</a>
 <a class="nav-item" href="#approvals"><span class="nav-icon">◷</span>Approval queue</a>
 <a class="nav-item" href="#demo"><span class="nav-icon">◇</span>Demo scenarios</a>
@@ -51,6 +52,10 @@
 <div class="stat-row"><span>Claude Code hook</span><strong id="hook-status">—</strong></div>
 </div><div class="panel-note"><div class="integrity"><i class="dot" id="integrity-dot"></i><div><strong id="integrity-title">Checking audit integrity…</strong><small id="integrity-detail">Waiting for local status</small></div></div><div id="policy-error" class="tone-red" hidden></div></div></section>
 </div>
+<section id="inbox"><div class="section-head"><div><h2>Inbox watch</h2><p>Starts when this console opens. Every new mail is scanned; suspicious ones are listed here and can ring your phone.</p></div><span class="tag" id="inbox-tag">CHECKING…</span></div>
+<div class="panel"><div class="panel-head"><div><div class="panel-title" id="inbox-title">Connecting to your mailbox…</div><div class="panel-desc" id="inbox-desc">IMAP, read-only · nothing is marked read, moved or deleted</div></div><div class="feed-controls"><span class="tag" id="inbox-counts">—</span><button class="button" id="inbox-toggle" type="button">Stop watching</button></div></div>
+<div id="inbox-feed" class="feed" aria-live="polite"><div class="empty">Waiting for the watcher…</div></div>
+<div class="panel-note" id="inbox-note">Only sender, subject, score and reasons are shown or logged. Mail bodies are never stored. Phone: <span id="inbox-phone">—</span></div></div></section>
 <div class="lower-grid">
 <section id="clients"><div class="section-head"><div><h2>Connected clients</h2><p>Local configuration and protection markers detected on this machine.</p></div><span class="tag">CONFIG STATUS</span></div><div class="panel"><div class="client-list" id="clients-list"><div class="empty">Checking client configurations…</div></div></div></section>
 <div class="stack"><section id="approvals"><div class="section-head"><div><h2>Approval queue</h2><p>Held calls stay under human control.</p></div><span class="tag" id="pending-count">— waiting</span></div><div class="panel"><div id="pending"><div class="empty">Checking pending approvals…</div></div><div class="panel-note">For safety, approvals are completed in the terminal with <code>provenant approve</code>. This dashboard never approves a call.</div></div></section><section id="demo"><div class="section-head"><div><h2>Demo scenarios</h2><p>Scripted runs on fake data, kept apart from live activity.</p></div><span class="tag demo-tag" id="demo-count">— runs</span></div><div class="panel"><div id="demo-feed"><div class="empty">Checking demo records…</div></div><div class="panel-note">Run <code>provenant mail demo</code> to replay a fake phishing email: the scanner flags it and Guard blocks the injected send. These records never count toward the live numbers above.</div></div></section></div>

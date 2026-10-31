@@ -894,16 +894,13 @@ def _help() -> str:
         f"    {c('provenant call APPROVAL_ID')}phone the human about one held call",
         f"    {c('provenant pins reset [server]')}re-approve tool definitions after an upgrade",
         f"    {c('provenant model status|test')}optional model-assisted risk labels (off by default)",
-<<<<<<< HEAD
         f"    {c('provenant mail scan FILE|-  /  mail log')}screen mails for phishing and injection; see verdicts",
         f"    {c('provenant phone setup|status|test|alerts')}phone alerts and approvals (needs a Bolna API key)",
-=======
         f"    {c('provenant mail setup|status|test')}scan MCP email results; configure Bolna phone alerts",
         f"    {c('provenant mail demo [--call]')}fake phishing email: scanner verdict, blocked send, optional alert call",
         f"    {c('provenant mail watch [--call]')}watch a real inbox (IMAP, read-only); call your phone on HIGH-risk mail",
         f"    {c('provenant mail call-status ID')}follow a placed alert call (queued, ringing, completed, failed)",
         f"    {c('provenant mail enable|disable')}turn high-risk email phone alerts on or off",
->>>>>>> origin/main
         "",
         "  " + dim("Docs: https://github.com/MithunSidhaarth/provenant/blob/main/docs/REAL_GUARD.md"),
         ""])
@@ -956,16 +953,13 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_rollback(yes="--yes" in rest or "-y" in rest, dry="--dry-run" in rest, only=only, as_json="--json" in rest)
     if cmd == "model":
         return cmd_model(rest)
-<<<<<<< HEAD
     if cmd == "phone":
         return cmd_phone(rest)
     if cmd == "mail":
-        return cmd_mail(rest)
-=======
-    if cmd == "mail":
+        if rest[:1] in (["scan"], ["log"]):
+            return cmd_mail(rest)
         from . import mail_security
         return mail_security.main(rest)
->>>>>>> origin/main
     if cmd == "log":
         return cmd_log(int(_opt(rest, "-n", 25)), follow="-f" in rest or "--follow" in rest)
     if cmd == "pending":
